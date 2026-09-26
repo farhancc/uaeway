@@ -8,13 +8,11 @@
 
 import { generateJSON } from "../ai/gemini";
 import { mapLimit } from "../async";
+import { jobExpiry } from "../jobs";
 import { uniqueSlug } from "../slug";
 import { supabaseAdmin } from "../supabase/admin";
 import { JOB_CATEGORIES, normalizeEmirate } from "../uae";
 import { fetchCareerjet, type JobSearch, type RawJob } from "./careerjet";
-
-/** How long a listing stays on the site before the prune job expires it. */
-const SHELF_LIFE_DAYS = 45;
 
 /** One per pooled key: the pool is the real concurrency limit. */
 const AI_CONCURRENCY = 5;
@@ -139,9 +137,6 @@ export async function ingestJobs(): Promise<IngestResult> {
   for (let i = 0; i < fresh.length; i++) {
     const job = fresh[i];
     const { value } = enrichments[i];
-    const expires = new Date(job.postedAt);
-    expires.setDate(expires.getDate() + SHELF_LIFE_DAYS);
-
     rows.push({
       slug: await uniqueSlug("jobs", job.title),
       title: job.title,
@@ -153,7 +148,7 @@ export async function ingestJobs(): Promise<IngestResult> {
       summary: value.summary,
       documents_needed: value.documentsNeeded,
       posted_at: job.postedAt,
-      expires_at: expires.toISOString(),
+      expires_at: jobExpiry(job.postedAt),
       status: "pending" as const,
     });
   }

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { ServiceCTA } from "@/components/site/ServiceCTA";
 import { getJob } from "@/lib/content/queries";
+import { isEmailLink } from "@/lib/jobs";
 import { href } from "@/lib/i18n";
 import { getService, matchServices } from "@/lib/services";
 import { SITE } from "@/lib/site";
@@ -39,6 +40,9 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   const service = matched[0] ?? getService("attestation")!;
 
   const posted = new Date(job.posted_at);
+  // A directly submitted vacancy may take applications by email rather than at
+  // a web page, which changes what the button can honestly say.
+  const byEmail = isEmailLink(job.source_url);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -79,17 +83,20 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
 
       <div className="field mt-8 p-5">
         <p className="text-sm leading-relaxed text-ink-soft">
-          This is a summary. The full description, salary and application process are on the
-          original posting at {job.source_name}.
+          {byEmail
+            ? `This is a summary. ${job.source_name} takes applications by email — ask them for the full description, salary and process.`
+            : `This is a summary. The full description, salary and application process are on the original posting at ${job.source_name}.`}
         </p>
         <a
           href={job.source_url}
-          target="_blank"
-          // nofollow: these are aggregated outbound links we do not vouch for.
+          {...(byEmail ? {} : { target: "_blank" })}
+          // nofollow: outbound links on listings we did not write and do not vouch for.
           rel="nofollow noopener noreferrer"
           className="mt-4 inline-block rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go"
         >
-          View and apply on {job.source_name}
+          {byEmail
+            ? `Email your application to ${job.source_url.slice(7)}`
+            : `View and apply on ${job.source_name}`}
         </a>
       </div>
 

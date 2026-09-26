@@ -22,15 +22,21 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
     <html lang="en" className={`${archivo.variable} ${archivoBlack.variable} h-full`}>
       <body className="flex min-h-full flex-col bg-paper">
         <header className="border-b-2 border-ink bg-field">
-          <div className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-3">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3">
             <Link href="/admin" className="sign text-sm text-ink">
               Review queue
             </Link>
             <Link href="/admin/leads" className="text-sm text-ink-soft hover:text-ink">
               Leads
             </Link>
+            <Link href="/admin/jobs/new" className="text-sm text-ink-soft hover:text-ink">
+              Add a job
+            </Link>
             <Link href="/admin/new" className="text-sm text-ink-soft hover:text-ink">
               Write a post
+            </Link>
+            <Link href="/admin/searches" className="text-sm text-ink-soft hover:text-ink">
+              Searches
             </Link>
             <Link href="/en" className="ml-auto text-sm text-ink-faint hover:text-ink">
               View site

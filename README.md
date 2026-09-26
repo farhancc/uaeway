@@ -49,7 +49,8 @@ Then fill in `.env.local`:
 | `CRON_SECRET` | `openssl rand -hex 32` |
 
 Apply the schema by running the files in `supabase/migrations/` in order
-(`0001_init.sql`, then `0002_article_authoring.sql`) in the Supabase SQL editor,
+(`0001_init.sql`, `0002_article_authoring.sql`, `0003_manual_jobs.sql`) in the
+Supabase SQL editor,
 then grant yourself admin access:
 
 ```sql
@@ -89,8 +90,31 @@ Careerjet is used because it is built for publishers to display an excerpt and
 link back. Scraping job boards would breach their terms. Never add a source that
 lists pay-to-apply jobs.
 
-Which keyword/location searches run is stored in the `job_searches` table, so the
-team can retarget the ingest without a deploy.
+## Adding jobs
+
+Two ways in. Both land as `pending` and are published from the same review
+queue, so there is one route to the public site.
+
+**The nightly ingest.** Set `CAREERJET_API_KEY`, then either wait for the cron
+or run it now:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/ingest-jobs
+```
+
+What it searches for lives in the `job_searches` table and is managed at
+**`/admin/searches`** — add, pause or remove a keyword/location pair, no deploy
+and no SQL. Each running search is one API call per night plus AI summaries for
+whatever it finds, so the list is worth keeping tight.
+
+**By hand,** at **`/admin/jobs/new`** — for a vacancy an employer sends you
+directly. It needs a link or an email address where people apply, because
+applicants always apply with the employer; we are not the recruiter. Write the
+summary in your own words rather than pasting the advert, and list the documents
+the role will need — those become the stamps on the listing and the reason
+someone contacts you.
+
+Never add a listing that asks the candidate to pay anything.
 
 ## The Gemini key pool
 

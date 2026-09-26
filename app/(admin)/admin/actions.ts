@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
+import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
 import { uniqueSlug } from "@/lib/slug";
+import { EMIRATES, JOB_CATEGORIES } from "@/lib/uae";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { ArticleKind, Citation } from "@/lib/supabase/types";
 
@@ -143,4 +145,117 @@ export async function createArticle(form: FormData): Promise<{ id: string }> {
 
   revalidatePath("/admin");
   return { id: data.id as string };
+}
+
+/**
+ * Adds a job by hand — an employer who sent the vacancy directly, rather than
+ * one the ingest found. It lands as 'pending' like every ingested listing, so
+ * the review queue stays the only route to publication.
+ */
+export async function createJob(form: FormData): Promise<{ id: string }> {
+  await requireAdmin();
+
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) throw new Error("A job title is required.");
+
+  const company = String(form.get("company") ?? "").trim();
+  if (!company) throw new Error("The employer's name is required.");
+
+  // Applicants apply at the source, never here — we are not the recruiter — so
+  // a listing without a working way to apply is not worth publishing.
+  const applyLink = normalizeApplyLink(String(form.get("apply_link") ?? ""));
+  if (!applyLink) {
+    throw new Error("Add a link or an email address where people can apply.");
+  }
+
+  const emirate = String(form.get("emirate") ?? "").trim();
+  if (emirate && !EMIRATES.includes(emirate as (typeof EMIRATES)[number])) {
+    throw new Error("Unknown emirate.");
+  }
+
+  const category = String(form.get("category") ?? "").trim() || "Other";
+  if (!JOB_CATEGORIES.includes(category as (typeof JOB_CATEGORIES)[number])) {
+    throw new Error("Unknown category.");
+  }
+
+  const documents = String(form.get("documents_needed") ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const postedAt = new Date().toISOString();
+  const db = await supabaseServer();
+
+  const { data, error } = await db
+    .from("jobs")
+    .insert({
+      slug: await uniqueSlug("jobs", title),
+      title,
+      company,
+      source_url: applyLink,
+      // For a direct submission the employer is the source.
+      source_name: String(form.get("source_name") ?? "").trim() || company,
+      emirate: emirate || null,
+      category,
+      summary: String(form.get("summary") ?? "").trim() || null,
+      documents_needed: documents,
+      posted_at: postedAt,
+      expires_at: jobExpiry(postedAt),
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    // source_url is unique: the same vacancy twice is a duplicate, not a crash.
+    if (error.code === "23505") {
+      throw new Error("That apply link is already on a listing.");
+    }
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/admin");
+  return { id: data.id as string };
+}
+
+/** Adds a keyword/location pair for the nightly ingest to search. */
+export async function addJobSearch(form: FormData): Promise<void> {
+  await requireAdmin();
+
+  const keywords = String(form.get("keywords") ?? "").trim();
+  const location = String(form.get("location") ?? "").trim();
+  if (!keywords || !location) throw new Error("Both a keyword and a location are needed.");
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_searches").insert({ keywords, location });
+
+  if (error) {
+    if (error.code === "23505") throw new Error("That search already exists.");
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/admin/searches");
+}
+
+/** Pauses or resumes a search without losing it, which is usually what you want
+ *  over deleting one that produced good listings last season. */
+export async function setJobSearchActive(id: string, active: boolean): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_searches").update({ active }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/searches");
+}
+
+export async function deleteJobSearch(id: string): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_searches").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/searches");
 }
