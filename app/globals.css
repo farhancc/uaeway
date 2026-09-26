@@ -1,26 +1,188 @@
 @import "tailwindcss";
 
+/* ──────────────────────────────────────────────────────────────────────────
+   UAE Gateway — "customs hall"
+
+   The vernacular is UAE officialdom seen from the applicant's side of the
+   counter: security paper, oxblood seal ink, heavy bilingual signage, and
+   documents laid out as boxed form fields.
+
+   Colour discipline:
+     oxblood  — seals and stamps only. Never a button, never decoration.
+     green    — actions the visitor can take. Never anything else.
+   Keeping those two separated is what stops the palette reading as festive.
+
+   Light only, declared: the paper metaphor is the design, and a second theme
+   would double the QA surface for no user gain.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  --color-paper: #eff2eb;
+  --color-field: #fbfcf9;
+  --color-ink: #1b2a22;
+  --color-ink-soft: #4c5a52;
+  --color-ink-faint: #7b877f;
+  --color-seal: #8e2b3c;
+  --color-seal-wash: #f6ebed;
+  --color-go: #0f5c4a;
+  --color-go-dark: #0a4638;
+  --color-rule: #c7d0c2;
+
+  --font-display: var(--font-archivo-black), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: var(--font-kufi), var(--font-archivo), sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Headings are signage: heavy, tight, and set close. */
+.sign {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.arabic {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+
+/* Focus is a seal-coloured box, matching the stamp language. */
+:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+/* ── Form field ────────────────────────────────────────────────────────────
+   The structural unit of the page. A boxed cell on paper, the way a UAE
+   application slip divides information. Square-ish, flat, no drop shadow —
+   hierarchy comes from fill and weight, not from a bigger radius.          */
+.field {
+  background: var(--color-field);
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+}
+
+/* ── Stamp ─────────────────────────────────────────────────────────────────
+   A document that still needs handling, marked in seal ink with a dashed
+   edge like an impression that has not dried square. It always means a
+   document — it is never used as decoration.                               */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border: 1.5px dashed color-mix(in oklab, var(--color-seal) 40%, transparent);
+  border-radius: 2px;
+  background: var(--color-seal-wash);
+  color: var(--color-seal);
+  font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+/* The one non-user-triggered motion: nothing. Every reveal on this site
+   answers a tap. This keyframe is used by the path steps opening. */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.steps > li {
+  animation: step-in 0.22s ease-out backwards;
+}
+.steps > li:nth-child(1) { animation-delay: 0.02s; }
+.steps > li:nth-child(2) { animation-delay: 0.06s; }
+.steps > li:nth-child(3) { animation-delay: 0.1s; }
+.steps > li:nth-child(4) { animation-delay: 0.14s; }
+.steps > li:nth-child(5) { animation-delay: 0.18s; }
+
+/* ── Disclosure ────────────────────────────────────────────────────────────
+   A question that opens. The marker is a plain + turning to −, which reads at
+   a glance in any language and needs no icon font. The rotation answers the
+   tap, so it is motion that shows what changed.                             */
+.qa > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+.qa > summary::-webkit-details-marker {
+  display: none;
+}
+.qa > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--color-seal);
+  transition: transform 0.18s ease;
+}
+.qa[open] > summary::after {
+  content: "−";
+  transform: rotate(180deg);
+}
+
+/* Long-form article body. */
+.prose-doc {
+  max-width: 68ch;
+}
+.prose-doc h2 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 2.25rem 0 0.75rem;
+}
+.prose-doc h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+}
+.prose-doc p,
+.prose-doc li {
+  line-height: 1.7;
+  color: var(--color-ink-soft);
+  margin-bottom: 0.875rem;
+}
+.prose-doc ul,
+.prose-doc ol {
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+.prose-doc ul { list-style: disc; }
+.prose-doc ol { list-style: decimal; }
+.prose-doc a {
+  color: var(--color-go);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-doc strong {
+  color: var(--color-ink);
+  font-weight: 600;
 }

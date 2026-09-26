@@ -1,0 +1,75 @@
+import { requireAdmin } from "@/lib/admin/auth";
+import { supabaseServer } from "@/lib/supabase/server";
+import { ReviewCard, type ReviewItem } from "./ReviewCard";
+
+export const dynamic = "force-dynamic";
+
+export default async function ReviewQueuePage() {
+  await requireAdmin();
+  const db = await supabaseServer();
+
+  const [jobs, articles] = await Promise.all([
+    db
+      .from("jobs")
+      .select("id, title, summary, company, emirate, source_name, source_url, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(50),
+    db
+      .from("articles")
+      .select("id, title, body_md, kind, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(50),
+  ]);
+
+  const items: ReviewItem[] = [
+    ...((articles.data ?? []) as Record<string, string>[]).map((a) => ({
+      id: a.id,
+      table: "articles" as const,
+      title: a.title,
+      body: a.body_md ?? "",
+      bodyField: "body_md" as const,
+      meta: `${a.kind}  —  drafted ${new Date(a.created_at).toLocaleDateString("en-GB")}`,
+    })),
+    ...((jobs.data ?? []) as Record<string, string>[]).map((j) => ({
+      id: j.id,
+      table: "jobs" as const,
+      title: j.title,
+      body: j.summary ?? "",
+      bodyField: "summary" as const,
+      meta: [j.company, j.emirate, `from ${j.source_name}`].filter(Boolean).join("  —  "),
+      sourceUrl: j.source_url,
+    })),
+  ];
+
+  const error = jobs.error ?? articles.error;
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <h1 className="text-xl font-semibold text-ink">
+        Review queue{items.length > 0 && <span className="ml-2 text-ink-faint">{items.length}</span>}
+      </h1>
+      <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-ink-soft">
+        Nothing here is public yet. Read it as a stranger would: if a fee, a date or a requirement
+        looks invented, it probably is — reject it and say why.
+      </p>
+
+      {error && (
+        <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
+          Could not load the queue: {error.message}
+        </p>
+      )}
+
+      <div className="mt-6 space-y-4">
+        {items.length === 0 && !error ? (
+          <p className="rounded-[2px] border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
+            Queue is empty. The next ingest will fill it.
+          </p>
+        ) : (
+          items.map((item) => <ReviewCard key={`${item.table}-${item.id}`} item={item} />)
+        )}
+      </div>
+    </div>
+  );
+}
