@@ -8,7 +8,7 @@
 
 import { generateJSON } from "../ai/gemini";
 import { mapLimit } from "../async";
-import { jobExpiry } from "../jobs";
+import { jobExpiry, JOB_RETENTION_DAYS } from "../jobs";
 import { parseSalary } from "../salary";
 import { uniqueSlug } from "../slug";
 import { supabaseAdmin } from "../supabase/admin";
@@ -273,4 +273,39 @@ export async function pruneJobs(): Promise<number> {
 
   if (error) throw new Error(`prune failed: ${error.message}`);
   return data?.length ?? 0;
+}
+
+/**
+ * Deletes listings we have held for longer than the retention window.
+ *
+ * Taking a job off the site and deleting the row are different acts, and this
+ * is the second one: rows were only ever marked `rejected`, so every listing
+ * the ingest had ever seen stayed in the table for good.
+ *
+ * A listing that is still live is left alone even once it is old enough. The
+ * shelf life is shorter than the retention window, so this almost never
+ * applies — but "delete anything over sixty days" would otherwise be able to
+ * remove a job a visitor is reading, and a housekeeping job should not be able
+ * to do that. It goes on the next run, once it has stopped being live.
+ */
+export async function deleteStaleJobs(): Promise<number> {
+  const cutoff = new Date(Date.now() - JOB_RETENTION_DAYS * 86_400_000).toISOString();
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+
+  const { data, error } = await supabaseAdmin()
+    .from("jobs")
+    .delete()
+    .lt("created_at", cutoff)
+    // Not still on the site: either not approved, or past its own dates.
+    .or(
+      `status.neq.approved,expires_at.lt.${now},apply_by.lt.${today}`,
+    )
+    .select("id");
+
+  if (error) throw new Error(`delete of stale jobs failed: ${error.message}`);
+
+  const deleted = data?.length ?? 0;
+  if (deleted > 0) console.log(`[prune] deleted ${deleted} listings older than ${JOB_RETENTION_DAYS} days`);
+  return deleted;
 }

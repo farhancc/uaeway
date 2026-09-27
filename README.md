@@ -162,6 +162,29 @@ someone contacts you.
 
 Never add a listing that asks the candidate to pay anything.
 
+### How long a listing lives
+
+Two windows, deliberately different lengths (`lib/jobs.ts`):
+
+| | Days | What happens |
+| --- | --- | --- |
+| `SHELF_LIFE_DAYS` | 45 | `expires_at` passes, the weekly prune marks it `rejected`, and it comes off the site |
+| `JOB_RETENTION_DAYS` | 60 | The row is deleted |
+
+The gap is the point: for a fortnight an expired listing can still be opened in
+the admin — to see what ran, restore one taken down early, or check what an
+applicant is asking about. Until this existed nothing was ever deleted, so
+every listing the ingest had seen stayed in the table for good.
+
+Age is measured from `created_at`, not the posting date the source claimed —
+some feeds backdate, and one bad date should not evict a row on arrival. A
+listing still on the site is spared even once it is old enough; the shelf life
+is shorter than the retention window so this rarely applies, but housekeeping
+should never be able to delete a job someone is reading. It goes on the next
+run.
+
+Both run from `/api/cron/prune`, weekly.
+
 ## The Gemini key pool
 
 `lib/ai/pool.ts` round-robins across every key in `GEMINI_API_KEYS`, so

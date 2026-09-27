@@ -8,6 +8,19 @@
 /** How long a listing stays on the site before the prune job expires it. */
 export const SHELF_LIFE_DAYS = 45;
 
+/**
+ * How long a listing stays in the database after we added it.
+ *
+ * Longer than the shelf life on purpose: a job comes *off the site* at 45 days
+ * and is deleted at 60, so there is a fortnight in which an expired listing can
+ * still be looked at in the admin — to see what ran, to restore one taken down
+ * early, or to check what an applicant is asking about.
+ *
+ * Measured from when we added it, not from the posting date the source claimed.
+ * Some feeds backdate, and one bad date should not evict a row on arrival.
+ */
+export const JOB_RETENTION_DAYS = 60;
+
 export function jobExpiry(postedAt: string | Date): string {
   const expires = new Date(postedAt);
   expires.setDate(expires.getDate() + SHELF_LIFE_DAYS);
