@@ -63,7 +63,7 @@ export function LeadCapture({
                 origin: "chat",
                 chatSessionId: sessionId ?? undefined,
                 pagePath: window.location.pathname,
-                website: form.get("website"),
+                hp_ref: form.get("hp_ref"),
                 consent: true,
               }),
             });
@@ -129,10 +129,19 @@ export function LeadCapture({
         </select>
       </div>
 
-      {/* Same honeypot the service-page form uses. */}
+      {/* Same honeypot the service-page form uses, and named so autofill does
+          not trip it on a real person's behalf. */}
       <div aria-hidden="true" className="absolute left-[-9999px]">
-        <label htmlFor="lead-website">Website</label>
-        <input id="lead-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        <label htmlFor="lead-hp">Leave this empty</label>
+        <input
+          id="lead-hp"
+          name="hp_ref"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+        />
       </div>
 
       <label className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-ink-soft">

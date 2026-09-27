@@ -26,10 +26,22 @@ export async function POST(request: Request) {
 
   // Honeypot: a real person never sees this field, so anything in it is a bot.
   // Answer 200 so the bot does not learn it was caught.
-  if (typeof body.website === "string" && body.website.trim() !== "") {
+  //
+  // It used to be called "website", which is a field name browsers and password
+  // managers autofill — and `autocomplete="off"` is widely ignored. An autofill
+  // would have silently discarded a real enquiry: 200, "Got it", no lead, and
+  // nothing in any log to explain it. The name is now one nothing recognises.
+  //
+  // And it says when it fires. A trap that cannot be observed cannot be told
+  // apart from a trap that is eating your leads.
+  const trap = body.hp_ref;
+  if (typeof trap === "string" && trap.trim() !== "") {
+    console.warn(
+      `[leads] discarded a submission that filled the honeypot (path: ${String(body.pagePath ?? "unknown")})`,
+    );
     return Response.json({ ok: true });
   }
-  delete body.website;
+  delete body.hp_ref;
 
   const h = await headers();
   const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "0.0.0.0").trim();

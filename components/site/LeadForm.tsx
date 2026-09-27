@@ -44,7 +44,7 @@ export function LeadForm({ service }: { service: Service }) {
           need: extras || undefined,
           origin: "form",
           pagePath: window.location.pathname,
-          website: form.get("website"),
+          hp_ref: form.get("hp_ref"),
           consent: form.get("consent") === "on",
         }),
       });
@@ -125,10 +125,21 @@ export function LeadForm({ service }: { service: Service }) {
           </div>
         ))}
 
-        {/* Honeypot. Hidden from people, irresistible to bots. */}
+        {/* Honeypot. Hidden from people, irresistible to bots — and named so
+            that no browser or password manager recognises it. It was called
+            "website", which autofill fills in, and a filled trap silently
+            discards a real enquiry. */}
         <div aria-hidden="true" className="absolute left-[-9999px]">
-          <label htmlFor="website">Website</label>
-          <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+          <label htmlFor="hp_ref">Leave this empty</label>
+          <input
+            id="hp_ref"
+            name="hp_ref"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
+          />
         </div>
 
         <label className="flex items-start gap-2 pt-1 text-sm leading-relaxed text-ink-soft">
