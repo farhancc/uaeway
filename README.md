@@ -122,9 +122,14 @@ Never add a listing that asks the candidate to pay anything.
 
 ## The Gemini key pool
 
-`lib/ai/pool.ts` rotates across every key in `GEMINI_API_KEYS`. How long a
-failing key sits out depends on *why* it failed, because "briefly rate-limited"
-and "out of credit" arrive as the same HTTP status but need opposite handling:
+`lib/ai/pool.ts` round-robins across every key in `GEMINI_API_KEYS`, so
+consecutive requests start on different keys and per-key quota goes further.
+Both formats Google issues are accepted — the `AIza…` keys from AI Studio and
+the `AQ.…` ones — and they can be mixed in one pool.
+
+How long a failing key sits out depends on *why* it failed, because "briefly
+rate-limited" and "out of credit" arrive as the same HTTP status but need
+opposite handling:
 
 | What happened | Bench |
 | --- | --- |
