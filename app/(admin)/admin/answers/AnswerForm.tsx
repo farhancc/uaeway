@@ -6,17 +6,30 @@ import { createAnswer, updateAnswer } from "../actions";
 import type { Answer } from "@/lib/chat/answers";
 import { SERVICES } from "@/lib/services";
 
+/** As many follow-ups as the server action stores. */
+const MAX_FOLLOW_UPS = 6;
+
 /** Writing or editing one canned answer. Shared by the new and edit pages. */
 export function AnswerForm({
   answer,
   others,
 }: {
   answer?: Answer & { active?: boolean };
-  others: { slug: string; question: string }[];
+  others: { slug: string; question: string; service_slug: string | null }[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [followUps, setFollowUps] = useState<string[]>(answer?.follow_up_slugs ?? []);
+
+  // Grouped by service, because that is how you think about what someone would
+  // ask next — and with 24 answers and rising, an ungrouped list is unreadable.
+  const grouped = SERVICES.map((service) => ({
+    name: service.shortName,
+    options: others.filter((o) => o.service_slug === service.slug),
+  }))
+    .concat({ name: "No service", options: others.filter((o) => !o.service_slug) })
+    .filter((g) => g.options.length > 0);
 
   return (
     <form
@@ -126,29 +139,65 @@ export function AnswerForm({
         </p>
       </div>
 
-      <div>
-        <label htmlFor="follow_up_slugs" className="block text-sm font-medium text-ink">
-          Suggest next
-        </label>
-        <select
-          id="follow_up_slugs"
-          name="follow_up_slugs"
-          multiple
-          size={6}
-          defaultValue={answer?.follow_up_slugs}
-          className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
-        >
-          {others.map((other) => (
-            <option key={other.slug} value={other.slug}>
-              {other.question}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-ink-faint">
-          What someone asking this would want next. Every one they tap is answered without calling
-          the AI, so this is where the saving comes from.
+      {/* Checkboxes, not a multi-select. This is the one control that decides
+          whether the next turn is free, and a multi-select hides what is
+          chosen behind a scrollbar and loses the lot on a stray click. */}
+      <fieldset>
+        <legend className="block text-sm font-medium text-ink">
+          Suggest next{" "}
+          <span className="font-normal text-ink-faint">
+            ({followUps.length} of {MAX_FOLLOW_UPS})
+          </span>
+        </legend>
+        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-ink-faint">
+          The chips offered after this answer. Every one a visitor taps is served from the bank
+          without calling the AI, so this is where the saving comes from. The chat shows the first
+          three it has not already used.
         </p>
-      </div>
+
+        {grouped.length === 0 ? (
+          <p className="mt-2 text-xs text-ink-faint">
+            Nothing else in the bank yet — add a second answer and you can chain them.
+          </p>
+        ) : (
+          <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-rule bg-paper px-3 py-2">
+            {grouped.map((group) => (
+              <div key={group.name} className="py-1">
+                <p className="text-xs font-medium text-ink-faint">{group.name}</p>
+                {group.options.map((other) => {
+                  const checked = followUps.includes(other.slug);
+                  const full = followUps.length >= MAX_FOLLOW_UPS;
+                  return (
+                    <label
+                      key={other.slug}
+                      className={`flex items-start gap-2 py-1 text-sm ${
+                        !checked && full ? "text-ink-faint" : "text-ink-soft"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        name="follow_up_slugs"
+                        value={other.slug}
+                        checked={checked}
+                        disabled={!checked && full}
+                        onChange={(event) =>
+                          setFollowUps((prev) =>
+                            event.target.checked
+                              ? [...prev, other.slug]
+                              : prev.filter((s) => s !== other.slug),
+                          )
+                        }
+                        className="mt-0.5"
+                      />
+                      {other.question}
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </fieldset>
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-ink-soft">

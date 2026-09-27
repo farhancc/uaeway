@@ -12,7 +12,7 @@ export default async function AnswersPage() {
   const [answers, uses] = await Promise.all([
     db
       .from("answers")
-      .select("id, slug, question, service_slug, is_opener, active, position")
+      .select("id, slug, question, service_slug, is_opener, active, position, follow_up_slugs")
       .order("active", { ascending: false })
       .order("service_slug")
       .order("position"),
@@ -26,12 +26,30 @@ export default async function AnswersPage() {
     counts.set(row.answer_slug, (counts.get(row.answer_slug) ?? 0) + 1);
   }
 
-  const rows: AnswerSummary[] = (
-    (answers.data ?? []) as Omit<AnswerSummary, "uses">[]
-  ).map((a) => ({ ...a, uses: counts.get(a.slug) ?? 0 }));
+  type Raw = Omit<AnswerSummary, "uses" | "suggests" | "unreachable"> & {
+    follow_up_slugs: string[] | null;
+  };
+  const raw = (answers.data ?? []) as Raw[];
+
+  const questionBySlug = new Map(raw.map((a) => [a.slug, a.question]));
+  // Every slug some other live answer points at. What is missing from this set,
+  // and is not an opener, cannot be reached by tapping at all.
+  const linked = new Set(
+    raw.filter((a) => a.active).flatMap((a) => a.follow_up_slugs ?? []),
+  );
+
+  const rows: AnswerSummary[] = raw.map((a) => ({
+    ...a,
+    uses: counts.get(a.slug) ?? 0,
+    suggests: (a.follow_up_slugs ?? [])
+      .map((slug) => questionBySlug.get(slug))
+      .filter((q): q is string => Boolean(q)),
+    unreachable: !a.is_opener && !linked.has(a.slug),
+  }));
 
   const live = rows.filter((r) => r.active).length;
   const openers = rows.filter((r) => r.active && r.is_opener).length;
+  const stranded = rows.filter((r) => r.active && r.unreachable).length;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -76,6 +94,9 @@ export default async function AnswersPage() {
                     Service
                   </th>
                   <th scope="col" className="py-2 pr-3 text-xs font-medium text-ink-faint">
+                    Suggests next
+                  </th>
+                  <th scope="col" className="py-2 pr-3 text-xs font-medium text-ink-faint">
                     Served
                   </th>
                   <th scope="col" className="py-2 pr-3 text-xs font-medium text-ink-faint">
@@ -94,9 +115,12 @@ export default async function AnswersPage() {
             </table>
           </div>
 
-          <p className="mt-3 text-xs text-ink-faint">
+          <p className="mt-3 max-w-[70ch] text-xs leading-relaxed text-ink-faint">
             {live} live, {openers} offered before the visitor types.
             {openers === 0 && " With no openers the chat starts with no suggestions at all."}
+            {stranded > 0 &&
+              ` ${stranded} can only be reached by typing the question — put them in another
+                answer's "Suggest next", or make them openers, and they become free to reach.`}
           </p>
         </>
       )}

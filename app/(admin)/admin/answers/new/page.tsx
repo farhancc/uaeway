@@ -10,7 +10,7 @@ export default async function NewAnswerPage() {
 
   const { data } = await db
     .from("answers")
-    .select("slug, question")
+    .select("slug, question, service_slug")
     .eq("active", true)
     .order("question");
 
@@ -22,7 +22,7 @@ export default async function NewAnswerPage() {
         the review queue.
       </p>
 
-      <AnswerForm others={(data ?? []) as { slug: string; question: string }[]} />
+      <AnswerForm others={(data ?? []) as { slug: string; question: string; service_slug: string | null }[]} />
     </div>
   );
 }

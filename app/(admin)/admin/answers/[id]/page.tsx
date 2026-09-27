@@ -13,7 +13,7 @@ export default async function EditAnswerPage({ params }: PageProps<"/admin/answe
 
   const [answer, others] = await Promise.all([
     db.from("answers").select("*").eq("id", id).maybeSingle(),
-    db.from("answers").select("slug, question").neq("id", id).eq("active", true).order("question"),
+    db.from("answers").select("slug, question, service_slug").neq("id", id).eq("active", true).order("question"),
   ]);
 
   if (!answer.data) notFound();
@@ -27,7 +27,7 @@ export default async function EditAnswerPage({ params }: PageProps<"/admin/answe
 
       <AnswerForm
         answer={answer.data as Answer & { active: boolean }}
-        others={(others.data ?? []) as { slug: string; question: string }[]}
+        others={(others.data ?? []) as { slug: string; question: string; service_slug: string | null }[]}
       />
     </div>
   );
