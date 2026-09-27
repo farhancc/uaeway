@@ -18,6 +18,15 @@ export interface JobRow {
   category: string | null;
   summary: string | null;
   documents_needed: string[];
+  /** Verbatim from the source. Display only — never rewritten. */
+  salary_text: string | null;
+  /** AED per month, normalised for comparison. Null when not certain. */
+  salary_min: number | null;
+  salary_max: number | null;
+  /** Minimum years asked for. 0 = open to freshers. Null = not stated. */
+  experience_years: number | null;
+  /** The employer's own deadline. Null = not stated. Ours is expires_at. */
+  apply_by: string | null;
   posted_at: string;
   expires_at: string | null;
   status: ContentStatus;

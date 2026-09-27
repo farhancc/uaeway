@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { ServiceCTA } from "@/components/site/ServiceCTA";
 import { getJob } from "@/lib/content/queries";
+import { deadlineLabel, experienceLabel } from "@/lib/salary";
 import { isEmailLink } from "@/lib/jobs";
 import { href } from "@/lib/i18n";
 import { getService, matchServices } from "@/lib/services";
@@ -47,6 +48,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   // aggregator, or the employer's own board — and is not what a jobseeker is
   // choosing between. Falls back to it only when we never learned the company.
   const employer = job.company || job.source_name;
+  const deadline = deadlineLabel(job.apply_by);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -61,10 +63,15 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
       {/* A boxed record rather than a dot-joined string: each fact is labelled,
           the way a listing reference would be. */}
       <dl className="field mt-5 grid grid-cols-2 divide-x divide-y divide-rule sm:grid-cols-4">
+        {/* Only the facts this listing actually carries. An absent one is left
+            out rather than printed as "Not stated", which fills the space of
+            information without being any. */}
         {[
           { label: "Employer", value: job.company },
           { label: "Emirate", value: job.emirate },
           { label: "Field", value: job.category },
+          { label: "Salary", value: job.salary_text },
+          { label: "Experience", value: experienceLabel(job.experience_years) },
           {
             label: "Posted",
             value: posted.toLocaleDateString("en-GB", {
@@ -73,10 +80,13 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
               year: "numeric",
             }),
           },
-        ].map((entry) => (
+          { label: "Apply by", value: deadline?.text ?? null },
+        ]
+          .filter((entry) => entry.value)
+          .map((entry) => (
           <div key={entry.label} className="px-3 py-2.5">
             <dt className="text-xs text-ink-faint">{entry.label}</dt>
-            <dd className="mt-0.5 text-sm text-ink">{entry.value ?? "Not stated"}</dd>
+            <dd className="mt-0.5 text-sm text-ink">{entry.value}</dd>
           </div>
         ))}
       </dl>

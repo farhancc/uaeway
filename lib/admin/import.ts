@@ -41,6 +41,13 @@ export const jobImport = z.object({
   sourceName: trimmed.max(160).nullish(),
   /** ISO date. Defaults to now, which also drives the expiry. */
   postedAt: trimmed.nullish(),
+  /** As the employer wrote it, e.g. "AED 8,000 - 12,000". Shown verbatim; the
+   *  comparable monthly range is parsed from it. */
+  salary: trimmed.max(120).nullish(),
+  /** Minimum years asked for. 0 means freshers welcome; omit if not stated. */
+  experienceYears: z.number().int().min(0).max(40).nullish(),
+  /** YYYY-MM-DD. The employer's deadline, not our shelf life. */
+  applyBy: trimmed.regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").nullish(),
 });
 
 export const articleImport = z.object({

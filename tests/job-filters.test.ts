@@ -82,6 +82,54 @@ describe("what reaches the database", () => {
   });
 });
 
+describe("salary and experience", () => {
+  it("does not lose an open-ended listing from a floor filter", async () => {
+    // "AED 25,000+" parses to min 25000 with no max. Comparing a floor against
+    // salary_max alone dropped it — hiding exactly the jobs that pay best.
+    calls.length = 0;
+    await listJobs({ salaryMin: 10000 });
+
+    const clause = used("or").map((c) => c.args[0]).join(" ");
+    expect(clause).toContain("salary_max.gte.10000");
+    expect(clause).toContain("and(salary_max.is.null,salary_min.gte.10000)");
+  });
+
+  it("does the mirror of that for a ceiling", async () => {
+    calls.length = 0;
+    await listJobs({ salaryMax: 6000 });
+
+    const clause = used("or").map((c) => c.args[0]).join(" ");
+    expect(clause).toContain("salary_min.lte.6000");
+    expect(clause).toContain("and(salary_min.is.null,salary_max.lte.6000)");
+  });
+
+  it("keeps listings that never stated their requirement", async () => {
+    // "Not stated" is not "requires twenty years", and treating it as such
+    // would hide most of the board from anyone using this filter.
+    calls.length = 0;
+    await listJobs({ experienceYears: 3 });
+
+    expect(used("or").map((c) => c.args[0]).join(" ")).toContain(
+      "experience_years.is.null,experience_years.lte.3",
+    );
+  });
+
+  it("treats a fresher search as a real filter, not an absent one", async () => {
+    // 0 is falsy; an `if (filters.experienceYears)` would silently ignore it.
+    calls.length = 0;
+    await listJobs({ experienceYears: 0 });
+
+    expect(used("or").map((c) => c.args[0]).join(" ")).toContain("experience_years.lte.0");
+  });
+
+  it("hides a listing whose deadline has passed", async () => {
+    calls.length = 0;
+    await listJobs({});
+
+    expect(used("or").map((c) => c.args[0]).join(" ")).toContain("apply_by.is.null");
+  });
+});
+
 describe("sort order", () => {
   it("defaults to newest first", async () => {
     calls.length = 0;

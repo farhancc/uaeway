@@ -9,8 +9,23 @@ export interface ActiveFilters {
   company?: string;
   document?: string;
   postedWithinDays?: number;
+  /** Monthly AED. */
+  salaryMin?: number;
+  salaryMax?: number;
+  hasSalary: boolean;
+  /** Years the candidate has, not years the job wants. */
+  experienceYears?: number;
   sort: JobSort;
 }
+
+const EXPERIENCE = [
+  { years: 0, label: "No experience (fresher)" },
+  { years: 1, label: "1 year" },
+  { years: 2, label: "2 years" },
+  { years: 3, label: "3 years" },
+  { years: 5, label: "5 years" },
+  { years: 10, label: "10+ years" },
+];
 
 const WINDOWS = [
   { days: 1, label: "Last 24 hours" },
@@ -47,7 +62,15 @@ export function JobFilters({
   locale: string;
   resultCount: number;
 }) {
-  const advancedInUse = Boolean(active.company || active.document || active.postedWithinDays);
+  const advancedInUse = Boolean(
+    active.company ||
+      active.document ||
+      active.postedWithinDays ||
+      active.salaryMin ||
+      active.salaryMax ||
+      active.hasSalary ||
+      active.experienceYears !== undefined,
+  );
   const anyInUse =
     advancedInUse ||
     Boolean(active.q) ||
@@ -147,6 +170,73 @@ export function JobFilters({
 
       <details open={advancedInUse} className="mt-4 border-t border-rule pt-3">
         <summary className="cursor-pointer text-sm text-ink-soft">More filters</summary>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <fieldset>
+            <legend className="text-xs text-ink-faint">Salary, AED per month</legend>
+            <div className="mt-1 flex items-center gap-2">
+              <label htmlFor="salaryMin" className="sr-only">
+                Minimum monthly salary in AED
+              </label>
+              <input
+                id="salaryMin"
+                name="salaryMin"
+                type="number"
+                min={0}
+                step={500}
+                inputMode="numeric"
+                placeholder="From"
+                defaultValue={active.salaryMin ?? ""}
+                className="w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm text-ink"
+              />
+              <span aria-hidden="true" className="text-ink-faint">
+                –
+              </span>
+              <label htmlFor="salaryMax" className="sr-only">
+                Maximum monthly salary in AED
+              </label>
+              <input
+                id="salaryMax"
+                name="salaryMax"
+                type="number"
+                min={0}
+                step={500}
+                inputMode="numeric"
+                placeholder="To"
+                defaultValue={active.salaryMax ?? ""}
+                className="w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm text-ink"
+              />
+            </div>
+            {/* Most listings never state pay, so a range filter would silently
+                hide the majority. This makes that choice the visitor's. */}
+            <label className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-soft">
+              <input type="checkbox" name="hasSalary" value="1" defaultChecked={active.hasSalary} />
+              Only listings that state a salary
+            </label>
+          </fieldset>
+
+          <div>
+            <label htmlFor="experience" className="block text-xs text-ink-faint">
+              Experience you have
+            </label>
+            <select
+              id="experience"
+              name="experience"
+              defaultValue={active.experienceYears === undefined ? "" : String(active.experienceYears)}
+              className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm text-ink"
+            >
+              <option value="">Any</option>
+              {EXPERIENCE.map((option) => (
+                <option key={option.years} value={option.years}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-faint">
+              Shows roles asking for no more than this, plus those that do not say.
+            </p>
+          </div>
+        </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {facets.companies.length > 0 && (

@@ -9,6 +9,7 @@
 import { generateJSON } from "../ai/gemini";
 import { mapLimit } from "../async";
 import { jobExpiry } from "../jobs";
+import { parseSalary } from "../salary";
 import { uniqueSlug } from "../slug";
 import { supabaseAdmin } from "../supabase/admin";
 import { JOB_CATEGORIES, normalizeEmirate } from "../uae";
@@ -32,6 +33,11 @@ interface Enrichment {
   emirate: string | null;
   category: string;
   documentsNeeded: string[];
+  /** Minimum years asked for. 0 means freshers welcome, null means unstated —
+   *  and the difference matters, so the model is told so explicitly. */
+  experienceYears: number | null;
+  /** The employer's own deadline, ISO date, or null. */
+  applyBy: string | null;
 }
 
 function prompt(job: RawJob): string {
@@ -48,6 +54,12 @@ Return JSON with these keys:
 - "documentsNeeded": up to 4 documents an applicant for THIS role would realistically need
   translated or attested (for example "Degree certificate", "Experience certificate",
   "Passport", "Driving licence"). Base it on the role, not on guesswork about the employer.
+- "experienceYears": the minimum years of experience the listing asks for, as a number.
+  Use 0 only if it explicitly welcomes freshers, graduates or people with no experience.
+  Use null if the listing does not say — do NOT infer years from a job title. "Senior" is
+  not a number. A wrong figure here sends someone to an application they cannot win.
+- "applyBy": the closing date as YYYY-MM-DD if the listing states one, else null. Only a date
+  the listing actually gives. Never calculate one from the posting date.
 
 Never state a salary, visa condition or requirement that is not in the listing.
 
@@ -76,6 +88,20 @@ async function enrich(job: RawJob): Promise<{ value: Enrichment; fromAi: boolean
         documentsNeeded: Array.isArray(result.documentsNeeded)
           ? result.documentsNeeded.filter((d) => typeof d === "string").slice(0, 4)
           : [],
+        // Both are optional facts, and a model that guessed one is worse than a
+        // listing that omits it — so anything outside the expected shape
+        // becomes null rather than being coerced.
+        experienceYears:
+          typeof result.experienceYears === "number" &&
+          Number.isInteger(result.experienceYears) &&
+          result.experienceYears >= 0 &&
+          result.experienceYears <= 40
+            ? result.experienceYears
+            : null,
+        applyBy:
+          typeof result.applyBy === "string" && /^\d{4}-\d{2}-\d{2}$/.test(result.applyBy)
+            ? result.applyBy
+            : null,
       },
       fromAi: true,
     };
@@ -88,6 +114,8 @@ async function enrich(job: RawJob): Promise<{ value: Enrichment; fromAi: boolean
       emirate: normalizeEmirate(job.locations),
       category: "Other",
       documentsNeeded: [],
+      experienceYears: null,
+      applyBy: null,
     },
     fromAi: false,
   };
@@ -184,6 +212,7 @@ export async function ingestJobs(): Promise<IngestResult> {
   for (let i = 0; i < fresh.length; i++) {
     const job = fresh[i];
     const { value } = enrichments[i];
+    const salary = parseSalary(job.salary);
     rows.push({
       slug: await uniqueSlug("jobs", job.title),
       title: job.title,
@@ -194,6 +223,13 @@ export async function ingestJobs(): Promise<IngestResult> {
       category: value.category,
       summary: value.summary,
       documents_needed: value.documentsNeeded,
+      // Verbatim from the source, plus a monthly-AED range for filtering.
+      // parseSalary returns nulls whenever it is not certain.
+      salary_text: job.salary,
+      salary_min: salary.min,
+      salary_max: salary.max,
+      experience_years: value.experienceYears,
+      apply_by: value.applyBy,
       posted_at: job.postedAt,
       expires_at: jobExpiry(job.postedAt),
       status: "pending" as const,

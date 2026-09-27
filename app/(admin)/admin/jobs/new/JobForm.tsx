@@ -127,6 +127,60 @@ export function JobForm() {
         </p>
       </div>
 
+      {/* All optional. A listing is publishable without any of them, and a
+          blank field stays blank rather than becoming a zero or today's date. */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="sm:col-span-1">
+          <label htmlFor="salary_text" className="block text-sm font-medium text-ink">
+            Salary <span className="font-normal text-ink-faint">(optional)</span>
+          </label>
+          <input
+            id="salary_text"
+            name="salary_text"
+            placeholder="AED 8,000 - 12,000"
+            className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+            Shown exactly as you write it. A dirham figure is also read into a monthly range so
+            the salary filter can find it.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="experience_years" className="block text-sm font-medium text-ink">
+            Experience <span className="font-normal text-ink-faint">(optional)</span>
+          </label>
+          <input
+            id="experience_years"
+            name="experience_years"
+            type="number"
+            min={0}
+            max={40}
+            placeholder="Years"
+            className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+            Minimum years asked for. <strong className="font-medium">0</strong> means freshers are
+            welcome; leave blank if the employer did not say.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="apply_by" className="block text-sm font-medium text-ink">
+            Apply by <span className="font-normal text-ink-faint">(optional)</span>
+          </label>
+          <input
+            id="apply_by"
+            name="apply_by"
+            type="date"
+            className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+            The employer&apos;s deadline. The listing comes off the site once it passes.
+          </p>
+        </div>
+      </div>
+
       <div>
         <label htmlFor="documents_needed" className="block text-sm font-medium text-ink">
           Documents an applicant will need

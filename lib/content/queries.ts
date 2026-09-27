@@ -11,11 +11,23 @@ import type { ArticleRow, JobRow } from "../supabase/types";
 
 export type JobSummary = Pick<
   JobRow,
-  "slug" | "title" | "company" | "emirate" | "category" | "summary" | "documents_needed" | "posted_at"
+  | "slug"
+  | "title"
+  | "company"
+  | "emirate"
+  | "category"
+  | "summary"
+  | "documents_needed"
+  | "posted_at"
+  | "salary_text"
+  | "salary_min"
+  | "salary_max"
+  | "experience_years"
+  | "apply_by"
 >;
 
 const JOB_FIELDS =
-  "slug, title, company, emirate, category, summary, documents_needed, posted_at";
+  "slug, title, company, emirate, category, summary, documents_needed, posted_at, salary_text, salary_min, salary_max, experience_years, apply_by";
 const ARTICLE_FIELDS = "slug, kind, title, excerpt, published_at, service_slug";
 
 export type ArticleSummary = Pick<
@@ -35,6 +47,16 @@ export interface JobFilters {
   document?: string;
   /** Only listings posted within this many days. */
   postedWithinDays?: number;
+  /** Monthly AED. Keeps listings whose range reaches this figure — a job
+   *  paying 8–12k is a match for someone asking for at least 10k. */
+  salaryMin?: number;
+  /** Monthly AED. Keeps listings whose range starts at or below this. */
+  salaryMax?: number;
+  /** Years the candidate has. Keeps listings asking for no more than that,
+   *  which is the question people actually have. */
+  experienceYears?: number;
+  /** Only listings that state a salary at all. */
+  hasSalary?: boolean;
   q?: string;
   sort?: JobSort;
   limit?: number;
@@ -64,6 +86,9 @@ export async function listJobs(filters: JobFilters = {}): Promise<JobSummary[]> 
     // Expiry is enforced here, not only by the weekly prune. Otherwise a job
     // that closed on Monday stays on the site until Sunday.
     .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+    // And the employer's own deadline, which outranks our shelf life: there is
+    // no point showing a listing nobody can apply to any more.
+    .or(`apply_by.is.null,apply_by.gte.${new Date().toISOString().slice(0, 10)}`)
     .order(sort.column, { ascending: sort.ascending })
     .limit(filters.limit ?? 40);
 
@@ -74,6 +99,32 @@ export async function listJobs(filters: JobFilters = {}): Promise<JobSummary[]> 
   if (filters.postedWithinDays) {
     const since = new Date(Date.now() - filters.postedWithinDays * 86_400_000).toISOString();
     query = query.gte("posted_at", since);
+  }
+
+  // Salary compares against the top of the listing's range, not the bottom:
+  // someone asking for "at least 10k" should still see a job advertised at
+  // 8–12k, because that job can pay it.
+  //
+  // The second half of each clause is the one that matters. An open-ended
+  // listing — "AED 25,000+" — has no upper bound at all, and comparing against
+  // a null salary_max quietly dropped exactly the jobs that pay *best*. Those
+  // fall back to their stated end instead.
+  if (filters.salaryMin) {
+    query = query.or(
+      `salary_max.gte.${filters.salaryMin},and(salary_max.is.null,salary_min.gte.${filters.salaryMin})`,
+    );
+  }
+  if (filters.salaryMax) {
+    query = query.or(
+      `salary_min.lte.${filters.salaryMax},and(salary_min.is.null,salary_max.lte.${filters.salaryMax})`,
+    );
+  }
+  if (filters.hasSalary) query = query.not("salary_min", "is", null);
+
+  // A listing that does not state its requirement is kept: "not stated" is not
+  // "requires twenty years", and dropping it would hide most of the board.
+  if (filters.experienceYears !== undefined) {
+    query = query.or(`experience_years.is.null,experience_years.lte.${filters.experienceYears}`);
   }
   if (filters.q) query = query.textSearch("search", filters.q, { type: "websearch", config: "english" });
 

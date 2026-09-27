@@ -22,6 +22,13 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
   const one = (value: string | string[] | undefined): string | undefined =>
     typeof value === "string" && value.trim() ? value : undefined;
 
+  /** A number from a search param, or undefined — never NaN, and never a
+   *  negative that would invert the comparison it feeds. */
+  const num = (value: string | string[] | undefined): number | undefined => {
+    const parsed = Number(one(value));
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+  };
+
   const posted = Number(one(query.posted));
   const active: ActiveFilters = {
     q: one(query.q),
@@ -30,6 +37,10 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
     company: one(query.company),
     document: one(query.document),
     postedWithinDays: Number.isFinite(posted) && posted > 0 ? posted : undefined,
+    salaryMin: num(query.salaryMin),
+    salaryMax: num(query.salaryMax),
+    hasSalary: one(query.hasSalary) === "1",
+    experienceYears: num(query.experience),
     sort: isJobSort(query.sort) ? query.sort : "newest",
   };
 
@@ -41,13 +52,26 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
       company: active.company,
       document: active.document,
       postedWithinDays: active.postedWithinDays,
+      salaryMin: active.salaryMin,
+      salaryMax: active.salaryMax,
+      hasSalary: active.hasSalary,
+      experienceYears: active.experienceYears,
       sort: active.sort,
     }),
     jobFacets(),
   ]);
 
   const filtered =
-    Boolean(active.q || active.company || active.document || active.postedWithinDays) ||
+    Boolean(
+      active.q ||
+        active.company ||
+        active.document ||
+        active.postedWithinDays ||
+        active.salaryMin ||
+        active.salaryMax ||
+        active.hasSalary,
+    ) ||
+    active.experienceYears !== undefined ||
     active.emirates.length > 0 ||
     active.categories.length > 0;
 

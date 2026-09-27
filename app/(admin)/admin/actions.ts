@@ -14,6 +14,7 @@ import {
 import { requireAdmin } from "@/lib/admin/auth";
 import { clearAnswerCache } from "@/lib/chat/answers";
 import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
+import { parseSalary } from "@/lib/salary";
 import { uniqueSlug } from "@/lib/slug";
 import { EMIRATES, JOB_CATEGORIES } from "@/lib/uae";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -195,6 +196,20 @@ export async function createJob(form: FormData): Promise<{ id: string }> {
     .filter(Boolean)
     .slice(0, 6);
 
+  // Optional, every one of them: a listing is publishable without a salary, a
+  // years figure or a deadline, and a blank field must stay blank rather than
+  // becoming a zero or today's date.
+  const salaryText = String(form.get("salary_text") ?? "").trim() || null;
+  const parsedSalary = parseSalary(salaryText);
+
+  const rawYears = String(form.get("experience_years") ?? "").trim();
+  const experienceYears = rawYears === "" ? null : Number(rawYears);
+  if (experienceYears !== null && (!Number.isInteger(experienceYears) || experienceYears < 0 || experienceYears > 40)) {
+    throw new Error("Experience must be a whole number of years between 0 and 40.");
+  }
+
+  const applyBy = String(form.get("apply_by") ?? "").trim() || null;
+
   const postedAt = new Date().toISOString();
   const db = await supabaseServer();
 
@@ -211,6 +226,11 @@ export async function createJob(form: FormData): Promise<{ id: string }> {
       category,
       summary: String(form.get("summary") ?? "").trim() || null,
       documents_needed: documents,
+      salary_text: salaryText,
+      salary_min: parsedSalary.min,
+      salary_max: parsedSalary.max,
+      experience_years: experienceYears,
+      apply_by: applyBy,
       posted_at: postedAt,
       expires_at: jobExpiry(postedAt),
       status: "pending",
@@ -479,6 +499,7 @@ export async function importJobs(raw: string): Promise<ImportResult> {
   for (const { value: row } of rows) {
     const applyLink = normalizeApplyLink(row.applyLink)!;
     const postedAt = row.postedAt ? new Date(row.postedAt).toISOString() : new Date().toISOString();
+    const parsedSalary = parseSalary(row.salary);
 
     const { error } = await db.from("jobs").insert({
       slug: await uniqueSlug("jobs", row.title),
@@ -490,6 +511,11 @@ export async function importJobs(raw: string): Promise<ImportResult> {
       category: row.category,
       summary: row.summary ?? null,
       documents_needed: row.documentsNeeded,
+      salary_text: row.salary ?? null,
+      salary_min: parsedSalary.min,
+      salary_max: parsedSalary.max,
+      experience_years: row.experienceYears ?? null,
+      apply_by: row.applyBy ?? null,
       posted_at: postedAt,
       expires_at: jobExpiry(postedAt),
       status: "approved",
