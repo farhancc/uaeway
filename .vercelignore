@@ -1,0 +1,10 @@
+# Belt and braces. Vercel already skips .env* and honours .gitignore, but the
+# cost of being wrong here is uploading the service-role key and every API key
+# in the project to a build log, so it is stated rather than assumed.
+.env
+.env.*
+!.env.example
+
+# Nothing here is needed to build or serve the site.
+tests
+supabase/.temp
