@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
 import { chatSavings } from "@/lib/admin/stats";
 import { supabaseServer } from "@/lib/supabase/server";
-import { ReviewCard, type ReviewItem } from "./ReviewCard";
+import type { ReviewItem } from "./ReviewCard";
+import { ReviewQueue } from "./ReviewQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function ReviewQueuePage() {
   await requireAdmin();
   const db = await supabaseServer();
 
-  const [savings, jobs, articles] = await Promise.all([
+  const [savings, jobs, articles, pendingJobs, pendingArticles] = await Promise.all([
     chatSavings(db),
     db
       .from("jobs")
@@ -24,7 +25,13 @@ export default async function ReviewQueuePage() {
       .eq("status", "pending")
       .order("created_at", { ascending: true })
       .limit(50),
+    // The real totals. The page shows the oldest fifty, and a header counting
+    // only those would hide a backlog of hundreds behind a reassuring number.
+    db.from("jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    db.from("articles").select("id", { count: "exact", head: true }).eq("status", "pending"),
   ]);
+
+  const waiting = (pendingJobs.count ?? 0) + (pendingArticles.count ?? 0);
 
   const items: ReviewItem[] = [
     ...((articles.data ?? []) as Record<string, string>[]).map((a) => ({
@@ -53,11 +60,17 @@ export default async function ReviewQueuePage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-xl font-semibold text-ink">
-        Review queue{items.length > 0 && <span className="ml-2 text-ink-faint">{items.length}</span>}
+        Review queue{waiting > 0 && <span className="ml-2 text-ink-faint">{waiting}</span>}
       </h1>
       <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-ink-soft">
         Nothing here is public yet. Read it as a stranger would: if a fee, a date or a requirement
         looks invented, it probably is — reject it and say why.
+        {waiting > items.length && (
+          <>
+            {" "}
+            Showing the oldest {items.length}; clear them and the next batch appears.
+          </>
+        )}
       </p>
 
       {/* The one number that says whether the answer bank is earning its keep.
@@ -79,13 +92,13 @@ export default async function ReviewQueuePage() {
         </p>
       )}
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-6">
         {items.length === 0 && !error ? (
           <p className="rounded-md border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
             Queue is empty. The next ingest will fill it.
           </p>
         ) : (
-          items.map((item) => <ReviewCard key={`${item.table}-${item.id}`} item={item} />)
+          <ReviewQueue items={items} />
         )}
       </div>
     </div>

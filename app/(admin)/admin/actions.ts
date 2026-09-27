@@ -34,24 +34,65 @@ function assertTable(value: string): asserts value is Table {
   if (value !== "jobs" && value !== "articles") throw new Error("unknown table");
 }
 
+/** What approving sets, in one place so the single and bulk paths cannot
+ *  drift into approving things differently. */
+function approvalPatch(table: Table, adminId: string): Record<string, unknown> {
+  const now = new Date().toISOString();
+  return {
+    status: "approved",
+    reviewed_by: adminId,
+    reviewed_at: now,
+    reject_reason: null,
+    // An article is only live once it has a publish date; jobs use posted_at.
+    ...(table === "articles" ? { published_at: now } : {}),
+  };
+}
+
 export async function approve(table: string, id: string) {
   assertTable(table);
   const admin = await requireAdmin();
   const db = await supabaseServer();
 
-  const patch: Record<string, unknown> = {
-    status: "approved",
-    reviewed_by: admin.id,
-    reviewed_at: new Date().toISOString(),
-    reject_reason: null,
-  };
-  // An article is only live once it has a publish date; jobs use posted_at.
-  if (table === "articles") patch.published_at = new Date().toISOString();
-
-  const { error } = await db.from(table).update(patch).eq("id", id);
+  const { error } = await db.from(table).update(approvalPatch(table, admin.id)).eq("id", id);
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin");
+}
+
+/**
+ * Approves several at once.
+ *
+ * Takes explicit ids rather than "approve everything pending". The queue is
+ * capped at 50 on screen while the table can hold hundreds, so a button that
+ * meant "all pending" would publish rows the page never showed — and the point
+ * of a review queue is that someone saw the thing.
+ *
+ * Still filtered to `status = pending`: two tabs open on the same queue should
+ * not let one of them un-reject something the other rejected.
+ */
+export async function approveMany(
+  table: string,
+  ids: string[],
+): Promise<{ approved: number }> {
+  assertTable(table);
+  const admin = await requireAdmin();
+  if (ids.length === 0) return { approved: 0 };
+  if (ids.length > 100) throw new Error("Approve at most 100 at a time.");
+
+  const db = await supabaseServer();
+  const { data, error } = await db
+    .from(table)
+    .update(approvalPatch(table, admin.id))
+    .in("id", ids)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin");
+  // Approved rows go straight onto the public pages that list them.
+  revalidatePath("/[locale]", "layout");
+  return { approved: data?.length ?? 0 };
 }
 
 export async function reject(table: string, id: string, reason: string) {

@@ -16,7 +16,16 @@ export interface ReviewItem {
 /** One pending item. Editing before approving is the common case — the draft is
  *  usually nearly right — so the text is directly editable rather than hidden
  *  behind an edit mode. */
-export function ReviewCard({ item }: { item: ReviewItem }) {
+export function ReviewCard({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: ReviewItem;
+  /** Omitted when the card is rendered outside a selectable queue. */
+  selected?: boolean;
+  onSelect?: (id: string, selected: boolean) => void;
+}) {
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body);
   const [reason, setReason] = useState("");
@@ -26,8 +35,24 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
   const edited = title !== item.title || body !== item.body;
 
   return (
-    <article className="rounded-md border border-rule bg-paper p-4">
-      <p className="text-xs text-ink-faint">{item.meta}</p>
+    <article
+      className={`rounded-md border bg-paper p-4 ${
+        selected ? "border-brass bg-brass/5" : "border-rule"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <label className="flex items-center gap-2 pt-0.5 text-xs text-ink-faint">
+            <input
+              type="checkbox"
+              checked={selected ?? false}
+              onChange={(event) => onSelect(item.id, event.target.checked)}
+            />
+            <span className="sr-only">Select &ldquo;{item.title}&rdquo; for bulk approval</span>
+          </label>
+        )}
+        <p className="text-xs text-ink-faint">{item.meta}</p>
+      </div>
 
       <input
         value={title}
