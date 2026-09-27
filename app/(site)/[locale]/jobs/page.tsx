@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { JobFilters, type ActiveFilters } from "@/components/site/JobFilters";
 import { JobRow } from "@/components/site/JobRow";
-import { jobFacets, listJobs } from "@/lib/content/queries";
-import { href } from "@/lib/i18n";
+import { isJobSort, jobFacets, listJobs } from "@/lib/content/queries";
 
 export const revalidate = 1800;
 
@@ -16,16 +15,41 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
   const { locale } = await params;
   const query = await searchParams;
 
-  const emirate = typeof query.emirate === "string" ? query.emirate : undefined;
-  const category = typeof query.category === "string" ? query.category : undefined;
-  const q = typeof query.q === "string" ? query.q : undefined;
+  // Checkboxes send one value or several; a search param is a string or an
+  // array of them, so both shapes have to arrive as a list.
+  const many = (value: string | string[] | undefined): string[] =>
+    typeof value === "string" ? [value] : (value ?? []);
+  const one = (value: string | string[] | undefined): string | undefined =>
+    typeof value === "string" && value.trim() ? value : undefined;
+
+  const posted = Number(one(query.posted));
+  const active: ActiveFilters = {
+    q: one(query.q),
+    emirates: many(query.emirate),
+    categories: many(query.category),
+    company: one(query.company),
+    document: one(query.document),
+    postedWithinDays: Number.isFinite(posted) && posted > 0 ? posted : undefined,
+    sort: isJobSort(query.sort) ? query.sort : "newest",
+  };
 
   const [jobs, facets] = await Promise.all([
-    listJobs({ emirate, category, q }),
+    listJobs({
+      q: active.q,
+      emirates: active.emirates,
+      categories: active.categories,
+      company: active.company,
+      document: active.document,
+      postedWithinDays: active.postedWithinDays,
+      sort: active.sort,
+    }),
     jobFacets(),
   ]);
 
-  const active = Boolean(emirate || category || q);
+  const filtered =
+    Boolean(active.q || active.company || active.document || active.postedWithinDays) ||
+    active.emirates.length > 0 ||
+    active.categories.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
@@ -35,77 +59,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
         there, not here.
       </p>
 
-      {/* A plain GET form: filtering works without JavaScript, and every filtered
-          view is a real URL that can be shared and indexed. */}
-      <form method="get" className="mt-8 flex flex-wrap items-end gap-3">
-        <div>
-          <label htmlFor="q" className="block text-xs text-ink-faint">
-            Search
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={q}
-            placeholder="Job title or skill"
-            className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
-          />
-        </div>
-
-        {facets.emirates.length > 0 && (
-          <div>
-            <label htmlFor="emirate" className="block text-xs text-ink-faint">
-              Emirate
-            </label>
-            <select
-              id="emirate"
-              name="emirate"
-              defaultValue={emirate ?? ""}
-              className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
-            >
-              <option value="">All</option>
-              {facets.emirates.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {facets.categories.length > 0 && (
-          <div>
-            <label htmlFor="category" className="block text-xs text-ink-faint">
-              Category
-            </label>
-            <select
-              id="category"
-              name="category"
-              defaultValue={category ?? ""}
-              className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
-            >
-              <option value="">All</option>
-              {facets.categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper hover:opacity-90"
-        >
-          Filter
-        </button>
-
-        {active && (
-          <Link href={href(locale, "/jobs")} className="py-2 text-sm text-go hover:underline">
-            Clear
-          </Link>
-        )}
-      </form>
+      <JobFilters facets={facets} active={active} locale={locale} resultCount={jobs.length} />
 
       <div className="mt-8">
         {jobs.length > 0 ? (
@@ -119,8 +73,8 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
           </>
         ) : (
           <p className="max-w-xl rounded-md border border-rule bg-field px-4 py-5 text-sm leading-relaxed text-ink-soft">
-            {active
-              ? "Nothing matches those filters yet. Try clearing them."
+            {filtered
+              ? "Nothing matches those filters yet. Try widening or clearing them."
               : "No openings published yet. Listings appear here once they have been reviewed."}
           </p>
         )}

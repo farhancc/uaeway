@@ -43,6 +43,10 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   // A directly submitted vacancy may take applications by email rather than at
   // a web page, which changes what the button can honestly say.
   const byEmail = isEmailLink(job.source_url);
+  // Who is hiring. `source_name` is where the ingest found the listing — an
+  // aggregator, or the employer's own board — and is not what a jobseeker is
+  // choosing between. Falls back to it only when we never learned the company.
+  const employer = job.company || job.source_name;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -82,10 +86,14 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
       )}
 
       <div className="field mt-8 p-5">
+        {/* Named by who is hiring, not by where we happened to find it. A
+            visitor is deciding whether to apply to this employer; which
+            aggregator the listing came through is our plumbing, not their
+            business. The outbound link still goes to the original posting. */}
         <p className="text-sm leading-relaxed text-ink-soft">
           {byEmail
-            ? `This is a summary. ${job.source_name} takes applications by email — ask them for the full description, salary and process.`
-            : `This is a summary. The full description, salary and application process are on the original posting at ${job.source_name}.`}
+            ? `This is a summary. ${employer} takes applications by email — ask them for the full description, salary and process.`
+            : `This is a summary. The full description, salary and application process are on ${employer}'s original posting.`}
         </p>
         <a
           href={job.source_url}
@@ -96,7 +104,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
         >
           {byEmail
             ? `Email your application to ${job.source_url.slice(7)}`
-            : `View and apply on ${job.source_name}`}
+            : `View and apply at ${employer}`}
         </a>
       </div>
 
