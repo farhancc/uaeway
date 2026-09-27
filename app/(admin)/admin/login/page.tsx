@@ -61,7 +61,7 @@ function SignInForm() {
           type="email"
           required
           autoComplete="username"
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
       </div>
       <div>
@@ -74,7 +74,7 @@ function SignInForm() {
           type="password"
           required
           autoComplete="current-password"
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
       </div>
 
@@ -83,7 +83,7 @@ function SignInForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+        className="w-full rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
       >
         {busy ? "Signing in…" : "Sign in"}
       </button>

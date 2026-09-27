@@ -47,7 +47,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
             name="q"
             defaultValue={q}
             placeholder="Job title or skill"
-            className="mt-1 rounded-[2px] border border-rule bg-field px-3 py-2 text-sm text-ink"
+            className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
           />
         </div>
 
@@ -60,7 +60,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
               id="emirate"
               name="emirate"
               defaultValue={emirate ?? ""}
-              className="mt-1 rounded-[2px] border border-rule bg-field px-3 py-2 text-sm text-ink"
+              className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
             >
               <option value="">All</option>
               {facets.emirates.map((e) => (
@@ -81,7 +81,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
               id="category"
               name="category"
               defaultValue={category ?? ""}
-              className="mt-1 rounded-[2px] border border-rule bg-field px-3 py-2 text-sm text-ink"
+              className="mt-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
             >
               <option value="">All</option>
               {facets.categories.map((c) => (
@@ -95,7 +95,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
 
         <button
           type="submit"
-          className="rounded-[2px] bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-go"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper hover:opacity-90"
         >
           Filter
         </button>
@@ -118,7 +118,7 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
             ))}
           </>
         ) : (
-          <p className="max-w-xl rounded-[2px] border border-rule bg-field px-4 py-5 text-sm leading-relaxed text-ink-soft">
+          <p className="max-w-xl rounded-md border border-rule bg-field px-4 py-5 text-sm leading-relaxed text-ink-soft">
             {active
               ? "Nothing matches those filters yet. Try clearing them."
               : "No openings published yet. Listings appear here once they have been reviewed."}

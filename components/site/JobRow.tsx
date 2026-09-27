@@ -6,9 +6,9 @@ import type { JobSummary } from "@/lib/content/queries";
  *  job someone wants into the paperwork they will need help with. */
 export function JobRow({ job, locale }: { job: JobSummary; locale: string }) {
   return (
-    <article className="border-b border-rule py-5">
-      <h3 className="sign text-[1.0625rem] leading-snug">
-        <Link href={href(locale, `/jobs/${job.slug}`)} className="text-ink hover:text-go">
+    <article className="border-b border-rule py-6">
+      <h3 className="sign text-[1.125rem] leading-snug">
+        <Link href={href(locale, `/jobs/${job.slug}`)} className="text-ink transition-colors hover:text-brass-deep">
           {job.title}
         </Link>
       </h3>
@@ -17,7 +17,7 @@ export function JobRow({ job, locale }: { job: JobSummary; locale: string }) {
         <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           {job.company}
           {job.emirate && (
-            <span className="rounded-[2px] border border-rule px-1.5 py-0.5 text-xs text-ink-faint">
+            <span className="rounded-full border border-rule px-2 py-0.5 text-xs text-ink-faint">
               {job.emirate}
             </span>
           )}

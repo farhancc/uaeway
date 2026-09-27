@@ -60,8 +60,8 @@ export function LeadForm({ service }: { service: Service }) {
 
   if (state === "sent") {
     return (
-      <div className="rounded-[2px] border border-go/40 bg-go/5 p-5">
-        <p className="sign text-go-dark">Got it.</p>
+      <div className="rounded-md border border-brass/40 bg-brass/5 p-5">
+        <p className="sign text-brass-deep">Got it.</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           Someone from the team will message you on WhatsApp. If it is urgent, message us first —
           that reaches us fastest.
@@ -71,7 +71,7 @@ export function LeadForm({ service }: { service: Service }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded-[2px] border border-rule bg-field p-5">
+    <form onSubmit={onSubmit} className="rounded-md border border-rule bg-field p-5">
       <h2 className="sign text-lg text-ink">Tell us what you need</h2>
       <p className="mt-1 text-sm text-ink-soft">
         No obligation. We will tell you if you do not need us.
@@ -91,7 +91,7 @@ export function LeadForm({ service }: { service: Service }) {
                 name={field.name}
                 required={field.required}
                 rows={3}
-                className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm text-ink"
+                className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm text-ink"
               />
             ) : field.type === "select" ? (
               <select
@@ -99,7 +99,7 @@ export function LeadForm({ service }: { service: Service }) {
                 name={field.name}
                 required={field.required}
                 defaultValue=""
-                className="mt-1 w-full rounded-[2px] border border-rule bg-field px-3 py-2 text-sm text-ink"
+                className="mt-1 w-full rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink"
               >
                 <option value="" disabled>
                   Choose one
@@ -119,7 +119,7 @@ export function LeadForm({ service }: { service: Service }) {
                 autoComplete={
                   field.type === "tel" ? "tel" : field.type === "email" ? "email" : "off"
                 }
-                className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm text-ink"
+                className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm text-ink"
               />
             )}
           </div>
@@ -145,7 +145,7 @@ export function LeadForm({ service }: { service: Service }) {
       <button
         type="submit"
         disabled={state === "sending"}
-        className="mt-4 w-full rounded-[2px] bg-go px-4 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-go-dark disabled:opacity-50"
+        className="mt-5 w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {state === "sending" ? "Sending…" : "Send enquiry"}
       </button>

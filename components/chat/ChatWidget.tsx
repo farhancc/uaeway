@@ -164,7 +164,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 rounded-[2px] bg-ink px-5 py-3 text-sm font-semibold text-paper shadow-lg transition-colors hover:bg-go"
+        className="fixed bottom-4 right-4 z-40 rounded-full border border-brass bg-ink px-5 py-3 text-sm font-medium text-paper shadow-lg transition-opacity hover:opacity-90"
       >
         Ask a question
       </button>
@@ -175,7 +175,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
     <div
       role="dialog"
       aria-label="Site assistant"
-      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col border border-rule bg-field shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
+      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-lg border border-rule bg-field shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
     >
       <div className="flex items-center justify-between border-b border-rule px-4 py-3">
         <p className="sign text-base text-ink">Ask UAE Gateway</p>
@@ -183,7 +183,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Close assistant"
-          className="rounded-[2px] px-2 py-1 text-ink-faint hover:bg-paper hover:text-ink"
+          className="rounded-md px-2 py-1 text-ink-faint hover:bg-paper hover:text-ink"
         >
           ✕
         </button>
@@ -199,7 +199,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
             <div
               className={
                 m.role === "user"
-                  ? "inline-block max-w-[85%] rounded-[2px] bg-ink px-3 py-2 text-left text-sm text-paper"
+                  ? "inline-block max-w-[85%] rounded-md bg-ink px-3 py-2 text-left text-sm text-paper"
                   : "max-w-[92%] whitespace-pre-wrap text-sm leading-relaxed text-ink-soft"
               }
             >
@@ -220,7 +220,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
                 key={chip.slug}
                 type="button"
                 onClick={() => void send(chip.question, chip.slug)}
-                className="rounded-[2px] border border-rule bg-paper px-2.5 py-1.5 text-left text-xs leading-snug text-ink-soft transition-colors hover:border-go hover:text-go"
+                className="rounded-md border border-rule bg-paper px-2.5 py-1.5 text-left text-xs leading-snug text-ink-soft transition-colors hover:border-brass hover:text-brass-deep"
               >
                 {chip.question}
               </button>
@@ -233,14 +233,14 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
             href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block rounded-[2px] bg-go px-3 py-2 text-xs font-semibold text-paper"
+            className="inline-block rounded-md bg-go px-3 py-2 text-xs font-semibold text-paper"
           >
             Continue on WhatsApp
           </a>
         )}
 
         {leadCaptured && (
-          <p className="rounded-[2px] border border-go/40 bg-go/5 px-3 py-2 text-xs leading-relaxed text-go-dark">
+          <p className="rounded-md border border-brass/40 bg-brass/5 px-3 py-2 text-xs leading-relaxed text-brass-deep">
             Thanks — our team has your details and will message you on WhatsApp.
           </p>
         )}
@@ -265,12 +265,12 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your question"
           maxLength={1000}
-          className="flex-1 rounded-[2px] border border-rule bg-field px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+          className="flex-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-[2px] bg-go px-3 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go-dark disabled:opacity-40"
+          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           Send
         </button>

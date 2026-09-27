@@ -7,7 +7,13 @@
  * the ingest must degrade to a non-AI fallback, never crash mid-run.
  */
 
-import { candidates, reportFailure, reportSuccess } from "./pool";
+import {
+  candidates,
+  poolStatus,
+  reportFailure,
+  reportSuccess,
+  type FailureKind,
+} from "./pool";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -16,8 +22,76 @@ export const FLASH = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 /** Stronger; used for long-form article drafting. */
 export const PRO = process.env.GEMINI_MODEL_PRO || "gemini-2.5-pro";
 
-/** Transient conditions worth retrying on a different key. */
-const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
+interface GeminiError {
+  error?: {
+    message?: string;
+    status?: string;
+    details?: {
+      "@type"?: string;
+      reason?: string;
+      retryDelay?: string;
+      violations?: { quotaId?: string; quotaMetric?: string }[];
+    }[];
+  };
+}
+
+/** "34s" or "1.5s" from the API's RetryInfo. */
+function parseDelay(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number.parseFloat(value.replace(/s$/, ""));
+  return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : undefined;
+}
+
+/**
+ * What a failed response means for this key.
+ *
+ * `kind: null` means the request itself was wrong — a malformed payload or an
+ * unknown model — so no other key can help and we stop. Everything else is a
+ * problem with this key, and the next one gets a turn.
+ *
+ * The distinctions here are what the pool needs to know: a key that is out of
+ * credit answers 429 exactly like one that is briefly rate-limited, and putting
+ * the exhausted one back into rotation a minute later just fails again.
+ */
+function classify(
+  status: number,
+  body: string,
+): { kind: FailureKind | null; retryAfterMs?: number; detail: string } {
+  let parsed: GeminiError | null = null;
+  try {
+    parsed = JSON.parse(body) as GeminiError;
+  } catch {
+    // Not JSON; fall back to the status code alone.
+  }
+
+  const details = parsed?.error?.details ?? [];
+  const reason = details.find((d) => d.reason)?.reason;
+  const retryAfterMs = parseDelay(details.find((d) => d.retryDelay)?.retryDelay);
+  const quotaIds = details
+    .flatMap((d) => d.violations ?? [])
+    .map((v) => `${v.quotaId ?? ""} ${v.quotaMetric ?? ""}`)
+    .join(" ");
+  const detail = reason || parsed?.error?.status || `HTTP ${status}`;
+
+  // A rejected key answers 400, not 401 — verified against the live API. The
+  // previous code read every 400 as "our payload is wrong" and abandoned the
+  // whole request, so one mistyped key took the other four down with it.
+  if (reason === "API_KEY_INVALID") return { kind: "invalid", detail };
+  if (status === 403) return { kind: "invalid", detail };
+  if (status === 400) return { kind: null, detail };
+  if (status === 404) return { kind: null, detail };
+
+  if (status === 429) {
+    // A daily or lifetime quota will not clear in a minute.
+    const daily = /PerDay|per day|FreeTier/i.test(quotaIds) || /billing|credit/i.test(parsed?.error?.message ?? "");
+    return { kind: daily ? "exhausted" : "rate-limited", retryAfterMs, detail };
+  }
+
+  if (status >= 500 || status === 408) return { kind: "transient", retryAfterMs, detail };
+
+  // An unfamiliar 4xx is more likely about the request than the key.
+  return { kind: null, detail };
+}
 
 export type Role = "user" | "model";
 export interface Turn {
@@ -89,28 +163,38 @@ async function post(
         return res;
       }
 
-      // 400 means our payload is wrong; another key will not help.
-      if (res.status === 400) {
-        console.warn(`[gemini] 400 bad request: ${(await res.text()).slice(0, 300)}`);
+      const { kind, retryAfterMs, detail } = classify(res.status, await res.text());
+
+      // Our request is wrong, not this key. Another key would fail the same way.
+      if (kind === null) {
+        console.warn(`[gemini] request rejected (${detail}) — not retrying`);
         return null;
       }
 
-      reportFailure(state);
-      const retryable = RETRYABLE.has(res.status);
+      reportFailure(state, kind, retryAfterMs);
       console.warn(
-        `[gemini] key ${attempt + 1}/${keys.length} -> HTTP ${res.status}${retryable ? ", rotating" : ""}`,
+        `[gemini] key ${state.label} failed (${detail}), trying ${keys.length - attempt - 1} other key(s)`,
       );
-      if (!retryable && res.status !== 403) return null;
-      await sleep(250 * 2 ** attempt);
+
+      // A key that is out of credit or rejected will not recover in 400ms, so
+      // move straight on. Only back off for something that might pass on retry.
+      if (kind === "transient" || kind === "rate-limited") {
+        await sleep(250 * 2 ** attempt);
+      }
     } catch (err) {
       if ((err as Error).name === "AbortError") return null;
-      reportFailure(state);
-      console.warn(`[gemini] key ${attempt + 1}/${keys.length} failed: ${(err as Error).message}`);
+      reportFailure(state, "transient");
+      console.warn(`[gemini] key ${state.label} errored: ${(err as Error).message}`);
       await sleep(250 * 2 ** attempt);
     }
   }
 
-  console.warn("[gemini] all keys exhausted");
+  // The line that should tell you a key needs replacing, rather than leaving
+  // you to notice the bill.
+  const status = poolStatus()
+    .map((k) => `${k.label}: ${k.usable ? "usable" : `${k.reason} for ${k.benchedForSeconds}s`}`)
+    .join(", ");
+  console.error(`[gemini] every key failed — ${status}`);
   return null;
 }
 

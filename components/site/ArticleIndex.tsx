@@ -31,7 +31,7 @@ export async function ArticleIndex({ section, locale }: { section: Section; loca
               <h2 className="sign text-[1.0625rem] leading-snug">
                 <Link
                   href={href(locale, articlePath(article.kind, article.slug))}
-                  className="text-ink hover:text-go"
+                  className="text-ink hover:text-brass-deep"
                 >
                   {article.title}
                 </Link>

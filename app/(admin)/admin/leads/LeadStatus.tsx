@@ -17,7 +17,7 @@ export function LeadStatus({ id, status }: { id: string; status: string }) {
         const next = e.target.value;
         start(async () => setLeadStatus(id, next));
       }}
-      className="rounded-[2px] border border-rule bg-paper px-2 py-1 text-xs text-ink"
+      className="rounded-md border border-rule bg-paper px-2 py-1 text-xs text-ink"
     >
       {STATUSES.map((s) => (
         <option key={s} value={s}>

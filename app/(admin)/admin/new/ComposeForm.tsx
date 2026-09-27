@@ -38,7 +38,7 @@ export function ComposeForm() {
             id="kind"
             name="kind"
             defaultValue="blog"
-            className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
           >
             {SECTION_LIST.map((section) => (
               <option key={section.kind} value={section.kind}>
@@ -56,7 +56,7 @@ export function ComposeForm() {
             id="service_slug"
             name="service_slug"
             defaultValue=""
-            className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
           >
             <option value="">Work it out from the text</option>
             {SERVICES.map((service) => (
@@ -77,7 +77,7 @@ export function ComposeForm() {
           name="title"
           required
           maxLength={200}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           The URL is made from this and cannot be changed afterwards.
@@ -93,7 +93,7 @@ export function ComposeForm() {
           name="excerpt"
           rows={2}
           maxLength={400}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           One or two sentences. Used on the listing and as the search description.
@@ -109,7 +109,7 @@ export function ComposeForm() {
           name="body_md"
           required
           rows={16}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 font-mono text-sm leading-relaxed"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-sm leading-relaxed"
           placeholder={"## A heading\n\nMarkdown. Raw HTML is not rendered."}
         />
       </div>
@@ -122,7 +122,7 @@ export function ComposeForm() {
           id="sources"
           name="sources"
           rows={3}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
           placeholder={"ICP visa fees | https://icp.gov.ae/...\nhttps://u.ae/..."}
         />
         <p className="mt-1 text-xs text-ink-faint">
@@ -136,7 +136,7 @@ export function ComposeForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
       >
         {pending ? "Saving…" : "Save to review queue"}
       </button>

@@ -24,13 +24,13 @@ export default function ContactPage() {
             href={wa}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block rounded-[2px] bg-go px-5 py-3 font-medium text-paper transition-colors hover:bg-go-dark"
+            className="inline-block rounded-md bg-go px-5 py-3 font-medium text-paper transition-colors hover:bg-go-dark"
           >
             WhatsApp +{number}
           </a>
         )}
 
-        <div className="rounded-[2px] border border-rule bg-field p-5">
+        <div className="rounded-md border border-rule bg-field p-5">
           <h2 className="sign text-lg text-ink">{SITE.company}</h2>
           <p className="mt-1 text-sm text-ink-soft">{SITE.area}</p>
         </div>

@@ -26,19 +26,19 @@ export default async function LeadsPage() {
       </p>
 
       {error && (
-        <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
+        <p className="mt-6 rounded-md border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
           Could not load leads: {error.message}
         </p>
       )}
 
       {leads.length === 0 && !error ? (
-        <p className="mt-6 rounded-[2px] border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
+        <p className="mt-6 rounded-md border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
           No leads yet.
         </p>
       ) : (
         <div className="mt-6 space-y-3">
           {leads.map((lead) => (
-            <article key={lead.id} className="rounded-[2px] border border-rule bg-paper p-4">
+            <article key={lead.id} className="rounded-md border border-rule bg-paper p-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <p className="font-medium text-ink">{lead.name || "No name given"}</p>
                 {!lead.contact.includes("@") ? (
@@ -46,7 +46,7 @@ export default async function LeadsPage() {
                     href={`https://wa.me/${lead.contact}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-go-dark hover:underline"
+                    className="text-sm text-brass-deep hover:underline"
                   >
                     +{lead.contact}
                   </a>

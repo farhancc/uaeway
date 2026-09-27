@@ -23,11 +23,11 @@ export default async function ServicesPage({ params }: PageProps<"/[locale]/serv
 
       <div className="mt-10 grid gap-5 sm:grid-cols-2">
         {SERVICES.map((service) => (
-          <article key={service.slug} className="rounded-[2px] border border-rule bg-field p-5">
+          <article key={service.slug} className="rounded-md border border-rule bg-field p-5">
             <h2 className="sign text-lg leading-snug">
               <Link
                 href={href(locale, `/services/${service.slug}`)}
-                className="text-ink hover:text-go"
+                className="text-ink hover:text-brass-deep"
               >
                 {service.name}
               </Link>

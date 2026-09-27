@@ -1,36 +1,48 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   UAE Gateway — "customs hall"
+   UAE Gateway
 
-   The vernacular is UAE officialdom seen from the applicant's side of the
-   counter: security paper, oxblood seal ink, heavy bilingual signage, and
-   documents laid out as boxed form fields.
+   Established Gulf professional services: ink navy, ivory, and brass. People
+   hand this company original certificates and several thousand dirhams, so the
+   site has to look like somewhere that has been doing this for years.
 
-   Colour discipline:
-     oxblood  — seals and stamps only. Never a button, never decoration.
-     green    — actions the visitor can take. Never anything else.
-   Keeping those two separated is what stops the palette reading as festive.
+   Two rules keep it from looking like every other consultancy site:
 
-   Light only, declared: the paper metaphor is the design, and a second theme
-   would double the QA surface for no user gain.
+   1. Navy leads. The obvious version of this palette is an ivory page with
+      navy text; leading with a full-bleed navy masthead is more confident and
+      avoids the washed-out cream look.
+   2. Brass is a material, not a fill. Hairlines, numerals and small marks —
+      never a large button. Brass-filled buttons are what make these sites read
+      as gold-plated rather than expensive.
+
+   Colour discipline, one job each:
+      navy   actions and surfaces
+      brass  rules, numerals, quiet marks
+      green  WhatsApp only, where the brand cue earns its keep
+      red    warnings only
    ────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --color-paper: #eff2eb;
-  --color-field: #fbfcf9;
-  --color-ink: #1b2a22;
-  --color-ink-soft: #4c5a52;
-  --color-ink-faint: #7b877f;
-  --color-seal: #8e2b3c;
-  --color-seal-wash: #f6ebed;
-  --color-go: #0f5c4a;
-  --color-go-dark: #0a4638;
-  --color-rule: #c7d0c2;
+  --color-paper: #faf8f4;
+  --color-field: #ffffff;
+  --color-ink: #0e1b33;
+  --color-ink-soft: #3a4761;
+  --color-ink-faint: #5c6780;
+  --color-brass: #b0873c;
+  /* Brass fails contrast at body size on ivory; this passes AA for text. */
+  --color-brass-deep: #8a6a2e;
+  --color-seal: #9b2c2c;
+  --color-go: #17604f;
+  --color-go-dark: #11493c;
+  --color-rule: #e4dfd5;
+  /* Hairlines and muted text on the navy blocks. */
+  --color-onink: #cfd6e4;
+  --color-onink-rule: #27344f;
 
-  --font-display: var(--font-archivo-black), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --font-arabic: var(--font-kufi), var(--font-archivo), sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: var(--font-naskh), var(--font-inter), sans-serif;
 }
 
 :root {
@@ -53,58 +65,75 @@ body {
   }
 }
 
-/* Headings are signage: heavy, tight, and set close. */
+/* Display type. Fraunces held at a restrained weight and tight tracking — the
+   personality comes from the face, not from stretching it. */
 .sign {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  font-weight: 500;
+  font-variation-settings: "SOFT" 0, "WONK" 0;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
 }
 
 .arabic {
   font-family: var(--font-arabic);
   direction: rtl;
   unicode-bidi: isolate;
+  font-weight: 400;
 }
 
-/* Focus is a seal-coloured box, matching the stamp language. */
 :focus-visible {
-  outline: 2px solid var(--color-seal);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-brass);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
-/* ── Form field ────────────────────────────────────────────────────────────
-   The structural unit of the page. A boxed cell on paper, the way a UAE
-   application slip divides information. Square-ish, flat, no drop shadow —
-   hierarchy comes from fill and weight, not from a bigger radius.          */
+/* ── Surface ───────────────────────────────────────────────────────────────
+   The one raised thing on a page — a form, a callout. Not a card kit: most
+   content sits directly on the ivory with whitespace doing the separating. */
 .field {
   background: var(--color-field);
   border: 1px solid var(--color-rule);
-  border-radius: 2px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(14 27 51 / 0.04), 0 8px 24px -16px rgb(14 27 51 / 0.18);
 }
 
-/* ── Stamp ─────────────────────────────────────────────────────────────────
-   A document that still needs handling, marked in seal ink with a dashed
-   edge like an impression that has not dried square. It always means a
-   document — it is never used as decoration.                               */
+/* ── Document tag ──────────────────────────────────────────────────────────
+   A document the applicant has to produce. Outlined in brass because it is a
+   thing to be obtained, not a status. Always a document, never decoration. */
 .stamp {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.5rem;
-  border: 1.5px dashed color-mix(in oklab, var(--color-seal) 40%, transparent);
-  border-radius: 2px;
-  background: var(--color-seal-wash);
-  color: var(--color-seal);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-brass) 55%, transparent);
+  border-radius: 999px;
+  color: var(--color-brass-deep);
   font-size: 0.8125rem;
-  line-height: 1.25;
+  line-height: 1.3;
+  background: color-mix(in oklab, var(--color-brass) 6%, white);
 }
 
-/* The one non-user-triggered motion: nothing. Every reveal on this site
-   answers a tap. This keyframe is used by the path steps opening. */
+/* On navy, the same tag in brass on a dark ground. */
+.stamp-dark {
+  border-color: color-mix(in oklab, var(--color-brass) 65%, transparent);
+  background: transparent;
+  color: var(--color-brass);
+}
+
+/* Brass numerals for a genuine sequence. The figure is the ornament, so
+   nothing else in the row needs one. */
+.numeral {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* The only motion on the site: the steps reveal when a path is chosen, which
+   answers a tap and shows what changed. */
 @keyframes step-in {
   from {
     opacity: 0;
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
   to {
     opacity: 1;
@@ -113,18 +142,55 @@ body {
 }
 
 .steps > li {
-  animation: step-in 0.22s ease-out backwards;
+  animation: step-in 0.26s ease-out backwards;
 }
 .steps > li:nth-child(1) { animation-delay: 0.02s; }
-.steps > li:nth-child(2) { animation-delay: 0.06s; }
-.steps > li:nth-child(3) { animation-delay: 0.1s; }
-.steps > li:nth-child(4) { animation-delay: 0.14s; }
-.steps > li:nth-child(5) { animation-delay: 0.18s; }
+.steps > li:nth-child(2) { animation-delay: 0.07s; }
+.steps > li:nth-child(3) { animation-delay: 0.12s; }
+.steps > li:nth-child(4) { animation-delay: 0.17s; }
+.steps > li:nth-child(5) { animation-delay: 0.22s; }
 
-/* ── Disclosure ────────────────────────────────────────────────────────────
-   A question that opens. The marker is a plain + turning to −, which reads at
-   a glance in any language and needs no icon font. The rotation answers the
-   tap, so it is motion that shows what changed.                             */
+/* Long-form article body. */
+.prose-doc {
+  max-width: 68ch;
+}
+.prose-doc h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.5rem;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 2.5rem 0 0.75rem;
+}
+.prose-doc h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+}
+.prose-doc p,
+.prose-doc li {
+  line-height: 1.75;
+  color: var(--color-ink-soft);
+  margin-bottom: 1rem;
+}
+.prose-doc ul,
+.prose-doc ol {
+  padding-left: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.prose-doc ul { list-style: disc; }
+.prose-doc ol { list-style: decimal; }
+.prose-doc a {
+  color: var(--color-brass-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose-doc strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* Disclosure rows on the service pages. */
 .qa > summary {
   display: flex;
   align-items: baseline;
@@ -140,49 +206,9 @@ body {
   margin-left: auto;
   font-size: 1.125rem;
   line-height: 1;
-  color: var(--color-seal);
+  color: var(--color-brass);
   transition: transform 0.18s ease;
 }
 .qa[open] > summary::after {
   content: "−";
-  transform: rotate(180deg);
-}
-
-/* Long-form article body. */
-.prose-doc {
-  max-width: 68ch;
-}
-.prose-doc h2 {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 2.25rem 0 0.75rem;
-}
-.prose-doc h3 {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  margin: 1.75rem 0 0.5rem;
-}
-.prose-doc p,
-.prose-doc li {
-  line-height: 1.7;
-  color: var(--color-ink-soft);
-  margin-bottom: 0.875rem;
-}
-.prose-doc ul,
-.prose-doc ol {
-  padding-left: 1.25rem;
-  margin-bottom: 1rem;
-}
-.prose-doc ul { list-style: disc; }
-.prose-doc ol { list-style: decimal; }
-.prose-doc a {
-  color: var(--color-go);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.prose-doc strong {
-  color: var(--color-ink);
-  font-weight: 600;
 }

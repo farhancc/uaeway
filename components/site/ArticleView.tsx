@@ -22,7 +22,7 @@ export function ArticleView({ article, locale }: { article: ArticleRow; locale: 
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <nav aria-label="Breadcrumb" className="text-sm text-ink-faint">
-        <Link href={href(locale, `/${section.slug}`)} className="text-go underline underline-offset-2">
+        <Link href={href(locale, `/${section.slug}`)} className="text-brass-deep underline underline-offset-4">
           {section.label}
         </Link>
       </nav>
@@ -74,7 +74,7 @@ export function ArticleView({ article, locale }: { article: ArticleRow; locale: 
         </section>
       )}
 
-      <p className="mt-8 rounded-[2px] border border-rule bg-paper px-4 py-3 text-xs leading-relaxed text-ink-soft">
+      <p className="mt-8 rounded-md border border-rule bg-paper px-4 py-3 text-xs leading-relaxed text-ink-soft">
         General information, not legal or immigration advice. UAE fees and rules change — confirm
         anything you are relying on with the relevant authority, such as ICP or GDRFA, or ask us to
         check it for your case.

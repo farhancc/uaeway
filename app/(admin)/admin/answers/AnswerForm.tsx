@@ -46,7 +46,7 @@ export function AnswerForm({
           required
           defaultValue={answer?.question}
           maxLength={200}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           This is the label on the suggestion chip, so write it the way a visitor would ask it.
@@ -63,7 +63,7 @@ export function AnswerForm({
           required
           rows={8}
           defaultValue={answer?.answer_md}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm leading-relaxed"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm leading-relaxed"
         />
         <p className="mt-1 text-xs text-ink-faint">
           Markdown. This goes out word for word — no model rewrites it — so do not state a
@@ -80,7 +80,7 @@ export function AnswerForm({
             id="service_slug"
             name="service_slug"
             defaultValue={answer?.service_slug ?? ""}
-            className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
           >
             <option value="">None</option>
             {SERVICES.map((service) => (
@@ -101,7 +101,7 @@ export function AnswerForm({
             type="number"
             min={0}
             defaultValue={answer?.position ?? 0}
-            className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-ink-faint">Order within the service, lowest first.</p>
         </div>
@@ -117,7 +117,7 @@ export function AnswerForm({
           rows={4}
           defaultValue={answer?.keywords.join("\n")}
           placeholder={"attest photocopy\ncopy attestation"}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           One phrase per line. Two-word phrases work best — a single common word is deliberately
@@ -136,7 +136,7 @@ export function AnswerForm({
           multiple
           size={6}
           defaultValue={answer?.follow_up_slugs}
-          className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
         >
           {others.map((other) => (
             <option key={other.slug} value={other.slug}>
@@ -176,7 +176,7 @@ export function AnswerForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
       >
         {pending ? "Saving…" : answer ? "Save changes" : "Add answer"}
       </button>

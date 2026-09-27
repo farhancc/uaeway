@@ -30,7 +30,7 @@ export default async function SearchesPage() {
       <AddSearch />
 
       {error && (
-        <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
+        <p className="mt-6 rounded-md border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
           Could not load searches: {error.message}
         </p>
       )}

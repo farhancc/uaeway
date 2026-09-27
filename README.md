@@ -118,12 +118,45 @@ Never add a listing that asks the candidate to pay anything.
 
 ## The Gemini key pool
 
-`lib/ai/pool.ts` rotates across all five keys, retries the next key on 429/503,
-and benches a key for 60 seconds after two consecutive failures. This is what
-makes five keys worth more than one: it multiplies the usable rate limit and
-stops one exhausted key stalling a nightly run. Every call degrades to `null`
-rather than throwing, so the ingest falls back to a non-AI summary instead of
-dying half way through.
+`lib/ai/pool.ts` rotates across every key in `GEMINI_API_KEYS`. How long a
+failing key sits out depends on *why* it failed, because "briefly rate-limited"
+and "out of credit" arrive as the same HTTP status but need opposite handling:
+
+| What happened | Bench |
+| --- | --- |
+| Network error or 5xx | 30s, after two failures in a row |
+| Per-minute rate limit (429) | The API's own `RetryInfo`, else 60s |
+| Quota or credit used up (429) | 1 hour |
+| Key rejected or revoked (400 `API_KEY_INVALID`, or 403) | 24 hours |
+
+Two things worth knowing:
+
+- **A rejected key answers 400, not 401.** Anything that reads every 400 as "our
+  request was wrong" will abandon the whole call instead of trying the next key.
+- **A key that is out of credit is not coming back in a minute.** Benching it
+  briefly means retrying a dead key every minute all day, paying a round trip
+  and a backoff wait each time.
+
+Every call degrades to `null` rather than throwing, so the ingest falls back to
+a non-AI summary instead of dying half way through.
+
+### Rotating a key
+
+When a key runs out of credit or is revoked, the logs name it by its last four
+characters — keys are never written to logs in full:
+
+```
+[gemini] key #3 …7f2a benched for 3600s (exhausted) — this one needs attention:
+         replace it in GEMINI_API_KEYS or top up its quota
+```
+
+Edit `GEMINI_API_KEYS` (comma-separated, order is irrelevant, duplicates are
+ignored) and restart or redeploy — the pool is read once per process, so a
+running server keeps the old list.
+
+`poolStatus()` reports which keys are usable, but only for the process that
+calls it. On serverless each instance keeps its own view, so trust the logs over
+any single snapshot.
 
 ## Layout
 
@@ -143,6 +176,54 @@ supabase/migrations/   schema and RLS
 `lib/services.ts` is the file to edit when a service changes: it drives the
 service pages, the intake forms, the chatbot's grounding and the CTA shown on
 each job.
+
+## Two AI providers, one job each
+
+Gemini answers the chatbot and summarises jobs. Claude (Sonnet) drafts blog
+posts. They do not overlap, and neither file knows the other exists:
+
+- `lib/ai/gemini.ts` — pooled across five keys, because the ingest is
+  quota-bound and the chatbot needs to stream.
+- `lib/ai/claude.ts` — a single key, because there is one job (long-form
+  drafting) and one Anthropic account behind it. Structured output goes
+  through Anthropic's tool-use rather than "reply with only JSON": an
+  800-word draft is long enough that free-text JSON genuinely breaks on a
+  stray quote or markdown fence in the body.
+
+Set `ANTHROPIC_API_KEY` (and optionally `CLAUDE_MODEL`, default
+`claude-sonnet-5`) to turn blog drafting on. Nothing else needs it.
+
+### Blog drafting
+
+`lib/content/blog-drafts.ts` turns a published guide into a companion blog
+post — a different angle on the same topic, not a rehash of its steps — and
+saves it as `status: pending`, the same review queue as everything else. A
+Claude-authored paragraph that states a wrong fee is exactly the same problem
+as a Gemini-authored one; the guardrail is who reviews it, not which model
+wrote it.
+
+Which guides still need a post is read from the blog posts that already
+exist, not a new column: every draft cites its source guide's URL, so a blog
+article citing `/guides/<slug>` means that guide is covered — whatever
+happened to the draft afterward, approved or rejected. A rejected draft is
+not retried automatically; regenerating an angle a human already turned down
+would just refill the queue with the same rejection.
+
+The service a post points to is never taken on the model's word: it is
+checked against the real service list and falls back to the same keyword
+matcher (`matchServices`) the rest of the site uses if the model names
+something that does not exist.
+
+Runs twice a week by default (`vercel.json`, Monday and Thursday at 02:00
+UTC — 06:00 Gulf time) via `/api/cron/draft-blog`, or on demand:
+
+```bash
+npm run draft:blog        # up to 3 posts
+npm run draft:blog 10     # up to 10
+```
+
+If every guide already has a companion post, it says so and drafts nothing —
+this does not run just to fill a schedule.
 
 ## The answer bank, and what the chatbot costs
 
@@ -238,8 +319,17 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
   short English documents do not need embeddings.
 - **Services live in code, not a table.** Eight rows that change once a year are
   configuration, not content.
-- **Light theme only.** The design is built on a paper metaphor; a second theme
-  would double the QA surface for no user gain.
+- **Light theme only.** A second theme would double the QA surface for no user
+  gain here.
+- **Navy leads, brass is a material.** The palette is ink navy `#0E1B33`,
+  ivory `#FAF8F4` and brass `#B0873C`, with Fraunces for display and Inter for
+  text. Two rules keep it from looking like every other consultancy site: the
+  masthead and hero are full-bleed navy rather than an ivory page with navy
+  text, and brass appears only as hairlines, numerals and small marks — never a
+  filled button, which is what makes these sites read as gold-plated. Each
+  colour has one job: navy for actions, brass for rules and numerals, green for
+  WhatsApp only, red for warnings only. Brass fails contrast as text on ivory,
+  so `--color-brass-deep` exists for links and numerals on light grounds.
 - **WhatsApp Cloud API deferred.** It needs Meta business verification and
   template approval. Leads reach sales through Telegram and email today, and
   visitors reach the team through `wa.me` click-to-chat.

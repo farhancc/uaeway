@@ -7,83 +7,70 @@ import { PATHS } from "@/lib/paths";
 import { getService } from "@/lib/services";
 
 /**
- * The hero.
+ * The hero, sitting on the navy.
  *
  * Nearly everyone who contacts us knows what they want and not what order it
- * happens in, so the most useful thing the page can do is show them the
- * sequence for their own situation. Opening a path is the one moment of motion
- * on the page, and it answers a tap.
+ * happens in, so the most useful thing the page can do is lay out the sequence
+ * for their situation. The paths are tabs with a brass underline rather than
+ * boxes — the selection is shown by a mark, not by a container.
  */
 export function PathPicker({ locale }: { locale: string }) {
   const [openId, setOpenId] = useState(PATHS[0].id);
   const open = PATHS.find((p) => p.id === openId)!;
 
   return (
-    <div className="field">
-      <div className="grid sm:grid-cols-2">
-        {PATHS.map((path, i) => {
-          const isOpen = path.id === openId;
+    <div>
+      <div role="tablist" aria-label="Your situation" className="flex flex-wrap gap-x-7 gap-y-2">
+        {PATHS.map((path) => {
+          const selected = path.id === openId;
           return (
             <button
               key={path.id}
               type="button"
-              aria-expanded={isOpen}
-              aria-controls="path-steps"
+              role="tab"
+              aria-selected={selected}
               onClick={() => setOpenId(path.id)}
               className={[
-                "flex items-baseline gap-3 border-rule px-4 py-4 text-left transition-colors",
-                // A form grid: cells divide, they do not float. One column on a
-                // phone, two on a wider screen, so the dividing rules differ.
-                i < PATHS.length - 1 ? "border-b" : "",
-                i >= 2 ? "sm:border-b-0" : "",
-                i % 2 === 0 ? "sm:border-r" : "",
-                isOpen ? "bg-ink text-paper" : "hover:bg-field",
+                "border-b-2 pb-2 text-left text-[0.9375rem] transition-colors",
+                selected
+                  ? "border-brass text-paper"
+                  : "border-transparent text-onink hover:text-paper",
               ].join(" ")}
             >
-              <span className="sign text-[0.9375rem] leading-tight sm:text-base">{path.label}</span>
-              <span
-                aria-hidden="true"
-                className={`arabic ml-auto shrink-0 whitespace-nowrap text-sm ${
-                  isOpen ? "text-paper/70" : "text-ink-faint"
-                }`}
-              >
-                {path.labelAr}
-              </span>
+              {path.label}
             </button>
           );
         })}
       </div>
 
-      <div id="path-steps" className="border-t border-rule bg-paper px-4 py-5 sm:px-6">
-        <p className="max-w-[68ch] text-[0.9375rem] leading-relaxed text-ink-soft">{open.intro}</p>
+      <p className="mt-7 max-w-[62ch] leading-relaxed text-onink">{open.intro}</p>
 
-        <ol key={open.id} className="steps mt-5 space-y-0">
-          {open.steps.map((step, i) => {
-            const service = step.service ? getService(step.service) : undefined;
-            return (
-              <li
-                key={step.text}
-                className="flex gap-4 border-t border-rule py-3.5 first:border-t-0 first:pt-0"
-              >
-                <span className="sign mt-0.5 w-5 shrink-0 text-sm text-seal">{i + 1}</span>
-                <div className="min-w-0">
-                  <p className="text-[0.9375rem] leading-relaxed text-ink">{step.text}</p>
-                  {service ? (
-                    <Link
-                      href={href(locale, `/services/${service.slug}`)}
-                      className="mt-1 inline-block text-sm font-medium text-go underline underline-offset-2 hover:text-go-dark"
-                    >
-                      We do this: {service.shortName}
-                    </Link>
-                  ) : (
-                    <p className="mt-1 text-sm text-ink-faint">Your employer does this part.</p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+      <ol key={open.id} className="steps mt-7 max-w-[62ch]">
+        {open.steps.map((step, i) => {
+          const service = step.service ? getService(step.service) : undefined;
+          return (
+            <li
+              key={step.text}
+              className="flex gap-5 border-t border-onink-rule py-4 first:border-t-0 first:pt-0"
+            >
+              <span className="numeral mt-0.5 w-4 shrink-0 text-base text-brass">{i + 1}</span>
+              <div className="min-w-0">
+                <p className="leading-relaxed text-paper">{step.text}</p>
+                {service ? (
+                  <Link
+                    href={href(locale, `/services/${service.slug}`)}
+                    className="mt-1.5 inline-block text-sm text-brass underline underline-offset-4 hover:text-paper"
+                  >
+                    We handle this: {service.shortName}
+                  </Link>
+                ) : (
+                  <p className="mt-1.5 text-sm text-onink/70">Your employer handles this part.</p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

@@ -37,7 +37,7 @@ export function AddSearch() {
             name="keywords"
             required
             placeholder="welder"
-            className="mt-1 rounded-[2px] border border-rule px-3 py-2 text-sm"
+            className="mt-1 rounded-md border border-rule px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -49,13 +49,13 @@ export function AddSearch() {
             name="location"
             required
             placeholder="Abu Dhabi"
-            className="mt-1 rounded-[2px] border border-rule px-3 py-2 text-sm"
+            className="mt-1 rounded-md border border-rule px-3 py-2 text-sm"
           />
         </div>
         <button
           type="submit"
           disabled={pending}
-          className="rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add search"}
         </button>
@@ -93,8 +93,8 @@ export function SearchRow({ search }: { search: JobSearchRow }) {
         <span
           className={
             search.active
-              ? "rounded-[2px] border border-go/40 bg-go/5 px-1.5 py-0.5 text-xs text-go-dark"
-              : "rounded-[2px] border border-rule px-1.5 py-0.5 text-xs text-ink-faint"
+              ? "rounded-md border border-brass/40 bg-brass/5 px-1.5 py-0.5 text-xs text-brass-deep"
+              : "rounded-md border border-rule px-1.5 py-0.5 text-xs text-ink-faint"
           }
         >
           {search.active ? "Running" : "Paused"}

@@ -47,7 +47,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
       <nav aria-label="Breadcrumb" className="text-sm">
-        <Link href={href(locale, "/jobs")} className="text-go underline underline-offset-2">
+        <Link href={href(locale, "/jobs")} className="text-brass-deep underline underline-offset-4">
           Jobs
         </Link>
       </nav>
@@ -92,7 +92,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
           {...(byEmail ? {} : { target: "_blank" })}
           // nofollow: outbound links on listings we did not write and do not vouch for.
           rel="nofollow noopener noreferrer"
-          className="mt-4 inline-block rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go"
+          className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90"
         >
           {byEmail
             ? `Email your application to ${job.source_url.slice(7)}`

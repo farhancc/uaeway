@@ -50,7 +50,7 @@ export default function TermsPage() {
         </p>
       </div>
 
-      <p className="mt-8 rounded-[2px] border border-rule bg-paper px-4 py-3 text-xs leading-relaxed text-ink-soft">
+      <p className="mt-8 rounded-md border border-rule bg-paper px-4 py-3 text-xs leading-relaxed text-ink-soft">
         Have these terms reviewed by a UAE legal adviser before launch.
       </p>
     </div>

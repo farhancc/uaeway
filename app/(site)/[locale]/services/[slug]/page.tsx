@@ -44,7 +44,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <nav aria-label="Breadcrumb" className="text-sm">
-        <Link href={href(locale, "/services")} className="text-go underline underline-offset-2">
+        <Link href={href(locale, "/services")} className="text-brass-deep underline underline-offset-4">
           Services
         </Link>
       </nav>
@@ -63,7 +63,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
           <p className="mt-6 max-w-[64ch] leading-relaxed text-ink-soft">{service.summary}</p>
 
           {service.licence === "partner" && (
-            <p className="mt-4 max-w-[64ch] rounded-[2px] border border-rule bg-paper px-4 py-3 text-sm leading-relaxed text-ink-soft">
+            <p className="mt-4 max-w-[64ch] rounded-md border border-rule bg-paper px-4 py-3 text-sm leading-relaxed text-ink-soft">
               This service is delivered together with a licensed partner. We manage the process and
               stay your point of contact throughout.
             </p>
@@ -90,7 +90,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
             <ol className="steps mt-5 space-y-4">
               {service.process.map((step, i) => (
                 <li key={step} className="flex gap-4">
-                  <span className="sign mt-0.5 w-5 shrink-0 text-sm text-seal">{i + 1}</span>
+                  <span className="numeral mt-0.5 w-5 shrink-0 text-base text-brass-deep">{i + 1}</span>
                   <span className="text-sm leading-relaxed text-ink-soft">{step}</span>
                 </li>
               ))}
@@ -156,7 +156,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-[2px] border border-rule bg-field px-4 py-3 text-center text-sm font-medium text-go-dark transition-colors hover:border-go"
+              className="block rounded-md border border-rule bg-field px-4 py-3 text-center text-sm font-medium text-brass-deep transition-colors hover:border-brass"
             >
               Or message us on WhatsApp
             </a>

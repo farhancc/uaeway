@@ -47,15 +47,15 @@ export function AnswerRow({ answer }: { answer: AnswerSummary }) {
       <td className="py-2.5 pr-3">
         <div className="flex flex-wrap gap-1.5">
           {answer.is_opener && (
-            <span className="rounded-[2px] border border-rule px-1.5 py-0.5 text-xs text-ink-faint">
+            <span className="rounded-md border border-rule px-1.5 py-0.5 text-xs text-ink-faint">
               Opener
             </span>
           )}
           <span
             className={
               answer.active
-                ? "rounded-[2px] border border-go/40 bg-go/5 px-1.5 py-0.5 text-xs text-go-dark"
-                : "rounded-[2px] border border-rule px-1.5 py-0.5 text-xs text-ink-faint"
+                ? "rounded-md border border-brass/40 bg-brass/5 px-1.5 py-0.5 text-xs text-brass-deep"
+                : "rounded-md border border-rule px-1.5 py-0.5 text-xs text-ink-faint"
             }
           >
             {answer.active ? "Live" : "Retired"}

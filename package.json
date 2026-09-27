@@ -10,7 +10,8 @@
     "seed:prospects": "tsx --env-file=.env.local scripts/seed-prospects.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:answers": "tsx --env-file=.env.local scripts/seed-answers.ts"
+    "seed:answers": "tsx --env-file=.env.local scripts/seed-answers.ts",
+    "draft:blog": "tsx --env-file=.env.local scripts/draft-blog.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

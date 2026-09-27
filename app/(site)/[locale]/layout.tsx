@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Archivo, Archivo_Black, Noto_Kufi_Arabic } from "next/font/google";
+import { Fraunces, Inter, Noto_Naskh_Arabic } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -8,25 +8,24 @@ import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
 import { SITE, whatsappLink } from "@/lib/site";
 import "../../globals.css";
 
-/* One Latin family, contrast from weight: Archivo Black for signage-weight
-   headings, Archivo for everything read at length. Noto Kufi Arabic carries the
-   bilingual layer — every real UAE document is bilingual, so the Arabic is
-   authentic to the subject rather than ornament. */
-const archivoBlack = Archivo_Black({
-  variable: "--font-archivo-black",
-  subsets: ["latin"],
-  weight: "400",
-  display: "swap",
-});
-
-const archivo = Archivo({
-  variable: "--font-archivo",
+/* Fraunces for display — a variable serif with enough character to carry a
+   headline without the Didone contrast that reads as a stock choice. Inter for
+   everything read at length. Noto Naskh Arabic for the bilingual layer, chosen
+   over a geometric Kufi because Naskh reads classical rather than technical. */
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
   display: "swap",
 });
 
-const kufi = Noto_Kufi_Arabic({
-  variable: "--font-kufi",
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const naskh = Noto_Naskh_Arabic({
+  variable: "--font-naskh",
   subsets: ["arabic"],
   weight: ["400", "600"],
   display: "swap",
@@ -59,7 +58,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
     <html
       lang={locale}
       dir={dirFor(locale)}
-      className={`${archivo.variable} ${archivoBlack.variable} ${kufi.variable} h-full`}
+      className={`${fraunces.variable} ${inter.variable} ${naskh.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <a

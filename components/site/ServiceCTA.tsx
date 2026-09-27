@@ -38,14 +38,14 @@ export function ServiceCTA({
             href={wa}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-[2px] bg-go px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go-dark"
+            className="rounded-md bg-go px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go-dark"
           >
             Ask on WhatsApp
           </a>
         )}
         <Link
           href={href(locale, `/services/${service.slug}`)}
-          className="rounded-[2px] border border-ink px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-paper"
+          className="rounded-md border border-ink px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-paper"
         >
           See how it works
         </Link>

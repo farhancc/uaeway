@@ -39,7 +39,7 @@ export default async function AnswersPage() {
         <h1 className="sign text-xl text-ink">Answers</h1>
         <Link
           href="/admin/answers/new"
-          className="ml-auto rounded-[2px] bg-ink px-3 py-1.5 text-sm font-semibold text-paper"
+          className="ml-auto rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper"
         >
           Add answer
         </Link>
@@ -52,7 +52,7 @@ export default async function AnswersPage() {
       </p>
 
       {answers.error && (
-        <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
+        <p className="mt-6 rounded-md border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
           Could not load answers: {answers.error.message}
         </p>
       )}

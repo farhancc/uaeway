@@ -38,7 +38,7 @@ export function JobForm() {
           required
           maxLength={200}
           placeholder="Accounts Assistant"
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">The URL is made from this.</p>
       </div>
@@ -53,7 +53,7 @@ export function JobForm() {
             name="company"
             required
             maxLength={160}
-            className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
           />
         </div>
 
@@ -65,7 +65,7 @@ export function JobForm() {
             id="emirate"
             name="emirate"
             defaultValue=""
-            className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
           >
             <option value="">Not stated</option>
             {EMIRATES.map((emirate) => (
@@ -85,7 +85,7 @@ export function JobForm() {
           id="category"
           name="category"
           defaultValue="Other"
-          className="mt-1 w-full rounded-[2px] border border-rule bg-paper px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule bg-paper px-3 py-2 text-sm"
         >
           {JOB_CATEGORIES.map((category) => (
             <option key={category} value={category}>
@@ -104,7 +104,7 @@ export function JobForm() {
           name="apply_link"
           required
           placeholder="https://employer.ae/careers/123  or  hr@employer.ae"
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           A link or an email address. Applicants apply with the employer, never through us.
@@ -120,7 +120,7 @@ export function JobForm() {
           name="summary"
           rows={4}
           maxLength={1200}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm leading-relaxed"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm leading-relaxed"
         />
         <p className="mt-1 text-xs text-ink-faint">
           Two or three sentences in your own words. Do not paste the employer&apos;s advert.
@@ -136,7 +136,7 @@ export function JobForm() {
           name="documents_needed"
           rows={4}
           placeholder={"Degree certificate\nExperience certificate\nPassport"}
-          className="mt-1 w-full rounded-[2px] border border-rule px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 text-sm"
         />
         <p className="mt-1 text-xs text-ink-faint">
           One per line, up to six. These become the stamps on the listing and the reason someone
@@ -149,7 +149,7 @@ export function JobForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-[2px] bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-50"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
       >
         {pending ? "Saving…" : "Save to review queue"}
       </button>

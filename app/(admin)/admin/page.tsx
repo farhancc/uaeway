@@ -67,21 +67,21 @@ export default async function ReviewQueuePage() {
         <p className="field mt-6 px-4 py-3 text-sm text-ink-soft">
           <strong className="sign text-ink">{savings.share}%</strong> of chatbot replies in the
           last 7 days were answered without calling the AI ({savings.free} of {savings.total}).{" "}
-          <Link href="/admin/answers" className="text-go underline underline-offset-2">
+          <Link href="/admin/answers" className="text-brass-deep underline underline-offset-4">
             Improve the answers
           </Link>
         </p>
       )}
 
       {error && (
-        <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
+        <p className="mt-6 rounded-md border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
           Could not load the queue: {error.message}
         </p>
       )}
 
       <div className="mt-6 space-y-4">
         {items.length === 0 && !error ? (
-          <p className="rounded-[2px] border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
+          <p className="rounded-md border border-rule bg-paper px-4 py-6 text-sm text-ink-soft">
             Queue is empty. The next ingest will fill it.
           </p>
         ) : (

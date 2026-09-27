@@ -24,7 +24,7 @@ export function ArticleStrip({
         action={
           <Link
             href={href(locale, `/${section.slug}`)}
-            className="text-go underline underline-offset-2"
+            className="text-brass-deep underline underline-offset-4"
           >
             All {section.label.toLowerCase()}
           </Link>
@@ -33,19 +33,19 @@ export function ArticleStrip({
         {section.title}
       </SectionHeading>
 
-      <ul className="mt-6 grid border-l border-t border-rule sm:grid-cols-2">
+      <ul className="mt-2 sm:grid sm:grid-cols-2 sm:gap-x-12">
         {articles.map((article) => (
-          <li key={article.slug} className="border-b border-r border-rule bg-field px-4 py-4">
-            <h3 className="sign text-[0.9375rem] leading-snug">
+          <li key={article.slug} className="border-b border-rule py-5">
+            <h3 className="sign text-[1.0625rem] leading-snug">
               <Link
                 href={href(locale, articlePath(article.kind, article.slug))}
-                className="text-ink hover:text-go"
+                className="text-ink transition-colors hover:text-brass-deep"
               >
                 {article.title}
               </Link>
             </h3>
             {article.excerpt && (
-              <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{article.excerpt}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-faint">{article.excerpt}</p>
             )}
           </li>
         ))}

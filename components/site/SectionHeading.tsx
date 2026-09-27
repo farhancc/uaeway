@@ -1,11 +1,9 @@
 /**
- * A bilingual section header, the way a UAE form labels a block: the English
- * name, its Arabic counterpart set quietly beside it, and a rule underneath
- * closing the field.
+ * A section header: the English name, its Arabic counterpart set quietly
+ * alongside, and a brass hairline closing it.
  *
- * The Arabic is a trust signal, not decoration — it tells a resident this site
- * belongs to the country they are in. Have a native speaker check these strings
- * before launch.
+ * The Arabic tells a resident this site belongs to the country they are in.
+ * Have a native speaker check these strings before launch.
  */
 export function SectionHeading({
   children,
@@ -17,8 +15,8 @@ export function SectionHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b-2 border-ink pb-2">
-      <h2 className="sign text-2xl text-ink">{children}</h2>
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-brass/40 pb-3">
+      <h2 className="sign text-[1.75rem] text-ink">{children}</h2>
       {arabic && (
         <span className="arabic text-base text-ink-faint" aria-hidden="true">
           {arabic}
