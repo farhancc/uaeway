@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AnswerChoice } from "@/lib/chat/answers";
+import { triggersMatch } from "@/lib/chat/answers";
+import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";
 import { LeadCapture } from "./LeadCapture";
 import { SITE } from "@/lib/site";
@@ -21,6 +24,12 @@ interface Message {
   caution?: string;
 }
 
+interface Trigger {
+  slug: string;
+  question: string;
+  groups: string[][];
+}
+
 const GREETING =
   "Ask me anything about working, living or setting up a business in the UAE — or about the paperwork behind it.";
 
@@ -28,6 +37,10 @@ export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chips, setChips] = useState<Chip[]>([]);
+  /** Offered when an answer could not be given without knowing which case. */
+  const [choices, setChoices] = useState<AnswerChoice[]>([]);
+  /** The author's exact triggers, matched in the browser as the visitor types. */
+  const [triggers, setTriggers] = useState<Trigger[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +49,22 @@ export function ChatWidget() {
   const [topic, setTopic] = useState<string | null>(null);
   /** Mirrors the ref so the callback form re-renders once a session exists. */
   const [sessionKnown, setSessionKnown] = useState<string | null>(null);
+
+  /**
+   * The answer the half-typed question already matches.
+   *
+   * Checked on every keystroke rather than on send: the point of an exact
+   * trigger is that the author knows what this question is, so there is no
+   * reason to make someone finish typing it. The same check runs again on the
+   * server when they do send, so tapping the hint and pressing enter give the
+   * same answer.
+   */
+  const hint = useMemo(() => {
+    if (busy || triggers.length === 0) return null;
+    const words = tokenize(input);
+    if (words.length === 0) return null;
+    return triggers.find((t) => triggersMatch(t.groups, words)) ?? null;
+  }, [input, triggers, busy]);
 
   const sessionId = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -48,6 +77,7 @@ export function ChatWidget() {
 
       setError(null);
       setBusy(true);
+      setChoices([]);
       // Clear the chips immediately: leaving them up while a reply streams
       // invites a second tap that would be answered out of order.
       setChips([]);
@@ -111,6 +141,8 @@ export function ChatWidget() {
                 next[next.length - 1] = { ...next[next.length - 1], caution: data.text };
                 return next;
               });
+            } else if (event === "choices") {
+              setChoices(data.choices);
             } else if (event === "chips") {
               setChips(data.chips);
             } else if (event === "topic") {
@@ -139,7 +171,9 @@ export function ChatWidget() {
     fetch("/api/chat")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data?.chips) setChips(data.chips);
+        if (cancelled || !data) return;
+        if (data.chips) setChips(data.chips);
+        if (data.triggers) setTriggers(data.triggers);
       })
       .catch(() => {
         // No suggestions is a fine state; typing still works.
@@ -219,6 +253,24 @@ export function ChatWidget() {
           </div>
         ))}
 
+        {/* The choices an answer offered. Ahead of the suggestions and styled
+            as the thing to do next, because the answer above is incomplete
+            until one of them is picked. */}
+        {choices.length > 0 && !busy && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {choices.map((choice) => (
+              <button
+                key={choice.answer_slug}
+                type="button"
+                onClick={() => void send(choice.label, choice.answer_slug)}
+                className="rounded-md border border-brass bg-brass/10 px-2.5 py-1.5 text-left text-xs font-medium leading-snug text-brass-deep transition-colors hover:bg-brass/20"
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {chips.length > 0 && !busy && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {chips.map((chip) => (
@@ -257,6 +309,23 @@ export function ChatWidget() {
 
         {error && <p className="text-xs leading-relaxed text-seal">{error}</p>}
       </div>
+
+      {/* Shown the moment the words are all there, above the box being typed
+          in. Tapping answers now; pressing enter reaches the same answer by the
+          same rules on the server. */}
+      {hint && (
+        <button
+          type="button"
+          onClick={() => {
+            setInput("");
+            void send(hint.question, hint.slug);
+          }}
+          className="flex w-full items-center gap-2 border-t border-brass/40 bg-brass/10 px-3 py-2.5 text-left text-xs leading-snug text-brass-deep transition-colors hover:bg-brass/20"
+        >
+          <span className="text-ink-faint">We can answer that:</span>
+          <span className="font-medium">{hint.question}</span>
+        </button>
+      )}
 
       <form
         onSubmit={(e) => {

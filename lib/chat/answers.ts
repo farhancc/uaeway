@@ -7,8 +7,14 @@
  * without a deploy or a restart.
  */
 
-import { phraseMatches, tokenize } from "../text";
+import { phraseMatches, sameWord, tokenize } from "../text";
 import { isPublicDbConfigured, supabasePublic } from "../supabase/public";
+
+/** One option an answer offers instead of guessing which case applies. */
+export interface AnswerChoice {
+  label: string;
+  answer_slug: string;
+}
 
 export interface Answer {
   id: string;
@@ -17,6 +23,16 @@ export interface Answer {
   answer_md: string;
   service_slug: string | null;
   keywords: string[];
+  /**
+   * Exact triggers: every word of ANY group must be present.
+   *
+   * Different in kind from `keywords`, which is scored and gives up when two
+   * answers fit equally well. This one does not weigh anything — if a group
+   * matches, that answer is the answer.
+   */
+  trigger_groups: string[][];
+  /** Offered after the answer, when it cannot be answered without knowing more. */
+  choices: AnswerChoice[];
   follow_up_slugs: string[];
   is_opener: boolean;
   show_on_page: boolean;
@@ -24,7 +40,7 @@ export interface Answer {
 }
 
 const FIELDS =
-  "id, slug, question, answer_md, service_slug, keywords, follow_up_slugs, is_opener, show_on_page, position";
+  "id, slug, question, answer_md, service_slug, keywords, trigger_groups, choices, follow_up_slugs, is_opener, show_on_page, position";
 
 const TTL_MS = 60_000;
 
@@ -120,6 +136,49 @@ export interface Match {
  * worse than paying for the turn: on visa and fee topics people act on what we
  * say, and being confidently wrong costs more than Gemini does.
  */
+/**
+ * Whether a piece of text fires an answer's exact triggers.
+ *
+ * Exported so the browser can run the same check as the visitor types, against
+ * the same rules — a hint that appears while typing and then does not happen on
+ * send would be worse than no hint.
+ *
+ * Word comparison is shared with everything else (`sameWord`), so "attest"
+ * fires a group written as "attestation". Demanding the exact inflection would
+ * make these triggers fire almost never, which is the failure nobody notices.
+ */
+export function triggersMatch(groups: string[][], words: string[]): boolean {
+  if (words.length === 0) return false;
+
+  return groups.some(
+    (group) =>
+      group.length > 0 &&
+      group.every((keyword) => {
+        const parts = tokenize(keyword);
+        return (
+          parts.length > 0 && parts.every((part) => words.some((word) => sameWord(word, part)))
+        );
+      }),
+  );
+}
+
+/**
+ * The exact match, tried before the scored one.
+ *
+ * An author who wrote a trigger group meant it, so it beats anything the
+ * scorer might have preferred. Order among answers is `position`, which is
+ * already the order loadAnswers returns.
+ */
+export async function matchTriggers(text: string): Promise<Answer | null> {
+  const answers = await loadAnswers();
+  if (answers.length === 0) return null;
+
+  // Every word, not just content words: a trigger of "in" or "to" is a
+  // deliberate choice by whoever wrote it, and the noise list would eat it.
+  const words = tokenize(text);
+  return answers.find((a) => triggersMatch(a.trigger_groups ?? [], words)) ?? null;
+}
+
 export async function matchAnswer(text: string): Promise<Match | null> {
   const answers = await loadAnswers();
   if (answers.length === 0) return null;

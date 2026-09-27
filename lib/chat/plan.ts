@@ -1,4 +1,4 @@
-import { getAnswer, matchAnswer, type Answer } from "./answers";
+import { getAnswer, matchAnswer, matchTriggers, type Answer } from "./answers";
 import { renderContext, retrieve } from "./retrieve";
 import { MAX_AI_TURNS, type Session } from "./session";
 import type { Turn } from "../ai/gemini";
@@ -19,10 +19,12 @@ export type Plan =
 /**
  * Cheapest route first.
  *
- * A tapped suggestion is an exact lookup — no matching, no model. A typed
- * question gets one conservative matching attempt, and anything ambiguous falls
- * through to the model on purpose: answering the wrong question costs more than
- * the tokens would, because people act on what we tell them about visas.
+ * A tapped suggestion is an exact lookup — no matching, no model. Then the
+ * exact triggers, which an author wrote deliberately and which therefore beat
+ * anything the scorer might prefer. Then one conservative scored attempt, and
+ * anything still ambiguous falls through to the model on purpose: answering the
+ * wrong question costs more than the tokens would, because people act on what
+ * we tell them about visas.
  */
 export async function planReply(
   message: string,
@@ -37,6 +39,11 @@ export async function planReply(
     // alongside it, so there is no question to work with.
     if (!message) return { kind: "retired" };
   }
+
+  // Exact first. Every word of one group present means the author already
+  // decided what this question is, and no score should be able to overrule it.
+  const triggered = await matchTriggers(message);
+  if (triggered) return { kind: "canned", answer: triggered, viaChip: false };
 
   const matched = await matchAnswer(message);
   if (matched?.confident) return { kind: "canned", answer: matched.answer, viaChip: false };

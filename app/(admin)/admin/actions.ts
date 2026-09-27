@@ -396,6 +396,42 @@ export async function deleteJobBoard(id: string): Promise<void> {
    review queue: saving one publishes it. The cache is cleared on every write so
    an edit shows in the chatbot immediately rather than after the TTL. */
 
+/**
+ * Trigger groups from one textarea: a line is a group, commas separate its
+ * words. Every word in a line must appear for that line to fire, and any one
+ * line firing is enough.
+ *
+ *   visa, cost
+ *   visa, price
+ *
+ * Empty lines and stray commas are dropped rather than becoming a group that
+ * matches everything — a group of zero words would fire on every message.
+ */
+function triggerGroups(form: FormData, field: string): string[][] {
+  return String(form.get(field) ?? "")
+    .split("\n")
+    .map((line) =>
+      line
+        .split(",")
+        .map((word) => word.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    .filter((group) => group.length > 0)
+    .slice(0, 12);
+}
+
+/** Choices from "Label | answer-slug" lines. A choice pointing nowhere is
+ *  dropped: rendering a button that cannot answer is worse than not offering
+ *  the case at all. */
+function choices(form: FormData, field: string, known: Set<string>): { label: string; answer_slug: string }[] {
+  return lines(form, field, 8)
+    .map((line) => {
+      const [label, slug] = line.split("|").map((part) => part.trim());
+      return { label, answer_slug: slug ?? "" };
+    })
+    .filter((c) => c.label && c.answer_slug && known.has(c.answer_slug));
+}
+
 function lines(form: FormData, field: string, limit: number): string[] {
   return String(form.get(field) ?? "")
     .split("\n")
@@ -404,17 +440,25 @@ function lines(form: FormData, field: string, limit: number): string[] {
     .slice(0, limit);
 }
 
-function answerFields(form: FormData) {
+async function answerFields(form: FormData) {
   const question = String(form.get("question") ?? "").trim();
   const answer_md = String(form.get("answer_md") ?? "").trim();
   if (!question) throw new Error("A question is required.");
   if (!answer_md) throw new Error("An answer is required.");
+
+  // Choices are checked against what exists, so a typo becomes a missing
+  // option rather than a button that answers nothing.
+  const db = await supabaseServer();
+  const { data } = await db.from("answers").select("slug");
+  const knownSlugs = new Set((data ?? []).map((r) => (r as { slug: string }).slug));
 
   return {
     question,
     answer_md,
     service_slug: String(form.get("service_slug") ?? "").trim() || null,
     keywords: lines(form, "keywords", 12),
+    trigger_groups: triggerGroups(form, "trigger_groups"),
+    choices: choices(form, "choices", knownSlugs),
     follow_up_slugs: form.getAll("follow_up_slugs").map(String).filter(Boolean).slice(0, 6),
     is_opener: form.get("is_opener") === "on",
     show_on_page: form.get("show_on_page") === "on",
@@ -426,7 +470,7 @@ function answerFields(form: FormData) {
 export async function createAnswer(form: FormData): Promise<{ slug: string }> {
   await requireAdmin();
 
-  const fields = answerFields(form);
+  const fields = await answerFields(form);
   // The slug is the identity a suggestion chip refers to, so it is set once at
   // creation and never edited: changing it would break chips already on screen.
   const slug = await uniqueSlug("answers", String(form.get("slug") ?? "") || fields.question);
@@ -447,7 +491,7 @@ export async function updateAnswer(id: string, form: FormData): Promise<void> {
   await requireAdmin();
 
   const db = await supabaseServer();
-  const { error } = await db.from("answers").update(answerFields(form)).eq("id", id);
+  const { error } = await db.from("answers").update(await answerFields(form)).eq("id", id);
   if (error) throw new Error(error.message);
 
   clearAnswerCache();

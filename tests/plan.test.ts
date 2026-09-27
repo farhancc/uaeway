@@ -21,6 +21,9 @@ vi.mock("@/lib/chat/answers", () => ({
   getAnswer: async (slug: string) => (slug === answer.slug ? answer : null),
   matchAnswer: async (text: string) =>
     text.includes("photocopy") ? { answer, score: 9, confident: true } : null,
+  // The exact-trigger pass runs ahead of the scored one. These cases are about
+  // the scored path, so nothing here triggers.
+  matchTriggers: async (text: string) => (text.includes("visa cost") ? answer : null),
 }));
 
 const retrieve = vi.fn(async () => []);
@@ -72,5 +75,25 @@ describe("planning a reply", () => {
   it("uses the typed words when a retired suggestion came with a question", async () => {
     const plan = await planReply("can you attest a photocopy", "since-removed", session(0), []);
     expect(plan.kind).toBe("canned");
+  });
+});
+
+/**
+ * Order of precedence.
+ *
+ * An exact trigger is an author saying "when they ask this, say that". The
+ * scored matcher is a guess about what they probably meant. A guess must never
+ * beat an instruction.
+ */
+describe("exact triggers", () => {
+  it("answers from a trigger before the scored matcher is consulted", async () => {
+    const plan = await planReply("what does a visa cost", undefined, session(0), []);
+    expect(plan.kind).toBe("canned");
+    if (plan.kind === "canned") expect(plan.viaChip).toBe(false);
+  });
+
+  it("still reaches the model when nothing triggers and nothing scores", async () => {
+    const plan = await planReply("tell me about camel racing", undefined, session(0), []);
+    expect(plan.kind).toBe("model");
   });
 });

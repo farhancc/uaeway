@@ -139,6 +139,51 @@ export function AnswerForm({
         </p>
       </div>
 
+      <div>
+        <label htmlFor="trigger_groups" className="block text-sm font-medium text-ink">
+          Exact triggers
+        </label>
+        <textarea
+          id="trigger_groups"
+          name="trigger_groups"
+          rows={4}
+          defaultValue={(answer?.trigger_groups ?? []).map((group) => group.join(", ")).join("\n")}
+          placeholder={"visa, cost\nvisa, price\nvisa, fee"}
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-xs"
+        />
+        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-ink-faint">
+          One group per line, words separated by commas.{" "}
+          <strong className="font-medium text-ink-soft">
+            Every word in a line must appear before this fires
+          </strong>{" "}
+          — and any one line is enough, which is why there are several. Unlike the keywords above
+          nothing is weighed and nothing is compared: a match means this answer, every time, and
+          the visitor sees it offered while they are still typing.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="choices" className="block text-sm font-medium text-ink">
+          Ask before answering
+        </label>
+        <textarea
+          id="choices"
+          name="choices"
+          rows={4}
+          defaultValue={(answer?.choices ?? [])
+            .map((choice) => `${choice.label} | ${choice.answer_slug}`)
+            .join("\n")}
+          placeholder={"Degree certificate | attestation-degree\nMarriage certificate | attestation-marriage"}
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-xs"
+        />
+        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-ink-faint">
+          <code>Label | answer-slug</code>, one per line. For a question with no single true
+          answer — &ldquo;how do I attest my certificate&rdquo; depends which certificate — so the
+          reply offers the cases instead of guessing. A line pointing at a slug that does not
+          exist is dropped rather than becoming a button that answers nothing.
+        </p>
+      </div>
+
       {/* Checkboxes, not a multi-select. This is the one control that decides
           whether the next turn is free, and a multi-select hides what is
           chosen behind a scrollbar and loses the lot on a stray click. */}

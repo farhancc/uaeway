@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { streamChat, generateJSON, type Turn } from "@/lib/ai/gemini";
 import { planReply } from "@/lib/chat/plan";
+import { loadAnswers } from "@/lib/chat/answers";
 import { nextChips, openerChips, type Chip } from "@/lib/chat/chips";
 import {
   CAPPED_REPLY,
@@ -41,9 +42,24 @@ async function clientIp(): Promise<string> {
   return (forwarded?.split(",")[0] || h.get("x-real-ip") || "0.0.0.0").trim();
 }
 
-/** The suggested questions shown before anyone has typed anything. */
+/**
+ * What the widget needs before the visitor has said anything: the opening
+ * suggestions, and the exact triggers.
+ *
+ * The triggers go to the browser so the check can run as someone types, with no
+ * request per keystroke. They are the author's own keywords, not secrets, and
+ * the same rules run again on the server when the message is actually sent —
+ * a hint that appears while typing and then fails to happen on send would be
+ * worse than no hint at all.
+ */
 export async function GET() {
-  return Response.json({ chips: await openerChips() });
+  const answers = await loadAnswers();
+  return Response.json({
+    chips: await openerChips(),
+    triggers: answers
+      .filter((a) => (a.trigger_groups ?? []).length > 0)
+      .map((a) => ({ slug: a.slug, question: a.question, groups: a.trigger_groups })),
+  });
 }
 
 interface Extraction {
@@ -175,6 +191,11 @@ export async function POST(request: Request) {
           source = "canned";
           reply = plan.answer.answer_md;
           send("token", { text: reply });
+          // Choices before follow-ups: this answer could not be given without
+          // knowing which case applies, so picking one is the next step rather
+          // than a suggestion of something else to ask.
+          const choices = (plan.answer.choices ?? []).filter((c) => c.label && c.answer_slug);
+          if (choices.length > 0) send("choices", { choices });
           chips = await nextChips({ answered: plan.answer, text: asked, used });
         } else if (plan.kind === "retired") {
           source = "canned";
