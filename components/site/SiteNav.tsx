@@ -20,8 +20,7 @@ const ALWAYS_SHOW_ABOVE = 24;
 
 /**
  * The second row of the mobile header: it folds away as you read down the page
- * and comes back the moment you scroll up, while the logo and the WhatsApp
- * button above it never move.
+ * and comes back the moment you scroll up, while the logo above it never moves.
  *
  * One `nav` element, not two. It wraps to its own row on a phone and sits
  * inline beside the logo from `sm` up, where the `sm:` classes also pin it
