@@ -181,7 +181,6 @@ export async function POST(request: Request) {
           reply = RETIRED_ANSWER_REPLY;
           send("token", { text: reply });
           chips = await nextChips({ text: "", used });
-          if (chips.length === 0) chips = await openerChips();
         } else if (plan.kind === "capped") {
           source = "capped";
           reply = CAPPED_REPLY;

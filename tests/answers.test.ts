@@ -144,8 +144,33 @@ describe("suggested questions", () => {
 
   it("falls back to the service's other questions after a model answer", async () => {
     const chips = await nextChips({ text: "I need a family visa for my wife", used: new Set() });
+    // On-topic first. The bank holds two visa answers, so the third slot is
+    // topped up from the openers rather than left empty.
+    expect(chips.slice(0, 2).every((c) => c.slug.includes("visa"))).toBe(true);
+  });
+
+  /**
+   * An empty chip row is what a model call looks like one turn before we pay
+   * for it: with nothing to tap, the visitor types, and a typed question is the
+   * only thing here that can reach the model.
+   */
+  it("still suggests something when the exchange matches no service at all", async () => {
+    const chips = await nextChips({ text: "tell me about camel racing", used: new Set() });
     expect(chips.length).toBeGreaterThan(0);
-    expect(chips.every((c) => c.slug.includes("visa"))).toBe(true);
+    expect(chips[0].slug).toBe("attestation-photocopy");
+  });
+
+  it("puts the on-topic questions ahead of the backstop", async () => {
+    const chips = await nextChips({ text: "how much is a golden visa", used: new Set() });
+    expect(chips[0].slug).toContain("visa");
+  });
+
+  it("offers nothing rather than repeating itself once every answer is used", async () => {
+    const chips = await nextChips({
+      text: "tell me about camel racing",
+      used: new Set(bank.map((a) => a.slug)),
+    });
+    expect(chips).toEqual([]);
   });
 });
 

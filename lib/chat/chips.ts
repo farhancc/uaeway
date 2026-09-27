@@ -35,12 +35,19 @@ export async function openerChips(limit = 4): Promise<Chip[]> {
 }
 
 /**
- * What to offer after a reply.
+ * What to offer after a reply, in order of how well it fits.
  *
  * After a canned answer, its own follow-ups — the author decided what someone
- * asking this would want next. After a model answer, other questions about
- * whichever service the exchange was about. Never a question already answered
- * in this conversation.
+ * asking this would want next. Then other questions about whichever service the
+ * exchange was about. Then the openers, so a reply is never a dead end.
+ *
+ * That last step is the one that pays. A reply with no suggestions leaves the
+ * visitor nothing to do but type, and a typed question is the only thing here
+ * that can reach the model — so an empty chip row is what a model call looks
+ * like one turn before we pay for it. "Tell me about camel racing" used to end
+ * the free path entirely.
+ *
+ * Never a question already answered in this conversation.
  */
 export async function nextChips(
   opts: { answered?: Answer | null; text?: string; used: Set<string> },
@@ -65,13 +72,25 @@ export async function nextChips(
     }
   }
 
-  // Fall back to the service the exchange is about, so a model answer still
-  // leads somewhere free.
+  // The service the exchange is about, so a model answer still leads somewhere
+  // free.
   const topic = opts.answered?.service_slug ?? matchServices(opts.text ?? "", 1)[0]?.slug;
   if (topic) {
+    const onTopic = toChips(
+      answers.filter((a) => a.service_slug === topic).sort((a, b) => a.position - b.position),
+      taken,
+      limit - chips.length,
+    );
+    chips.push(...onTopic);
+    for (const c of onTopic) taken.add(c.slug);
+  }
+
+  // Backstop: the openers. They are the questions we chose as worth asking
+  // cold, so they are the right thing to offer when we have nothing better.
+  if (chips.length < limit) {
     chips.push(
       ...toChips(
-        answers.filter((a) => a.service_slug === topic).sort((a, b) => a.position - b.position),
+        answers.filter((a) => a.is_opener).sort((a, b) => a.position - b.position),
         taken,
         limit - chips.length,
       ),
