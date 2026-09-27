@@ -95,7 +95,7 @@ export function ArticleView({ article, locale }: { article: ArticleRow; locale: 
           datePublished: article.published_at ?? undefined,
           dateModified: article.updated_at,
           inLanguage: article.locale,
-          publisher: { "@type": "Organization", name: SITE.company },
+          publisher: { "@type": "Organization", name: SITE.name },
           mainEntityOfPage: `${SITE.url}${href(locale, articlePath(article.kind, article.slug))}`,
         }}
       />

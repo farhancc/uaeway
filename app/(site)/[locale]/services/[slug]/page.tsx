@@ -62,12 +62,23 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
           </p>
           <p className="mt-6 max-w-[64ch] leading-relaxed text-ink-soft">{service.summary}</p>
 
-          {service.licence === "partner" && (
-            <p className="mt-4 max-w-[64ch] rounded-md border border-rule bg-paper px-4 py-3 text-sm leading-relaxed text-ink-soft">
-              This service is delivered together with a licensed partner. We manage the process and
-              stay your point of contact throughout.
-            </p>
-          )}
+          {/* Who actually does the work, said plainly before anyone hands over
+              a document or a fee. Both cases are stated — saying nothing on the
+              in-house ones would let the referred wording bleed across. */}
+          <p className="mt-4 max-w-[64ch] rounded-md border border-rule bg-paper px-4 py-3 text-sm leading-relaxed text-ink-soft">
+            {service.delivery === "referred" ? (
+              <>
+                We do not carry this out ourselves. We work out what your case actually needs and
+                put you in touch with a licensed provider who does — and we stay your point of
+                contact while it runs.
+              </>
+            ) : (
+              <>
+                We do this one ourselves, start to finish. No third party, no handover in the
+                middle.
+              </>
+            )}
+          </p>
 
           <section className="mt-10">
             <SectionHeading arabic="لمن هذه الخدمة">Who this is for</SectionHeading>

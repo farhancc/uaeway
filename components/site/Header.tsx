@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { href } from "@/lib/i18n";
-import { whatsappLink } from "@/lib/site";
+import { SITE, whatsappLink } from "@/lib/site";
 
 const NAV = [
   { path: "/jobs", label: "Jobs" },
@@ -22,7 +22,7 @@ export function Header({ locale }: { locale: string }) {
     <header className="bg-ink">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-5">
         <Link href={href(locale)} className="sign shrink-0 text-xl text-paper">
-          UAE Gateway
+          {SITE.name}
         </Link>
 
         {wa && (

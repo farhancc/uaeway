@@ -1,4 +1,4 @@
--- UAE Gateway initial schema.
+-- UAEvia initial schema.
 --
 -- Two invariants the whole application depends on:
 --   1. Content is invisible to the public until a human sets status = 'approved'.

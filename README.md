@@ -1,7 +1,7 @@
-# UAE Gateway
+# UAEvia
 
 An automated UAE content portal — job openings, guides and news — that turns
-organic search traffic into leads for Wordcraft's services: attestation,
+organic search traffic into leads for UAE service providers: attestation,
 certified legal translation, visa processing, notary, business setup, higher
 studies, CV writing and websites.
 
@@ -299,11 +299,12 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
 
 ## Before launch
 
-- [ ] **Confirm which services Wordcraft is licensed to deliver directly.** Set
-      `licence` on each entry in `lib/services.ts` to `direct` or `partner`.
-      They are all `unconfirmed` today, and the copy stays neutral until you
-      change them. Visa processing, attestation, notary and legal translation
-      are regulated activities in the UAE.
+- [ ] **Decide which services are delivered in-house vs referred out.** Set
+      `licence` on each entry in `lib/services.ts` to `direct` (we do it) or
+      `partner` (a licensed provider does it, and the page says so). Most are
+      `unconfirmed` today and the copy stays neutral until you change them.
+      Visa processing, attestation, notary and legal translation are regulated
+      activities in the UAE — this site must not imply it performs them.
 - [ ] Have `/privacy` and `/terms` reviewed by a UAE legal adviser.
 - [ ] Get a Careerjet v4 key and run one real ingest.
 - [ ] Add at least one admin to the `admins` table.

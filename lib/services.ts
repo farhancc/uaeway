@@ -9,13 +9,20 @@ import { phraseMatches, tokenize } from "./text";
  * one definition of what we sell and how we talk about it.
  */
 
-export type LicenceStatus =
-  /** Wordcraft is licensed to deliver this itself. */
-  | "direct"
-  /** Delivered through a licensed partner; the site must say so. */
-  | "partner"
-  /** Not yet confirmed by the business — copy stays neutral until it is. */
-  | "unconfirmed";
+/**
+ * Who actually carries the work out.
+ *
+ * Most of what this site covers is regulated — attestation, legal translation,
+ * notarisation, visa filing — and is done by licensed providers we introduce
+ * people to. Two lines are done in-house. The difference has to be visible on
+ * the page, because a visitor deciding whether to hand over a document and a
+ * fee should know who they are dealing with.
+ */
+export type Delivery =
+  /** We do this ourselves. */
+  | "in-house"
+  /** A licensed provider does it; we work out what is needed and introduce you. */
+  | "referred";
 
 export interface IntakeField {
   name: string;
@@ -48,7 +55,7 @@ export interface Service {
   keywords: string[];
   intake: IntakeField[];
   related: string[];
-  licence: LicenceStatus;
+  delivery: Delivery;
   /**
    * Set once pricing is agreed. Left undefined deliberately: an invented price
    * on a regulated service is worse than no price.
@@ -77,10 +84,10 @@ export const SERVICES: Service[] = [
       "Companies filing contracts, MoUs or licences",
     ],
     process: [
-      "Send a photo or scan of the document on WhatsApp for a quote",
-      "We confirm price and turnaround before starting",
-      "A licensed legal translator produces the translation",
-      "You receive the stamped, signed certified copy — soft copy first, hard copy on request",
+      "Send a photo or scan on WhatsApp and tell us what the translation is for",
+      "We work out what it actually needs — certified translation, attestation first, or both",
+      "We put you in touch with a translator licensed by the Ministry of Justice, with the price and turnaround agreed before anything starts",
+      "They produce the stamped, signed certified copy; we stay in the loop until you have it",
     ],
     documents: [
       "Clear scan or photo of every page",
@@ -116,14 +123,14 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Anything else we should know?", type: "textarea", required: false },
     ],
     related: ["attestation", "notary", "visa-processing"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "attestation",
     name: "Certificate Attestation",
     nameAr: "تصديق الشهادات",
     shortName: "Attestation",
-    tagline: "Home country, embassy and MoFAIC attestation, handled end to end.",
+    tagline: "Home country, embassy and MoFAIC attestation — we get it moving.",
     summary:
       "Attestation is the chain of stamps that proves a document issued outside the UAE is genuine. It normally runs from the issuing authority in your home country, through that country's foreign ministry, the UAE embassy there, and finally the UAE Ministry of Foreign Affairs. Missing one step means the document is refused.",
     whoItsFor: [
@@ -132,10 +139,10 @@ export const SERVICES: Service[] = [
       "Anyone applying for a family or golden visa",
     ],
     process: [
-      "We confirm which stamps your document already has and what is missing",
-      "We quote the full remaining chain, with government fees itemised separately",
-      "We run the document through each authority in order",
-      "You get the attested original back, plus a scan at each milestone",
+      "Send us the certificate and we check which stamps it already carries",
+      "We map the remaining chain for your issuing country and what each step involves",
+      "We introduce you to a provider who runs it through those authorities in order",
+      "You get the attested original back; we follow up at each stage so it does not stall",
     ],
     documents: [
       "Original certificate (copies cannot be attested)",
@@ -172,7 +179,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "What is it for?", type: "textarea", required: false },
     ],
     related: ["legal-translation", "visa-processing", "higher-studies"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "visa-processing",
@@ -188,10 +195,10 @@ export const SERVICES: Service[] = [
       "Freelancers and remote workers who need their own permit",
     ],
     process: [
-      "We review your situation and list exactly which documents your application needs",
-      "We check every document for the mismatches that cause rejections",
-      "We prepare and submit the application through the correct channel",
-      "We track it and tell you what each status change actually means",
+      "Tell us your situation and we list exactly which documents the application needs",
+      "We check what you have against the mismatches that cause most refusals",
+      "We connect you with a licensed provider or typing centre to prepare and submit it",
+      "We help you read what each status change actually means while it is in progress",
     ],
     documents: [
       "Passport with sufficient validity",
@@ -231,7 +238,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Tell us your situation", type: "textarea", required: false },
     ],
     related: ["attestation", "legal-translation", "business-setup"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "notary",
@@ -247,10 +254,10 @@ export const SERVICES: Service[] = [
       "People who need a sworn declaration for a government or court process",
     ],
     process: [
-      "We confirm what instrument you actually need and who must sign",
-      "We draft or review the wording in the required bilingual format",
-      "We arrange the notary appointment",
-      "You receive the notarised document and a digital copy",
+      "We work out which instrument you actually need and who has to sign it",
+      "We check the wording is in the bilingual form a UAE notary will accept",
+      "We connect you with a provider who arranges the notary appointment",
+      "You receive the notarised document; we check nothing was left out",
     ],
     documents: [
       "Emirates ID and passport of every signatory",
@@ -286,26 +293,26 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Brief details", type: "textarea", required: false },
     ],
     related: ["legal-translation", "business-setup", "attestation"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "business-setup",
     name: "Business Setup in the UAE",
     nameAr: "تأسيس الشركات",
     shortName: "Business setup",
-    tagline: "Mainland and free zone company formation, start to licence in hand.",
+    tagline: "Mainland and free zone company formation, from first decision to licence.",
     summary:
-      "End-to-end company formation: choosing between mainland and free zone, reserving the trade name, drafting the constitutional documents, obtaining the licence, opening the corporate bank account and processing investor and staff visas. The structure you pick at the start determines your costs, your visa quota and what you are allowed to invoice for.",
+      "Company formation runs from choosing between mainland and free zone, through reserving the trade name, drafting the constitutional documents, obtaining the licence, opening the corporate bank account and processing investor and staff visas. The structure you pick at the start determines your costs, your visa quota and what you are allowed to invoice for — which is where most of the value in getting help is.",
     whoItsFor: [
       "Founders setting up their first UAE entity",
       "Foreign companies opening a UAE branch",
       "Freelancers outgrowing a permit and needing a real licence",
     ],
     process: [
-      "We map your activity to the right jurisdiction and licence type",
-      "Trade name reservation and initial approval",
-      "Constitutional documents, notarisation and lease or flexi-desk",
-      "Licence issue, establishment card, then bank account and visas",
+      "We work through what you will actually be selling, and to whom",
+      "We narrow it to the jurisdictions and licence types that genuinely fit",
+      "We introduce you to a licensed corporate services provider to file it",
+      "We stay with you through licence, establishment card, bank account and visas",
     ],
     documents: [
       "Passport copies of all shareholders",
@@ -339,7 +346,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Anything else?", type: "textarea", required: false },
     ],
     related: ["visa-processing", "notary", "web-development"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "higher-studies",
@@ -355,10 +362,10 @@ export const SERVICES: Service[] = [
       "Professionals returning to study part-time",
     ],
     process: [
-      "We shortlist programmes that match your grades, budget and goal",
-      "We prepare the application file and personal statement",
-      "We handle certificate attestation and equivalency",
-      "We process the student visa once you have an offer",
+      "We shortlist programmes that fit your grades, budget and what you want afterwards",
+      "We tell you which certificates need attestation or equivalency, and in what order",
+      "We connect you with providers for the attestation and the application itself",
+      "We help you hold the student visa timeline against the intake deadline",
     ],
     documents: [
       "School or previous degree certificates and transcripts",
@@ -389,7 +396,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Your current qualification", type: "textarea", required: false },
     ],
     related: ["attestation", "legal-translation", "cv-resume"],
-    licence: "unconfirmed",
+    delivery: "referred",
   },
   {
     slug: "cv-resume",
@@ -433,7 +440,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "Years of experience and current field", type: "textarea", required: false },
     ],
     related: ["legal-translation", "attestation", "web-development"],
-    licence: "direct",
+    delivery: "in-house",
   },
   {
     slug: "web-development",
@@ -483,7 +490,7 @@ export const SERVICES: Service[] = [
       { name: "need", label: "What should it achieve?", type: "textarea", required: false },
     ],
     related: ["business-setup", "cv-resume"],
-    licence: "direct",
+    delivery: "in-house",
   },
 ];
 

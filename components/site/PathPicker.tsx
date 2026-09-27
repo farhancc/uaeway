@@ -61,7 +61,7 @@ export function PathPicker({ locale }: { locale: string }) {
                     href={href(locale, `/services/${service.slug}`)}
                     className="mt-1.5 inline-block text-sm text-brass underline underline-offset-4 hover:text-paper"
                   >
-                    We handle this: {service.shortName}
+                    We can help with this: {service.shortName}
                   </Link>
                 ) : (
                   <p className="mt-1.5 text-sm text-onink/70">Your employer handles this part.</p>

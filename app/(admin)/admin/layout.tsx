@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE } from "@/lib/site";
 import Link from "next/link";
 import { Archivo, Archivo_Black } from "next/font/google";
 import "../../globals.css";
@@ -12,7 +13,7 @@ const archivoBlack = Archivo_Black({
 });
 
 export const metadata: Metadata = {
-  title: "Admin — UAE Gateway",
+  title: `Admin — ${SITE.name}`,
   // Never index the admin area, whatever robots.txt says.
   robots: { index: false, follow: false, nocache: true },
 };

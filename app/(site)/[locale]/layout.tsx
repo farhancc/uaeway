@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Fraunces, Inter, Noto_Naskh_Arabic } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { JsonLd } from "@/components/site/JsonLd";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
 import { SITE, whatsappLink } from "@/lib/site";
@@ -73,6 +74,19 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
         </main>
         <Footer locale={locale} />
         <ChatWidget whatsappHref={whatsappLink("Hello — I was using the assistant on your site.")} />
+        {/* Organization, not LocalBusiness: this site is not a storefront with
+            an address and opening hours, it is a place people research from and
+            get introduced to providers. Kept to facts we can stand behind. */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: SITE.name,
+            url: SITE.url,
+            description: SITE.description,
+            areaServed: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah", "Fujairah", "Umm Al Quwain"],
+          }}
+        />
       </body>
     </html>
   );

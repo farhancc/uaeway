@@ -59,7 +59,7 @@ function sourceCitation(guide: GuideSource): Citation {
   };
 }
 
-const SYSTEM_PROMPT = `You write blog posts for ${SITE.name}, a UAE services site operated by ${SITE.company}. Its
+const SYSTEM_PROMPT = `You write blog posts for ${SITE.name}, a UAE guidance site. Its
 readers are moving to, working in, or starting a business in the UAE.
 
 Ground rules, without exception:

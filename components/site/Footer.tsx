@@ -24,7 +24,7 @@ export function Footer({ locale }: { locale: string }) {
           <div>
             <p className="sign text-xl text-paper">{SITE.name}</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-onink">
-              Operated by {SITE.company}, {SITE.area}.
+              Independent. Based in {SITE.area}.
             </p>
           </div>
 
@@ -78,7 +78,7 @@ export function Footer({ locale }: { locale: string }) {
             authority.
           </p>
           <p>
-            © {new Date().getFullYear()} {SITE.company}. All rights reserved.
+            © {new Date().getFullYear()} {SITE.name}. All rights reserved.
           </p>
         </div>
       </div>

@@ -15,9 +15,11 @@ export default function TermsPage() {
       <div className="prose-doc mt-8">
         <h2>What this site is</h2>
         <p>
-          {SITE.name} publishes job listings, guides and news, and describes services offered by{" "}
-          {SITE.company}. Using the site does not create a client relationship; that starts when we
-          agree a specific piece of work with you.
+          {SITE.name} publishes job listings, guides and news, and introduces people to third-party
+          providers of the services described here. We do not ourselves carry out regulated work
+          such as legal translation, attestation, notarisation or visa filing — licensed providers
+          do that, and your agreement for the work itself is with them. Using this site does not
+          create a client relationship with us or with any provider.
         </p>
 
         <h2>Information, not advice</h2>

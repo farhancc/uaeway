@@ -13,7 +13,7 @@ export async function buildDigest(limit = 5): Promise<string | null> {
   const jobs = await listJobs({ limit });
   if (jobs.length === 0) return null;
 
-  const lines = ["*UAE Gateway — today's openings*", ""];
+  const lines = [`*${SITE.name} — today's openings*`, ""];
 
   jobs.forEach((job, i) => {
     lines.push(`${i + 1}. *${job.title}*`);
@@ -25,11 +25,11 @@ export async function buildDigest(limit = 5): Promise<string | null> {
 
   lines.push("——————————————");
   lines.push(
-    "Applying for a job in the UAE? Most employers need your degree and experience certificates translated and attested before a work permit is issued. We handle both.",
+    "Applying for a job in the UAE? Most employers need your degree and experience certificates translated and attested before a work permit is issued. Send us the document and we will tell you what it needs and who can do it.",
   );
 
   const number = whatsappNumber();
-  if (number) lines.push(`Send us the document for a quote: https://wa.me/${number}`);
+  if (number) lines.push(`https://wa.me/${number}`);
   lines.push("");
   lines.push("Never pay a fee to be given a job.");
 

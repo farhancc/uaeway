@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Chip } from "@/lib/chat/chips";
+import { SITE } from "@/lib/site";
 
 /**
  * The site assistant.
@@ -178,7 +179,7 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
       className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-lg border border-rule bg-field shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
     >
       <div className="flex items-center justify-between border-b border-rule px-4 py-3">
-        <p className="sign text-base text-ink">Ask UAE Gateway</p>
+        <p className="sign text-base text-ink">Ask {SITE.name}</p>
         <button
           type="button"
           onClick={() => setOpen(false)}

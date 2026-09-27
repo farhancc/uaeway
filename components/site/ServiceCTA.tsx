@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { href } from "@/lib/i18n";
 import type { Service } from "@/lib/services";
-import { whatsappLink } from "@/lib/site";
+import { SITE, whatsappLink } from "@/lib/site";
 
 /**
  * The contextual call to action. Takes the service the surrounding page is
@@ -18,7 +18,7 @@ export function ServiceCTA({
   context?: string;
 }) {
   const message = context
-    ? `Hello — I saw "${context}" on UAE Gateway and I need help with ${service.shortName.toLowerCase()}.`
+    ? `Hello — I saw "${context}" on ${SITE.name} and I need help with ${service.shortName.toLowerCase()}.`
     : `Hello — I need help with ${service.shortName.toLowerCase()}.`;
   const wa = whatsappLink(message);
 

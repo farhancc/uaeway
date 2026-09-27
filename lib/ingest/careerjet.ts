@@ -68,7 +68,7 @@ async function runSearch(search: JobSearch, header: string): Promise<RawJob[]> {
     // end user to attribute; CAREERJET_USER_IP lets you set the server's
     // public address if Careerjet asks for a real one.
     user_ip: process.env.CAREERJET_USER_IP || "127.0.0.1",
-    user_agent: "uae-gateway-ingest/1.0",
+    user_agent: "uaevia-ingest/1.0",
   });
 
   const res = await fetch(`${ENDPOINT}?${params}`, {

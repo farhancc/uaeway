@@ -3,7 +3,7 @@ import { SITE, whatsappLink, whatsappNumber } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: `Contact ${SITE.company} in ${SITE.area}.`,
+  description: `Contact ${SITE.name}, ${SITE.area}.`,
 };
 
 export default function ContactPage() {
@@ -31,7 +31,7 @@ export default function ContactPage() {
         )}
 
         <div className="rounded-md border border-rule bg-field p-5">
-          <h2 className="sign text-lg text-ink">{SITE.company}</h2>
+          <h2 className="sign text-lg text-ink">{SITE.name}</h2>
           <p className="mt-1 text-sm text-ink-soft">{SITE.area}</p>
         </div>
       </div>

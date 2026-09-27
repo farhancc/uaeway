@@ -3,7 +3,7 @@ import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "About",
-  description: `${SITE.name} is run by ${SITE.company} in ${SITE.area}.`,
+  description: `${SITE.name} is an independent UAE jobs and guidance site, based in ${SITE.area}.`,
 };
 
 export default function AboutPage() {
@@ -13,10 +13,17 @@ export default function AboutPage() {
 
       <div className="prose-doc mt-8">
         <p>
-          {SITE.name} is run by {SITE.company}, based in {SITE.area}. We handle the paperwork
-          behind moving to, working in and doing business in the UAE — attestation, certified legal
-          translation, visa applications, notary documents and company formation — and we write
-          about how that paperwork actually works.
+          {SITE.name} is an independent site based in {SITE.area}. We publish job openings and
+          plain-English guides to the paperwork behind moving to, working in and doing business in
+          the UAE — attestation, certified legal translation, visas, notary documents and company
+          formation — and we put people in touch with the licensed providers who carry that work
+          out.
+        </p>
+        <p>
+          We do not perform regulated work ourselves. Attestation, legal translation, notarisation
+          and visa filing are done by licensed providers; our part is working out what you actually
+          need and introducing you to someone who can do it properly. CV writing and website
+          building we do in-house — those are the two we handle start to finish.
         </p>
 
         <h2>Why the site exists</h2>

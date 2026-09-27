@@ -26,7 +26,7 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
       },
       {
         "q": "Do I need attestation as well as translation?",
-        "a": "Often yes — they are separate steps. Attestation proves the original is genuine; translation makes it readable to the authority. We can tell you which you need for your specific case."
+        "a": "Often yes — they are separate steps. Attestation proves the original is genuine; translation makes it readable to the authority. We can tell you which your case needs before you pay anyone for either."
       }
     ]
   },
@@ -39,11 +39,11 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
       },
       {
         "q": "How much does attestation cost?",
-        "a": "The government fees differ by country and document type and are revised periodically, so we quote per case rather than publishing a figure that would soon be wrong."
+        "a": "Government fees differ by country and document type and are revised periodically, so a provider quotes per case rather than publishing a figure that would soon be wrong. We will get you that quote before you commit."
       },
       {
         "q": "My degree is from India. Does that change anything?",
-        "a": "Yes. Each country has its own route — for example some require state-level authentication before the national foreign ministry. We handle the specific chain for your country."
+        "a": "Yes. Each country has its own route — for example some require state-level authentication before the national foreign ministry. We map the chain for your country and point you at a provider who runs it."
       }
     ]
   },
@@ -56,11 +56,11 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
       },
       {
         "q": "Can you guarantee approval?",
-        "a": "No, and nobody honestly can — approval is the authority's decision. What we can do is make sure the file does not fail on paperwork."
+        "a": "No, and nobody honestly can — approval is the authority's decision. What we can do is make sure the file does not fail on paperwork before it gets there."
       },
       {
         "q": "My visa application was rejected. Can you help?",
-        "a": "Usually yes. We look at the rejection reason, fix the underlying document problem, and advise whether to reapply or take a different route."
+        "a": "Usually yes. We look at the rejection reason, work out the underlying document problem, and advise whether to reapply or take a different route."
       }
     ]
   },
@@ -69,7 +69,7 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
     "faqs": [
       {
         "q": "Does a power of attorney need to be in Arabic?",
-        "a": "UAE notaries work in Arabic, so instruments are normally notarised bilingually with a certified Arabic translation. We handle both parts together."
+        "a": "UAE notaries work in Arabic, so instruments are normally notarised bilingually with a certified Arabic translation. We line both parts up so they are not done out of order."
       },
       {
         "q": "Can I notarise a document if I am outside the UAE?",
@@ -103,7 +103,7 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
       },
       {
         "q": "Can you guarantee admission?",
-        "a": "No. We make the application as strong and as complete as it can be; the decision is the university's."
+        "a": "No. The aim is an application that is as strong and complete as it can be; the decision is the university's."
       }
     ]
   },

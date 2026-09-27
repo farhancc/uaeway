@@ -83,12 +83,12 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
               {
                 term: "Quoted per case",
                 detail:
-                  "Government charges are itemised separately from our fee. We quote against your actual documents rather than advertising a headline price few people qualify for.",
+                  "Where a provider does the work you see their charge and the government charge separately, against your actual documents — not a headline price few people qualify for.",
               },
               {
                 term: "Told straight",
                 detail:
-                  "We say what your application really needs, including when the answer is that you do not need us. A job we talk you out of costs us less than one we get wrong.",
+                  "We say what your application really needs, including when the answer is that you do not need anyone. Talking you out of something costs us less than pointing you at the wrong thing.",
               },
               {
                 term: "Nothing invented",
@@ -139,8 +139,9 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <ArticleStrip section={SECTIONS.blog} articles={posts} locale={locale} />
 
         <p className="max-w-[58ch] pt-20 leading-relaxed text-ink-faint">
-          {SITE.company} is based in {SITE.area}. We tell you what an application realistically
-          needs, including when the answer is that you do not need us.
+          {SITE.name} is based in {SITE.area}. We tell you what an application realistically
+          needs, and which providers actually do that work — including when the answer is that you
+          do not need anyone.
         </p>
       </div>
     </>

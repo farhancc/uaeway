@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
       <div className="prose-doc mt-8">
         <p>
-          This explains what {SITE.company} collects through {SITE.name}, why, and how to have it
+          This explains what {SITE.name} collects, why, and how to have it
           removed. It is written to follow UAE Federal Decree-Law No. 45 of 2021 on the Protection
           of Personal Data.
         </p>
