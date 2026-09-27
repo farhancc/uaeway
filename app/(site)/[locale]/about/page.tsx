@@ -41,10 +41,10 @@ export default function AboutPage() {
           charge candidates a fee.
         </p>
         <p>
-          We use AI to draft summaries and article material. Nothing reaches the site
-          automatically: a person reviews every job and every article before it is published, and
-          articles carry their sources. If you find something wrong here, tell us and we will fix
-          or remove it.
+          We use AI to draft summaries and article material. Nothing AI-written reaches the site
+          automatically: a person reviews every drafted job and article before it is published, and
+          articles carry their sources. Listings and posts we write ourselves we publish directly.
+          If you find something wrong here, tell us and we will fix or remove it.
         </p>
 
         <h2>What we will not do</h2>

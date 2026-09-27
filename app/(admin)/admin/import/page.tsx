@@ -11,12 +11,17 @@ export default async function ImportPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="sign text-xl text-ink">Import</h1>
       <p className="mt-1 max-w-[64ch] text-sm leading-relaxed text-ink-soft">
-        Paste a list of jobs or posts and they go straight into the{" "}
+        Paste a list of jobs or posts and they go straight onto the site. For work that already
+        exists somewhere — a spreadsheet, a list you keep by hand, output from another tool — so it
+        does not have to be retyped a form at a time.
+      </p>
+      <p className="mt-2 max-w-[64ch] text-sm leading-relaxed text-ink-soft">
+        This is the one path that skips the{" "}
         <Link href="/admin" className="text-brass-deep underline underline-offset-2">
           review queue
         </Link>
-        . For work that already exists somewhere — a spreadsheet, a list you keep by hand, output
-        from another tool — so it does not have to be retyped a form at a time.
+        , on the grounds that you wrote these yourself. Anything drafted by AI still goes through
+        review.
       </p>
 
       <ImportForm />

@@ -110,9 +110,13 @@ export function ImportForm() {
           placeholder={EXAMPLE[kind]}
           className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-xs leading-relaxed"
         />
-        <p className="mt-1 text-xs text-ink-faint">
-          One object or an array of them. Everything arrives in the review queue as pending — bulk
-          import is not a way to publish without reading.
+        <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+          One object or an array of them.{" "}
+          <strong className="font-medium text-brass-deep">
+            These go live immediately — they do not pass through the review queue.
+          </strong>{" "}
+          Validation checks that a row is well formed, not that it is true, so read the paste
+          before you send it.
         </p>
 
         <div className="mt-3 flex items-center gap-3">
@@ -122,7 +126,7 @@ export function ImportForm() {
             disabled={pending || !text.trim()}
             className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
           >
-            {pending ? "Importing…" : `Import ${kind === "jobs" ? "jobs" : "posts"}`}
+            {pending ? "Publishing…" : `Publish ${kind === "jobs" ? "jobs" : "posts"}`}
           </button>
           <button
             type="button"
@@ -157,9 +161,9 @@ export function ImportForm() {
 
         {result && result.errors.length === 0 && (
           <p className="mt-3 rounded-md border border-brass/40 bg-brass/5 px-3 py-2 text-sm text-brass-deep">
-            Imported {result.imported}
-            {result.duplicates > 0 && `, skipped ${result.duplicates} already held`}. They are in
-            the review queue.
+            Published {result.imported}
+            {result.duplicates > 0 && `, skipped ${result.duplicates} already held`}. Live on the
+            site now.
           </p>
         )}
       </div>

@@ -416,6 +416,13 @@ export async function setAnswerOpener(id: string, isOpener: boolean): Promise<vo
 }
 
 
+/** Imported rows go straight to the public site, so every cached surface that
+ *  lists them has to be rebuilt — not just the admin. */
+function revalidateImported(): void {
+  revalidatePath("/admin");
+  revalidatePath("/[locale]", "layout");
+}
+
 export interface ImportResult {
   imported: number;
   /** Jobs already held, matched on the apply link. Not an error: re-pasting a
@@ -443,11 +450,17 @@ function readBatch(raw: string): unknown[] {
 }
 
 /**
- * Bulk job import. Everything lands as `pending` for review, exactly as the
- * nightly ingest does.
+ * Bulk job import. Publishes straight to the site.
+ *
+ * Unlike the nightly ingest, which queues AI-summarised listings for a human to
+ * read, these rows were written by the admin pasting them — the review step
+ * would be reviewing your own work. The trade-off is real and worth stating:
+ * validation checks that a row is well-formed, not that it is true, so a wrong
+ * figure in the paste is a wrong figure on the live site immediately.
  */
 export async function importJobs(raw: string): Promise<ImportResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const now = new Date().toISOString();
 
   const { rows, errors } = parseRows(jobImport, readBatch(raw));
   const linkErrors = checkApplyLinks(rows);
@@ -479,7 +492,9 @@ export async function importJobs(raw: string): Promise<ImportResult> {
       documents_needed: row.documentsNeeded,
       posted_at: postedAt,
       expires_at: jobExpiry(postedAt),
-      status: "pending",
+      status: "approved",
+      reviewed_by: admin.id,
+      reviewed_at: now,
     });
 
     if (!error) imported += 1;
@@ -487,13 +502,15 @@ export async function importJobs(raw: string): Promise<ImportResult> {
     else throw new Error(`Row for "${row.title}" failed: ${error.message}`);
   }
 
-  revalidatePath("/admin");
+  revalidateImported();
   return { imported, duplicates, errors: [] };
 }
 
-/** Bulk article import — guides, news or blog posts. Also `pending`. */
+/** Bulk article import — guides, news or blog posts. Also published on import;
+ *  see importJobs for why, and for what that costs. */
 export async function importArticles(raw: string): Promise<ImportResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const now = new Date().toISOString();
 
   const { rows, errors } = parseRows(articleImport, readBatch(raw));
   if (errors.length > 0) return { imported: 0, duplicates: 0, errors };
@@ -511,13 +528,17 @@ export async function importArticles(raw: string): Promise<ImportResult> {
       body_md: row.bodyMd,
       service_slug: row.serviceSlug ?? null,
       citations: toCitations(row.sources),
-      status: "pending",
+      // An article is only live once it has a publish date; jobs use posted_at.
+      status: "approved",
+      published_at: now,
+      reviewed_by: admin.id,
+      reviewed_at: now,
     });
 
     if (error) throw new Error(`Row for "${row.title}" failed: ${error.message}`);
     imported += 1;
   }
 
-  revalidatePath("/admin");
+  revalidateImported();
   return { imported, duplicates: 0, errors: [] };
 }

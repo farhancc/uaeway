@@ -15,6 +15,10 @@ import {
  * it. Importing the good ones leaves you guessing which half landed, so the
  * batch is refused and every bad row is named — and because nothing was
  * written, fixing and re-pasting is free.
+ *
+ * That gate carries more weight than it used to: imported rows publish straight
+ * to the live site rather than queueing for review, so validation is the only
+ * thing standing between a paste and the public.
  */
 
 const job = {
