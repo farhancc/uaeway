@@ -38,14 +38,20 @@ export async function startSession(
 ): Promise<Session> {
   const db = supabaseAdmin();
 
-  const since = new Date(Date.now() - 3600_000).toISOString();
-  const { count } = await db
-    .from("chat_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("ip_hash", ipHash)
-    .gte("created_at", since);
+  // Not in development. The limit is per IP, and a dev machine is one IP, so
+  // every reload and every curl spends one of the twelve — you lock yourself
+  // out of your own chatbot in an afternoon's work and the failure looks like
+  // a bug in whatever you were actually testing.
+  if (process.env.NODE_ENV === "production") {
+    const since = new Date(Date.now() - 3600_000).toISOString();
+    const { count } = await db
+      .from("chat_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("ip_hash", ipHash)
+      .gte("created_at", since);
 
-  if ((count ?? 0) >= MAX_SESSIONS_PER_IP_HOUR) throw new RateLimited();
+    if ((count ?? 0) >= MAX_SESSIONS_PER_IP_HOUR) throw new RateLimited();
+  }
 
   const { data, error } = await db
     .from("chat_sessions")
