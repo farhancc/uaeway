@@ -12,6 +12,7 @@ import { jobExpiry } from "../jobs";
 import { uniqueSlug } from "../slug";
 import { supabaseAdmin } from "../supabase/admin";
 import { JOB_CATEGORIES, normalizeEmirate } from "../uae";
+import { fetchBoards, type JobBoard } from "./boards";
 import { fetchCareerjet } from "./careerjet";
 import { fetchJooble } from "./jooble";
 import { dedupe, type JobSearch, type RawJob } from "./source";
@@ -103,19 +104,59 @@ async function activeSearches(): Promise<JobSearch[]> {
   return (data ?? []) as JobSearch[];
 }
 
+async function activeBoards(): Promise<(JobBoard & { id: string })[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("job_boards")
+    .select("id, ats, slug, name")
+    .eq("active", true);
+
+  if (error) throw new Error(`could not read job_boards: ${error.message}`);
+  return (data ?? []) as (JobBoard & { id: string })[];
+}
+
+/**
+ * Records how each board went, so a renamed or deleted board is visible in the
+ * admin rather than a warning in last night's log. Best-effort: bookkeeping
+ * must never fail the run that produced the jobs.
+ */
+async function recordBoardRuns(
+  boards: (JobBoard & { id: string })[],
+  errors: { board: JobBoard; message: string }[],
+): Promise<void> {
+  const failed = new Map(errors.map((e) => [`${e.board.ats}/${e.board.slug}`, e.message]));
+  const now = new Date().toISOString();
+
+  await Promise.all(
+    boards.map(async (board) => {
+      const { error } = await supabaseAdmin()
+        .from("job_boards")
+        .update({ last_run_at: now, last_error: failed.get(`${board.ats}/${board.slug}`) ?? null })
+        .eq("id", board.id);
+      if (error) console.warn(`[ingest] could not record board run: ${error.message}`);
+    }),
+  );
+}
+
 export async function ingestJobs(): Promise<IngestResult> {
   const db = supabaseAdmin();
-  const searches = await activeSearches();
-  if (searches.length === 0) {
-    console.log("[ingest] no active job searches configured");
+  const [searches, boards] = await Promise.all([activeSearches(), activeBoards()]);
+  if (searches.length === 0 && boards.length === 0) {
+    console.log("[ingest] no active job searches or employer boards configured");
     return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
   }
 
-  // Every configured source, in parallel. A source with no key logs that it is
-  // skipping and returns nothing, so this is also how the ingest behaves before
-  // anyone has signed up for anything: it runs, finds nothing, and says so.
-  const batches = await Promise.all([fetchJooble(searches), fetchCareerjet(searches)]);
-  const fetched = dedupe(batches.flat());
+  // Every source, in parallel. The keyed ones answer searches; the employer
+  // boards answer a curated list and need no key at all. A source with nothing
+  // configured logs that it is sitting out and returns nothing, which is also
+  // how the whole ingest behaves before anyone has signed up for anything.
+  const [jooble, careerjet, boardResult] = await Promise.all([
+    fetchJooble(searches),
+    fetchCareerjet(searches),
+    fetchBoards(boards),
+  ]);
+  await recordBoardRuns(boards, boardResult.errors);
+
+  const fetched = dedupe([...jooble, ...careerjet, ...boardResult.jobs]);
   console.log(`[ingest] fetched ${fetched.length} listings`);
   if (fetched.length === 0) return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
 

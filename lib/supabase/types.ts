@@ -82,6 +82,20 @@ export interface JobSearchRow {
   created_at: string;
 }
 
+export type Ats = "greenhouse" | "lever";
+
+export interface JobBoardRow {
+  id: string;
+  ats: Ats;
+  slug: string;
+  name: string;
+  active: boolean;
+  last_run_at: string | null;
+  /** Why the last run of this board failed, or null if it worked. */
+  last_error: string | null;
+  created_at: string;
+}
+
 export interface ChatSessionRow {
   id: string;
   ip_hash: string | null;

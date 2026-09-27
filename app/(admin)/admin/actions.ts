@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { fetchBoards } from "@/lib/ingest/boards";
 import { requireAdmin } from "@/lib/admin/auth";
 import { clearAnswerCache } from "@/lib/chat/answers";
 import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
@@ -259,6 +260,63 @@ export async function deleteJobSearch(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/searches");
+}
+
+/**
+ * Adds an employer's board. The slug is whatever appears in that ATS's URL —
+ * "careem" from boards.greenhouse.io/careem — and it is checked against the
+ * live API before saving, because a typo here is a board that silently returns
+ * nothing every night.
+ */
+export async function addJobBoard(form: FormData): Promise<void> {
+  await requireAdmin();
+
+  const ats = String(form.get("ats") ?? "").trim();
+  const slug = String(form.get("slug") ?? "").trim().toLowerCase();
+  const name = String(form.get("name") ?? "").trim();
+  if (ats !== "greenhouse" && ats !== "lever") throw new Error("Pick Greenhouse or Lever.");
+  if (!slug || !name) throw new Error("Both the board slug and a name are needed.");
+
+  const { jobs, errors } = await fetchBoards([{ ats, slug, name }]);
+  if (errors.length > 0) {
+    throw new Error(
+      `No board found at ${ats}/${slug} (${errors[0].message}). Check the slug in the board's URL.`,
+    );
+  }
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_boards").insert({ ats, slug, name });
+  if (error) {
+    if (error.code === "23505") throw new Error("That board is already on the list.");
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/admin/boards");
+
+  if (jobs.length === 0) {
+    // Saved, but worth knowing: the board is real and hiring nowhere near here.
+    console.log(`[admin] board ${ats}/${slug} added but has no UAE listings today`);
+  }
+}
+
+export async function setJobBoardActive(id: string, active: boolean): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_boards").update({ active }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/boards");
+}
+
+export async function deleteJobBoard(id: string): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("job_boards").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/boards");
 }
 
 /* ── Answer bank ─────────────────────────────────────────────────────────────

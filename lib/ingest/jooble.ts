@@ -18,7 +18,7 @@
  * Key: https://jooble.org/api/about — a short form, no charge.
  */
 
-import { dedupe, type JobSearch, type RawJob } from "./source";
+import { dedupe, htmlToText, type JobSearch, type RawJob } from "./source";
 
 const ENDPOINT = "https://jooble.org/api";
 
@@ -38,22 +38,6 @@ interface JoobleJob {
 interface JoobleResponse {
   totalCount?: number;
   jobs?: JoobleJob[];
-}
-
-/** Jooble returns HTML in `snippet` — bold tags around the matched terms. The
- *  text is summarised by the model and never shown raw, but it should not carry
- *  markup into the prompt or the review queue. */
-function plain(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 async function runSearch(search: JobSearch, key: string): Promise<RawJob[]> {
@@ -84,15 +68,15 @@ async function runSearch(search: JobSearch, key: string): Promise<RawJob[]> {
   return jobs
     .filter((j): j is JoobleJob & { title: string; link: string } => Boolean(j.title && j.link))
     .map((j) => ({
-      title: plain(j.title),
+      title: htmlToText(j.title),
       company: j.company?.trim() || null,
       sourceUrl: j.link,
       // Jooble aggregates: `source` names the board the ad came from, which is
       // the honest attribution to show. Fall back to Jooble itself.
       sourceName: j.source?.trim() || "Jooble",
-      locations: plain(j.location ?? "") || search.location,
+      locations: htmlToText(j.location ?? "") || search.location,
       salary: j.salary?.trim() || null,
-      description: plain(j.snippet ?? "").slice(0, 2000),
+      description: htmlToText(j.snippet ?? "").slice(0, 2000),
       postedAt: j.updated ? new Date(j.updated).toISOString() : new Date().toISOString(),
     }));
 }

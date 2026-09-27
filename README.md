@@ -89,15 +89,31 @@ de-duplicates by source URL, so a source with no key simply contributes nothing.
 and built for publishers. Get a key from the short form at
 <https://jooble.org/api/about> and set `JOOBLE_API_KEY`.
 
-**Careerjet** (`lib/ingest/careerjet.ts`) is an optional second source, dormant
+**Employer boards** (`lib/ingest/boards.ts`) read companies' own hiring pages.
+Greenhouse and Lever publish every customer's board as open JSON — no key, no
+signup, nothing to be rate-limited out of. Manage the employer list at
+`/admin/boards`; adding one checks the slug against the live board first, so a
+typo fails at the form rather than returning nothing every night.
+
+The trade-off is breadth. An aggregator answers *"who is hiring nurses in
+Dubai"*; a board answers *"what is Careem hiring for"*. So boards complement
+Jooble rather than replace it — but what they give up in coverage they gain in
+quality: the employer's own posting, and an apply link that goes to the employer
+rather than through a redirect. A board is the whole company, so listings
+outside the UAE are dropped before they reach the review queue; paying a model
+to summarise a job in Berlin that a human then rejects is the cost that filter
+exists to avoid.
+
+**Careerjet** (`lib/ingest/careerjet.ts`) is an optional third source, dormant
 unless `CAREERJET_API_KEY` is set. Also free, but it needs publisher approval,
 which is why it is not the default. Its legacy `public.api.careerjet.net/search`
 endpoint is closed — *"only accessible for authenticated legacy users"* — and
 was plain HTTP. Do not go back to it; v4 is HTTPS with Basic auth.
 
-### Why not something keyless
+### Why not the other keyless feeds
 
-There is no free, keyless, general UAE job feed. Measured, not assumed:
+There is no free, keyless, *general* UAE job feed — employer boards are keyless
+but only cover employers you name. Measured, not assumed:
 
 | Source | Key | UAE listings |
 | --- | --- | --- |
@@ -105,16 +121,20 @@ There is no free, keyless, general UAE job feed. Measured, not assumed:
 | The Muse | none | 0 across 60 |
 | Jobicy, Remotive | none | remote boards only |
 | Adzuna | free tier | no `adzuna.ae` — no UAE market |
-| Greenhouse / Lever boards | none | per employer (Careem: 11 of 18) |
+| Greenhouse / Lever | none | per employer (Careem: 11 of 18) |
 
-Greenhouse and Lever publish each company's board with no key at all, which is
-worth revisiting if you ever want curated employer feeds — it needs an admin
-screen for the employer list, which is why it is not here.
-
-Both sources are used because they are built for publishers to display an
+Every source here is used because it is built for publishers to display an
 excerpt and link back. The Gulf boards block server-side requests and scraping
 them would breach their terms anyway. Never add a source that lists pay-to-apply
 jobs.
+
+### Markup
+
+Feeds hand us HTML in fields that reach a model prompt and the review queue, so
+`htmlToText` in `lib/ingest/source.ts` is not cosmetic. Greenhouse escapes its
+HTML **twice** — the wire carries `&amp;nbsp;` — so decoding runs to a fixed
+point, and tags are stripped *after* all decoding. The reverse order would let
+`&amp;lt;script&amp;gt;` survive as a live tag.
 
 ## Adding jobs
 
