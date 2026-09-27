@@ -17,10 +17,27 @@ import {
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
-/** Fast, cheap; used for summaries, extraction and chat. */
-export const FLASH = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-/** Stronger; used for long-form article drafting. */
-export const PRO = process.env.GEMINI_MODEL_PRO || "gemini-2.5-pro";
+/**
+ * Fast, cheap; used for summaries, extraction and chat — everything Gemini does
+ * here. Long-form drafting went to Claude, so there is no second model.
+ *
+ * Pinned rather than `gemini-flash-latest`, because the prompts and the
+ * guardrails in lib/chat are written against a known model and an alias would
+ * move them without warning. The cost of pinning is that this needs bumping:
+ * 2.5-flash was retired for new API keys and answered 404, which is what sent
+ * the chatbot to its fallback message. `GEMINI_MODEL` overrides it.
+ *
+ * Lite, and deliberately so. The bigger flash models think before answering —
+ * measured at 407 thinking tokens for a 56-token reply — and thinking is drawn
+ * from the same `maxOutputTokens` the answer is. A chat turn capped at 600 can
+ * therefore spend its whole budget thinking and return no text at all, which
+ * surfaces to the visitor as "I could not reach the assistant". They are also
+ * the ones the free tier throttles: 3.8-flash answered one request in three.
+ * Lite does no thinking, answers every time, and the job here is two to four
+ * plain sentences from context we supply — anything longer already goes to
+ * Claude.
+ */
+export const FLASH = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
 interface GeminiError {
   error?: {
@@ -130,6 +147,10 @@ function body(turns: Turn[], opts: GenerateOptions, json: boolean) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** SSE line endings, per the EventSource spec: CRLF, LF or a bare CR. */
+const FRAME_BREAK = /\r\n\r\n|\n\n|\r\r/;
+const LINE_BREAK = /\r\n|\n|\r/;
+
 /**
  * POSTs to Gemini, trying each pooled key until one answers. Returns null when
  * every key failed or the request itself was rejected as malformed.
@@ -203,10 +224,23 @@ function firstText(data: GeminiResponse): string | null {
     console.warn(`[gemini] blocked: ${data.promptFeedback.blockReason}`);
     return null;
   }
-  const parts = data.candidates?.[0]?.content?.parts;
-  if (!parts?.length) return null;
-  const text = parts.map((p) => p.text ?? "").join("").trim();
-  return text || null;
+  const candidate = data.candidates?.[0];
+  const parts = candidate?.content?.parts;
+  if (!parts?.length) {
+    // A 200 with no text is the one failure that used to pass in silence: the
+    // visitor got the "could not reach the assistant" fallback and the log said
+    // nothing, because as far as the pool was concerned the key worked fine.
+    // MAX_TOKENS here means the model spent the budget thinking.
+    if (candidate?.finishReason && candidate.finishReason !== "STOP") {
+      console.warn(`[gemini] no text in reply (finishReason: ${candidate.finishReason})`);
+    }
+    return null;
+  }
+  // Returned untrimmed. A whole response can be trimmed by its caller, but a
+  // streamed frame carries the space between two words at its edge — trimming
+  // here turned "Half " + "a frame." into "Halfa frame."
+  const text = parts.map((p) => p.text ?? "").join("");
+  return text.trim() ? text : null;
 }
 
 /** Structured output. Returns null on any failure so callers can fall back. */
@@ -222,7 +256,7 @@ export async function generateJSON<T>(
   );
   if (!res) return null;
 
-  const text = firstText((await res.json()) as GeminiResponse);
+  const text = firstText((await res.json()) as GeminiResponse)?.trim();
   if (!text) return null;
 
   try {
@@ -245,7 +279,7 @@ export async function generateText(
     opts.signal,
   );
   if (!res) return null;
-  return firstText((await res.json()) as GeminiResponse);
+  return firstText((await res.json()) as GeminiResponse)?.trim() ?? null;
 }
 
 /**
@@ -273,11 +307,16 @@ export async function* streamChat(
     buffer += decoder.decode(value, { stream: true });
 
     // SSE frames are separated by a blank line; keep any partial frame buffered.
-    const frames = buffer.split("\n\n");
+    // The blank line is a pair of line breaks in whichever form the server
+    // uses, and Gemini sends CRLF. Splitting on "\n\n" alone matched nothing in
+    // "\r\n\r\n", so every frame stayed in the buffer and the chat streamed
+    // silence — the visitor got the "could not reach the assistant" fallback
+    // on every question the answer bank did not already cover.
+    const frames = buffer.split(FRAME_BREAK);
     buffer = frames.pop() ?? "";
 
     for (const frame of frames) {
-      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      const line = frame.split(LINE_BREAK).find((l) => l.startsWith("data:"));
       if (!line) continue;
       const json = line.slice(5).trim();
       if (!json || json === "[DONE]") continue;

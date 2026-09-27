@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { poolStatus, resetPool } from "@/lib/ai/pool";
-import { generateText } from "@/lib/ai/gemini";
+import { generateText, streamChat } from "@/lib/ai/gemini";
 
 /**
  * Key rotation, which is the whole reason for holding several keys.
@@ -167,5 +167,59 @@ describe("when every key is down", () => {
     const logged = [...warn.mock.calls, ...error.mock.calls].flat().join(" ");
     expect(logged).not.toContain("keyAAAA");
     expect(logged).toContain("…AAAA");
+  });
+});
+
+/**
+ * Frame splitting, which is what carries every word the chatbot says.
+ *
+ * Gemini separates SSE frames with CRLF. The parser split on "\n\n", which does
+ * not occur in "\r\n\r\n", so every frame stayed buffered and the chat streamed
+ * nothing at all — and because the request itself succeeded, no log said so.
+ * Both endings are asserted: whichever one the API stops sending, the other
+ * must keep working.
+ */
+describe("streaming replies", () => {
+  const sse = (chunks: string[], sep: string) =>
+    chunks
+      .map((text) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}`)
+      .join(sep) + sep;
+
+  const streamed = (payload: string) =>
+    new Response(new Blob([payload]).stream(), { status: 200 });
+
+  const collect = async () => {
+    let out = "";
+    for await (const chunk of streamChat([{ role: "user", text: "hi" }])) out += chunk;
+    return out;
+  };
+
+  it("reads frames separated by CRLF, which is what Gemini sends", async () => {
+    fetchMock.mockResolvedValue(streamed(sse(["Attestation ", "takes a while."], "\r\n\r\n")));
+    expect(await collect()).toBe("Attestation takes a while.");
+  });
+
+  it("still reads frames separated by LF", async () => {
+    fetchMock.mockResolvedValue(streamed(sse(["Attestation ", "takes a while."], "\n\n")));
+    expect(await collect()).toBe("Attestation takes a while.");
+  });
+
+  it("holds a frame split across two network chunks until it is whole", async () => {
+    const payload = sse(["Half ", "a frame."], "\r\n\r\n");
+    const cut = Math.floor(payload.length * 0.6);
+    fetchMock.mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            const bytes = new TextEncoder().encode(payload);
+            controller.enqueue(bytes.slice(0, cut));
+            controller.enqueue(bytes.slice(cut));
+            controller.close();
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    expect(await collect()).toBe("Half a frame.");
   });
 });

@@ -31,7 +31,11 @@ Three rules the code enforces:
 
 ## Setup
 
+Node 22 or newer — `.nvmrc` pins 24 LTS. `@supabase/supabase-js` needs a native
+WebSocket, which Node 20 does not have, so the seed scripts fail on it.
+
 ```bash
+nvm use
 npm install
 cp .env.example .env.local
 ```
@@ -40,7 +44,8 @@ Then fill in `.env.local`:
 
 | Variable | Where it comes from |
 | --- | --- |
-| `GEMINI_API_KEYS` | All five AI Studio keys, comma separated |
+| `GEMINI_API_KEYS` | AI Studio keys, comma separated. One is enough; more only buys headroom |
+| `GEMINI_MODEL` | Optional. Overrides the pinned chat model (see `lib/ai/gemini.ts`) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings |
 | `CAREERJET_API_KEY` | Careerjet **v4** publisher key — see below |
 | `WHATSAPP_NUMBER` | Sales number, international format, no `+` |
@@ -308,8 +313,6 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
 - [ ] Have `/privacy` and `/terms` reviewed by a UAE legal adviser.
 - [ ] Get a Careerjet v4 key and run one real ingest.
 - [ ] Add at least one admin to the `admins` table.
-- [ ] Upgrade to **Node 22 LTS** — Supabase deprecates Node 20, and Node 20.18
-      is below what parts of the toolchain now expect.
 
 ## Deliberate decisions
 
