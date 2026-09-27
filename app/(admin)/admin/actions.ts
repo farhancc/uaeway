@@ -173,11 +173,13 @@ export async function createJob(form: FormData): Promise<{ id: string }> {
   const company = String(form.get("company") ?? "").trim();
   if (!company) throw new Error("The employer's name is required.");
 
-  // Applicants apply at the source, never here — we are not the recruiter — so
-  // a listing without a working way to apply is not worth publishing.
-  const applyLink = normalizeApplyLink(String(form.get("apply_link") ?? ""));
-  if (!applyLink) {
-    throw new Error("Add a link or an email address where people can apply.");
+  // Optional, but still validated when given: a link that is neither a URL nor
+  // an email address is worse than none, because the page renders it as a
+  // button someone clicks. Blank is allowed and the listing says so.
+  const rawLink = String(form.get("apply_link") ?? "").trim();
+  const applyLink = rawLink ? normalizeApplyLink(rawLink) : null;
+  if (rawLink && !applyLink) {
+    throw new Error("That apply link is neither a web address nor an email address.");
   }
 
   const emirate = String(form.get("emirate") ?? "").trim();
@@ -497,7 +499,7 @@ export async function importJobs(raw: string): Promise<ImportResult> {
   // Serially: uniqueSlug reads committed rows, so running it in parallel over
   // similar titles could hand out the same slug twice.
   for (const { value: row } of rows) {
-    const applyLink = normalizeApplyLink(row.applyLink)!;
+    const applyLink = row.applyLink ? normalizeApplyLink(row.applyLink) : null;
     const postedAt = row.postedAt ? new Date(row.postedAt).toISOString() : new Date().toISOString();
     const parsedSalary = parseSalary(row.salary);
 

@@ -56,7 +56,18 @@ describe("validating jobs", () => {
     expect(rows).toHaveLength(1);
     expect(errors[0].row).toBe(2);
     expect(errors[0].message).toContain("company");
-    expect(errors[0].message).toContain("applyLink");
+  });
+
+  it("accepts a listing with no apply link at all", () => {
+    // Some vacancies arrive without a URL — heard about directly, or posted as
+    // a notice. The page says there is nowhere to apply rather than rendering
+    // a button that goes nowhere.
+    const { rows, errors } = parseRows(jobImport, [
+      { title: "Driver", company: "Acme" },
+    ]);
+
+    expect(errors).toEqual([]);
+    expect(checkApplyLinks(rows)).toEqual([]);
   });
 
   it("rejects an emirate or category that is not one of ours", () => {
@@ -68,7 +79,8 @@ describe("validating jobs", () => {
     expect(errors.map((e) => e.row)).toEqual([1, 2]);
   });
 
-  it("catches an apply link that is neither a URL nor an email", () => {
+  it("catches an apply link that is given but unusable", () => {
+    // Absent is fine; present and broken is not.
     const { rows } = parseRows(jobImport, [
       { ...job, applyLink: "call the office" },
       { ...job, applyLink: "hr@employer.ae" },

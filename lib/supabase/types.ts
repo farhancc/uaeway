@@ -12,7 +12,8 @@ export interface JobRow {
   slug: string;
   title: string;
   company: string | null;
-  source_url: string;
+  /** Where to apply. Null when the listing gave no link. */
+  source_url: string | null;
   source_name: string;
   emirate: string | null;
   category: string | null;

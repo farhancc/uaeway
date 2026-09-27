@@ -43,7 +43,8 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   const posted = new Date(job.posted_at);
   // A directly submitted vacancy may take applications by email rather than at
   // a web page, which changes what the button can honestly say.
-  const byEmail = isEmailLink(job.source_url);
+  const applyLink = job.source_url;
+  const byEmail = applyLink ? isEmailLink(applyLink) : false;
   // Who is hiring. `source_name` is where the ingest found the listing — an
   // aggregator, or the employer's own board — and is not what a jobseeker is
   // choosing between. Falls back to it only when we never learned the company.
@@ -101,21 +102,27 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
             aggregator the listing came through is our plumbing, not their
             business. The outbound link still goes to the original posting. */}
         <p className="text-sm leading-relaxed text-ink-soft">
-          {byEmail
-            ? `This is a summary. ${employer} takes applications by email — ask them for the full description, salary and process.`
-            : `This is a summary. The full description, salary and application process are on ${employer}'s original posting.`}
+          {!applyLink
+            ? `This is a summary, and this listing did not come with an application link. Look for the role on ${employer}'s own careers page, or ask us and we will point you at it.`
+            : byEmail
+              ? `This is a summary. ${employer} takes applications by email — ask them for the full description, salary and process.`
+              : `This is a summary. The full description, salary and application process are on ${employer}'s original posting.`}
         </p>
-        <a
-          href={job.source_url}
-          {...(byEmail ? {} : { target: "_blank" })}
-          // nofollow: outbound links on listings we did not write and do not vouch for.
-          rel="nofollow noopener noreferrer"
-          className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90"
-        >
-          {byEmail
-            ? `Email your application to ${job.source_url.slice(7)}`
-            : `View and apply at ${employer}`}
-        </a>
+        {/* No link, no button. A dead control that looks live is worse than an
+            honest sentence saying there is nowhere to send you. */}
+        {applyLink && (
+          <a
+            href={applyLink}
+            {...(byEmail ? {} : { target: "_blank" })}
+            // nofollow: outbound links on listings we did not write and do not vouch for.
+            rel="nofollow noopener noreferrer"
+            className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+          >
+            {byEmail
+              ? `Email your application to ${applyLink.slice(7)}`
+              : `View and apply at ${employer}`}
+          </a>
+        )}
       </div>
 
       {job.documents_needed.length > 0 && (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AutoSubmit } from "./AutoSubmit";
 import { href } from "@/lib/i18n";
 import type { JobFacets, JobSort } from "@/lib/content/queries";
 
@@ -32,6 +33,9 @@ const WINDOWS = [
   { days: 7, label: "Last week" },
   { days: 30, label: "Last month" },
 ];
+
+/** Values that mean "not filtered", so they never reach the URL. */
+const FILTER_DEFAULTS = { sort: "newest" };
 
 const SORT_LABELS: Record<JobSort, string> = {
   newest: "Newest first",
@@ -112,12 +116,16 @@ export function JobFilters({
           </select>
         </div>
 
+        {/* Hidden by AutoSubmit once its script runs, so filtering still has
+            a button for anyone without JavaScript. */}
         <button
+          id="job-filter-submit"
           type="submit"
           className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper hover:opacity-90"
         >
           Filter
         </button>
+        <AutoSubmit buttonId="job-filter-submit" defaults={FILTER_DEFAULTS} />
 
         {anyInUse && (
           <Link href={href(locale, "/jobs")} className="py-2 text-sm text-go hover:underline">

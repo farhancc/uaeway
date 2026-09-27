@@ -31,8 +31,10 @@ const trimmed = z.string().trim();
 export const jobImport = z.object({
   title: trimmed.min(1, "title is required").max(200),
   company: trimmed.min(1, "company is required").max(160),
-  /** Where people actually apply. A listing without one is not worth having. */
-  applyLink: trimmed.min(1, "applyLink is required"),
+  /** Where people actually apply. Optional: a listing taken down by hand from
+   *  a source that gave no URL still has value, and the page says plainly that
+   *  there is no link rather than rendering a dead button. */
+  applyLink: trimmed.nullish(),
   emirate: z.enum(EMIRATES).nullish(),
   category: z.enum(JOB_CATEGORIES).default("Other"),
   summary: trimmed.max(4000).nullish(),
@@ -116,6 +118,9 @@ export function parseRows<T>(schema: z.ZodType<T>, input: unknown[]): Parsed<T> 
 export function checkApplyLinks(rows: Row<JobImport>[]): RowError[] {
   const errors: RowError[] = [];
   for (const { row, value } of rows) {
+    // Absent is fine. Present but unusable is not — the page would render it
+    // as a button someone clicks and lands nowhere.
+    if (!value.applyLink) continue;
     if (!normalizeApplyLink(value.applyLink)) {
       errors.push({
         row,
