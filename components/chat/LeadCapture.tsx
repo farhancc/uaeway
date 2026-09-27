@@ -158,7 +158,7 @@ export function LeadCapture({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-paper disabled:opacity-50"
+          className="rounded-full bg-deep px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
         >
           {busy ? "Sending…" : "Send"}
         </button>

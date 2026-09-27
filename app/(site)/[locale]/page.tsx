@@ -23,7 +23,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
     <>
       {/* The hero continues the masthead's dark, so the two read as one block
           and the route can start high on the page. */}
-      <section className="bg-ink pb-20 pt-12 sm:pb-24 sm:pt-16">
+      <section className="bg-deep pb-20 pt-12 sm:pb-24 sm:pt-16">
         <div className="mx-auto max-w-5xl px-5">
           <h1 className="sign max-w-[15ch] text-[2.75rem] text-paper sm:text-[4.25rem]">
             Your way through the UAE.
@@ -81,7 +81,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
 
       </div>
 
-      <section className="mt-20 bg-ink py-16">
+      <section className="mt-20 bg-deep py-16">
         <div className="mx-auto max-w-5xl px-5">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-brass/40 pb-3">
             <h2 className="sign text-[1.75rem] text-paper">How we work</h2>

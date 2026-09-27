@@ -1,48 +1,59 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   UAEvia — "the route"
+   UAEvia — the messaging look
 
-   The logo is a ribbon-road curving through an aperture toward the skyline,
-   captioned "your way through the UAE". That is the product: people arrive in
-   the middle of a process and do not know what order it happens in. So the
-   site's organising device is a route — a line with waypoints — and the line
-   carries meaning rather than decoration:
+   The people this site is for run their lives in a green chat app. That
+   interface is the most familiar surface in the Gulf, so the site borrows its
+   grammar: warm beige ground, a tiled doodle field behind conversations, deep
+   teal for structure, and replies as bubbles rather than blocks.
 
-     filled waypoint   a step we can help with
-     hollow waypoint   a step you, or your employer, do yourselves
+   Borrowed, not impersonated. No third party's logo, name or wordmark appears
+   anywhere, and the doodles are our own — passports, stamps, planes, towers,
+   the things this site is actually about — rather than a copy of someone
+   else's artwork. The site says UAEvia everywhere a visitor looks.
 
-   Palette sampled from the logo: the ribbon's teal and gold, and the ocean
-   blue of the aperture, which the dark bands are drawn from. The logo itself
-   carries transparency and was drawn for a light ground, so it lives on the
-   sand-coloured masthead rather than in the dark bands.
+   The palette is checked, not eyeballed. Measured against the beige ground:
 
-   One rule governs light and dark: dark surfaces are for orienting (masthead,
-   hero, the route itself), light surfaces are for reading (guides, listings,
-   service detail). Long-form text on a phone in Gulf daylight wants ink on
-   paper, not glow on black.
+     #075E54  deep teal      6.14  AA   — text, links, dark bands, buttons
+     #128C7E  teal           3.31  large only — accents and rules
+     #25D366  bright green   1.59  FAIL — a fill colour, never a text colour,
+                                    and never with white on it (1.98)
+
+   So bright green appears as a surface with dark ink on it, which reads at
+   8.8, and the deep teal carries everything that has to be read.
+
+   One thing deliberately not borrowed: the masthead stays light. The logo
+   carries its own transparency and is drawn in navy and gold for a light
+   ground — it was put on a dark band once already and disappeared.
    ────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --color-paper: #f7f4ed;
+  /* The chat ground: warm beige, the colour a conversation sits on. */
+  --color-paper: #ece5dd;
   --color-field: #ffffff;
-  --color-ink: #04161f;
-  --color-deep: #013452;
-  --color-ink-soft: #3d4f58;
-  --color-ink-faint: #5d7078;
-  --color-teal: #12aba6;
-  /* Teal fails contrast as text on sand; this passes AA. */
-  --color-teal-deep: #0a6167;
+  --color-ink: #111b21;
+  --color-deep: #075e54;
+  --color-ink-soft: #3b4a54;
+  /* The beige ground is darker than the sand it replaced, so the two
+     quietest colours had to come down with it: both were under 4.5 on it. */
+  --color-ink-faint: #5a6972;
+  --color-teal: #128c7e;
+  /* Teal is large-text only at 3.31; this is the one that reads. */
+  --color-teal-deep: #075e54;
+  /* The outgoing bubble, and the fill for anything that wants to feel like a
+     message rather than a component. Dark ink on it reads at 8.8. */
+  --color-bubble: #dcf8c6;
+  --color-bright: #25d366;
   --color-brass: #d9a441;
-  /* Gold likewise. */
-  --color-brass-deep: #8a6220;
+  --color-brass-deep: #87601f;
   --color-glow: #fedd7a;
-  --color-seal: #9b2c2c;
-  --color-go: #0a6167;
-  --color-go-dark: #07484d;
-  --color-rule: #e2ddd2;
-  --color-onink: #c6d8dd;
-  --color-onink-rule: #103040;
+  --color-seal: #b3261e;
+  --color-go: #075e54;
+  --color-go-dark: #054c44;
+  --color-rule: #d9d2c9;
+  --color-onink: #cfe3df;
+  --color-onink-rule: #0d4a43;
 
   --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -258,4 +269,86 @@ body {
 }
 .qa[open] > summary::after {
   content: "−";
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   The doodle field.
+
+   A tiled line drawing behind conversations, the way a messaging app puts
+   texture under its bubbles so they read as objects sitting on something
+   rather than panels welded to a page.
+
+   The motifs are this site's own: a passport, a plane, a globe, a skyline, a
+   certificate, a stamp, a clock, a form. Nobody else's artwork, and they say
+   what this site is for while doing the job of a pattern.
+
+   Inline as a data URI rather than a file: it is under 2KB, it must be there
+   the moment the panel opens, and a background that arrives late is worse than
+   one that never existed.
+   ────────────────────────────────────────────────────────────────────────── */
+.doodles {
+  background-color: var(--color-paper);
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22220%22%20height%3D%22220%22%20viewBox%3D%220%200%20220%20220%22%3E%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%230b3b36%22%20stroke-width%3D%221.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.16%22%3E%20%3Crect%20x%3D%2214%22%20y%3D%2216%22%20width%3D%2226%22%20height%3D%2234%22%20rx%3D%223%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2229%22%20r%3D%225%22%2F%3E%3Cpath%20d%3D%22M20%2040h14M20%2045h9%22%2F%3E%20%3Cpath%20d%3D%22M78%2026l24%209-24%209v-7l11-2-11-2z%22%2F%3E%20%3Ccircle%20cx%3D%22150%22%20cy%3D%2230%22%20r%3D%2212%22%2F%3E%3Cpath%20d%3D%22M150%2018v24M138%2030h24M143%2021c4%206%204%2012%200%2018M157%2021c-4%206-4%2012%200%2018%22%2F%3E%20%3Cpath%20d%3D%22M190%2048V22h6v26M196%2028h10v20h-10%22%2F%3E%3Cpath%20d%3D%22M186%2048h26%22%2F%3E%20%3Cpath%20d%3D%22M22%2086h30v22H22z%22%2F%3E%3Cpath%20d%3D%22M22%2092h30M30%2086v22%22%2F%3E%20%3Ccircle%20cx%3D%2288%22%20cy%3D%2296%22%20r%3D%2213%22%2F%3E%3Cpath%20d%3D%22M82%2096l4%204%208-9%22%2F%3E%20%3Cpath%20d%3D%22M126%2084l10%206v16l-10%206-10-6V90z%22%2F%3E%20%3Cpath%20d%3D%22M170%20106V82h5v24M175%2088h8v18h-8M183%2094h7v12h-7%22%2F%3E%3Cpath%20d%3D%22M164%20106h32%22%2F%3E%20%3Cpath%20d%3D%22M18%20146h22v26H18z%22%2F%3E%3Cpath%20d%3D%22M24%20146v-6h10v6M18%20158h22%22%2F%3E%20%3Cpath%20d%3D%22M70%20172l14-30%2014%2030%22%2F%3E%3Cpath%20d%3D%22M76%20160h16%22%2F%3E%20%3Ccircle%20cx%3D%22140%22%20cy%3D%22158%22%20r%3D%2211%22%2F%3E%3Cpath%20d%3D%22M140%20151v8l5%203%22%2F%3E%20%3Cpath%20d%3D%22M182%20144h24v24h-24z%22%2F%3E%3Cpath%20d%3D%22M188%20152h12M188%20158h12M188%20164h7%22%2F%3E%20%3Cpath%20d%3D%22M14%20200c12-8%2024%208%2036%200s24%208%2036%200%22%2F%3E%20%3Cpath%20d%3D%22M120%20196h20v14h-20z%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%22203%22%20r%3D%223%22%2F%3E%20%3Cpath%20d%3D%22M176%20210l10-18%2010%2018z%22%2F%3E%20%3C%2Fg%3E%3C%2Fsvg%3E");
+  background-size: 220px 220px;
+  /* The stroke is already pale. Blending on top of that turns the beige
+     muddy, so the tile is simply drawn as it is. */
+}
+
+.doodles-soft {
+  background-color: var(--color-paper);
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22220%22%20height%3D%22220%22%20viewBox%3D%220%200%20220%20220%22%3E%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%230b3b36%22%20stroke-width%3D%221.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.16%22%3E%20%3Crect%20x%3D%2214%22%20y%3D%2216%22%20width%3D%2226%22%20height%3D%2234%22%20rx%3D%223%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2229%22%20r%3D%225%22%2F%3E%3Cpath%20d%3D%22M20%2040h14M20%2045h9%22%2F%3E%20%3Cpath%20d%3D%22M78%2026l24%209-24%209v-7l11-2-11-2z%22%2F%3E%20%3Ccircle%20cx%3D%22150%22%20cy%3D%2230%22%20r%3D%2212%22%2F%3E%3Cpath%20d%3D%22M150%2018v24M138%2030h24M143%2021c4%206%204%2012%200%2018M157%2021c-4%206-4%2012%200%2018%22%2F%3E%20%3Cpath%20d%3D%22M190%2048V22h6v26M196%2028h10v20h-10%22%2F%3E%3Cpath%20d%3D%22M186%2048h26%22%2F%3E%20%3Cpath%20d%3D%22M22%2086h30v22H22z%22%2F%3E%3Cpath%20d%3D%22M22%2092h30M30%2086v22%22%2F%3E%20%3Ccircle%20cx%3D%2288%22%20cy%3D%2296%22%20r%3D%2213%22%2F%3E%3Cpath%20d%3D%22M82%2096l4%204%208-9%22%2F%3E%20%3Cpath%20d%3D%22M126%2084l10%206v16l-10%206-10-6V90z%22%2F%3E%20%3Cpath%20d%3D%22M170%20106V82h5v24M175%2088h8v18h-8M183%2094h7v12h-7%22%2F%3E%3Cpath%20d%3D%22M164%20106h32%22%2F%3E%20%3Cpath%20d%3D%22M18%20146h22v26H18z%22%2F%3E%3Cpath%20d%3D%22M24%20146v-6h10v6M18%20158h22%22%2F%3E%20%3Cpath%20d%3D%22M70%20172l14-30%2014%2030%22%2F%3E%3Cpath%20d%3D%22M76%20160h16%22%2F%3E%20%3Ccircle%20cx%3D%22140%22%20cy%3D%22158%22%20r%3D%2211%22%2F%3E%3Cpath%20d%3D%22M140%20151v8l5%203%22%2F%3E%20%3Cpath%20d%3D%22M182%20144h24v24h-24z%22%2F%3E%3Cpath%20d%3D%22M188%20152h12M188%20158h12M188%20164h7%22%2F%3E%20%3Cpath%20d%3D%22M14%20200c12-8%2024%208%2036%200s24%208%2036%200%22%2F%3E%20%3Cpath%20d%3D%22M120%20196h20v14h-20z%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%22203%22%20r%3D%223%22%2F%3E%20%3Cpath%20d%3D%22M176%20210l10-18%2010%2018z%22%2F%3E%20%3C%2Fg%3E%3C%2Fsvg%3E");
+  background-size: 260px 260px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Message bubbles.
+
+   The tail is what makes a rounded box read as something someone said. It is
+   a CSS triangle rather than an image so it inherits the bubble's colour and
+   costs nothing, and the corner it grows from is squared off so the tail joins
+   the body instead of floating beside it.
+   ────────────────────────────────────────────────────────────────────────── */
+.bubble-in,
+.bubble-out {
+  position: relative;
+  padding: 0.4rem 0.6rem 0.45rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+
+.bubble-in {
+  background: var(--color-field);
+  border-top-left-radius: 0;
+}
+
+.bubble-out {
+  background: var(--color-bubble);
+  border-top-right-radius: 0;
+}
+
+.bubble-in::before,
+.bubble-out::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-top: 0.5rem solid transparent;
+}
+
+.bubble-in::before {
+  left: -0.5rem;
+  border-right: 0.5rem solid var(--color-field);
+}
+
+.bubble-out::before {
+  right: -0.5rem;
+  border-left: 0.5rem solid var(--color-bubble);
+}
+
+/* The bubbles carry their own shadow, so a stack of them does not need rules
+   between. */
+.bubble-in > :first-child,
+.bubble-out > :first-child {
+  margin-top: 0;
 }

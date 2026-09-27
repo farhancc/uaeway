@@ -156,7 +156,7 @@ export function LeadForm({ service }: { service: Service }) {
       <button
         type="submit"
         disabled={state === "sending"}
-        className="mt-5 w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="mt-5 w-full rounded-full bg-deep px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {state === "sending" ? "Sending…" : "Send enquiry"}
       </button>

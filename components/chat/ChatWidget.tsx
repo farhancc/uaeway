@@ -204,8 +204,11 @@ export function ChatWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 rounded-full border border-brass bg-ink px-5 py-3 text-sm font-medium text-paper shadow-lg transition-opacity hover:opacity-90"
+        className="group fixed bottom-4 right-4 z-40 flex items-center gap-2.5 rounded-full bg-deep py-3 pl-4 pr-5 text-sm font-medium text-white shadow-lg transition-transform hover:scale-[1.03]"
       >
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="currentColor">
+          <path d="M12 3C7.03 3 3 6.58 3 11c0 2.2 1 4.18 2.63 5.6L5 21l4.2-2.2c.89.24 1.83.37 2.8.37 4.97 0 9-3.58 9-8s-4.03-8-9-8z" />
+        </svg>
         Ask a question
       </button>
     );
@@ -215,32 +218,47 @@ export function ChatWidget() {
     <div
       role="dialog"
       aria-label="Site assistant"
-      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-lg border border-rule bg-field shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
+      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-xl bg-paper shadow-2xl ring-1 ring-black/10 sm:inset-x-auto sm:right-4 sm:w-[24rem]"
     >
-      <div className="flex items-center justify-between border-b border-rule px-4 py-3">
-        <p className="sign text-base text-ink">Ask {SITE.name}</p>
+      {/* The bar a messaging app puts at the top: dark, with who you are
+          talking to and whether they are there. */}
+      <div className="flex items-center gap-3 bg-deep px-3 py-2.5 text-white">
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold"
+        >
+          UV
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{SITE.name}</span>
+          <span className="block text-xs text-white/70">
+            {busy ? "typing…" : "Usually replies instantly"}
+          </span>
+        </span>
         <button
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Close assistant"
-          className="rounded-md px-2 py-1 text-ink-faint hover:bg-paper hover:text-ink"
+          className="rounded-full px-2 py-1 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
         >
           ✕
         </button>
       </div>
 
-      <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scroller} className="doodles flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {messages.length === 0 && (
-          <p className="text-sm leading-relaxed text-ink-soft">{GREETING}</p>
+          <div className="bubble-in max-w-[85%]">
+            <p className="text-sm leading-relaxed text-ink">{GREETING}</p>
+          </div>
         )}
 
         {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "text-right" : ""}>
+          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
             <div
               className={
                 m.role === "user"
-                  ? "inline-block max-w-[85%] rounded-md bg-ink px-3 py-2 text-left text-sm text-paper"
-                  : "max-w-[92%] whitespace-pre-wrap text-sm leading-relaxed text-ink-soft"
+                  ? "bubble-out max-w-[85%] whitespace-pre-wrap text-left text-sm leading-relaxed text-ink"
+                  : "bubble-in max-w-[88%] whitespace-pre-wrap text-sm leading-relaxed text-ink"
               }
             >
               {m.text || (busy && i === messages.length - 1 ? "…" : "")}
@@ -332,7 +350,7 @@ export function ChatWidget() {
           e.preventDefault();
           void send(input);
         }}
-        className="flex gap-2 border-t border-rule px-3 py-3"
+        className="flex items-end gap-2 bg-paper px-2 py-2"
       >
         <label htmlFor="chat-input" className="sr-only">
           Your question
@@ -342,16 +360,21 @@ export function ChatWidget() {
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your question"
+          placeholder="Type a message"
           maxLength={1000}
-          className="flex-1 rounded-md border border-rule bg-field px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+          className="min-w-0 flex-1 rounded-full bg-field px-4 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-teal/40"
         />
+        {/* A round send button, and dark ink on it rather than white: bright
+            green reads at 1.98 against white and 8.8 against this ink. */}
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
+          aria-label="Send"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bright text-ink shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
         >
-          Send
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+          </svg>
         </button>
       </form>
     </div>

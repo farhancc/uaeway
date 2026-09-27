@@ -18,7 +18,7 @@ const SITE_LINKS = [
  *  bands rather than trailing off. */
 export function Footer({ locale }: { locale: string }) {
   return (
-    <footer className="mt-24 bg-ink">
+    <footer className="mt-24 bg-deep">
       <div className="mx-auto max-w-5xl px-5 py-16">
         <div className="grid gap-12 sm:grid-cols-3">
           <div>

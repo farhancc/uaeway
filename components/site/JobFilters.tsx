@@ -121,7 +121,7 @@ export function JobFilters({
         <button
           id="job-filter-submit"
           type="submit"
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper hover:opacity-90"
+          className="rounded-full bg-deep px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
           Filter
         </button>
