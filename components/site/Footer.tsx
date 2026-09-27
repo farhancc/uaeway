@@ -22,7 +22,10 @@ export function Footer({ locale }: { locale: string }) {
       <div className="mx-auto max-w-5xl px-5 py-16">
         <div className="grid gap-12 sm:grid-cols-3">
           <div>
-            <p className="sign text-xl text-paper">{SITE.name}</p>
+            <p className="sign text-xl leading-none">
+              <span className="text-paper">UAE</span>
+              <span className="text-brass">via</span>
+            </p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-onink">
               Independent. Based in {SITE.area}.
             </p>

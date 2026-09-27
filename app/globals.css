@@ -1,46 +1,50 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   UAE Gateway
+   UAEvia — "the route"
 
-   Established Gulf professional services: ink navy, ivory, and brass. People
-   hand this company original certificates and several thousand dirhams, so the
-   site has to look like somewhere that has been doing this for years.
+   The logo is a ribbon-road curving through an aperture toward the skyline,
+   captioned "your way through the UAE". That is the product: people arrive in
+   the middle of a process and do not know what order it happens in. So the
+   site's organising device is a route — a line with waypoints — and the line
+   carries meaning rather than decoration:
 
-   Two rules keep it from looking like every other consultancy site:
+     filled waypoint   a step we can help with
+     hollow waypoint   a step you, or your employer, do yourselves
 
-   1. Navy leads. The obvious version of this palette is an ivory page with
-      navy text; leading with a full-bleed navy masthead is more confident and
-      avoids the washed-out cream look.
-   2. Brass is a material, not a fill. Hairlines, numerals and small marks —
-      never a large button. Brass-filled buttons are what make these sites read
-      as gold-plated rather than expensive.
+   Palette sampled from the logo: the ribbon's teal and gold, and the ocean
+   blue of the aperture, which the dark bands are drawn from. The logo itself
+   carries transparency and was drawn for a light ground, so it lives on the
+   sand-coloured masthead rather than in the dark bands.
 
-   Colour discipline, one job each:
-      navy   actions and surfaces
-      brass  rules, numerals, quiet marks
-      green  WhatsApp only, where the brand cue earns its keep
-      red    warnings only
+   One rule governs light and dark: dark surfaces are for orienting (masthead,
+   hero, the route itself), light surfaces are for reading (guides, listings,
+   service detail). Long-form text on a phone in Gulf daylight wants ink on
+   paper, not glow on black.
    ────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --color-paper: #faf8f4;
+  --color-paper: #f7f4ed;
   --color-field: #ffffff;
-  --color-ink: #0e1b33;
-  --color-ink-soft: #3a4761;
-  --color-ink-faint: #5c6780;
-  --color-brass: #b0873c;
-  /* Brass fails contrast at body size on ivory; this passes AA for text. */
-  --color-brass-deep: #8a6a2e;
+  --color-ink: #04161f;
+  --color-deep: #013452;
+  --color-ink-soft: #3d4f58;
+  --color-ink-faint: #5d7078;
+  --color-teal: #12aba6;
+  /* Teal fails contrast as text on sand; this passes AA. */
+  --color-teal-deep: #0a6167;
+  --color-brass: #d9a441;
+  /* Gold likewise. */
+  --color-brass-deep: #8a6220;
+  --color-glow: #fedd7a;
   --color-seal: #9b2c2c;
-  --color-go: #17604f;
-  --color-go-dark: #11493c;
-  --color-rule: #e4dfd5;
-  /* Hairlines and muted text on the navy blocks. */
-  --color-onink: #cfd6e4;
-  --color-onink-rule: #27344f;
+  --color-go: #0a6167;
+  --color-go-dark: #07484d;
+  --color-rule: #e2ddd2;
+  --color-onink: #c6d8dd;
+  --color-onink-rule: #103040;
 
-  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-arabic: var(--font-naskh), var(--font-inter), sans-serif;
 }
@@ -54,6 +58,13 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+
+  /* The masthead collapses its nav row on scroll, which changes the document's
+     height. Scroll anchoring answers that by moving the scroll position back by
+     the same amount — and the masthead reads scroll position to decide whether
+     to collapse, so the two fight: fold, jump, unfold, jump, forever. A
+     collapsing header is a deliberate content shift; we do not want it undone. */
+  overflow-anchor: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -69,10 +80,9 @@ body {
    personality comes from the face, not from stretching it. */
 .sign {
   font-family: var(--font-display);
-  font-weight: 500;
-  font-variation-settings: "SOFT" 0, "WONK" 0;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
 }
 
 .arabic {
@@ -126,6 +136,43 @@ body {
   font-family: var(--font-display);
   font-weight: 500;
   font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ── The route ─────────────────────────────────────────────────────────────
+   A line with waypoints. The line runs teal into gold, the way the logo's
+   ribbon does, and the waypoint tells you who does that step: filled means we
+   can help, hollow means it is yours or your employer's to do. Both states
+   are labelled in words too — colour and fill alone is not a legend anyone
+   should have to learn.                                                     */
+.route {
+  position: relative;
+  padding-left: 1.75rem;
+}
+.route::before {
+  content: "";
+  position: absolute;
+  left: 0.3125rem;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 1.5px;
+  background: linear-gradient(to bottom, var(--color-teal), var(--color-brass));
+  opacity: 0.55;
+}
+.waypoint {
+  position: absolute;
+  /* The list is padded to clear the line, so the dot steps back out of that
+     padding to sit centred on it. */
+  left: -1.75rem;
+  top: 0.3rem;
+  width: 0.6875rem;
+  height: 0.6875rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-teal);
+  background: var(--color-teal);
+}
+.waypoint-theirs {
+  background: var(--color-ink);
+  border-color: var(--color-onink-rule);
 }
 
 /* The only motion on the site: the steps reveal when a path is chosen, which

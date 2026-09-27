@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Fraunces, Inter, Noto_Naskh_Arabic } from "next/font/google";
+import { Inter, Noto_Naskh_Arabic, Outfit } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -9,12 +9,12 @@ import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
 import { SITE, whatsappLink } from "@/lib/site";
 import "../../globals.css";
 
-/* Fraunces for display — a variable serif with enough character to carry a
-   headline without the Didone contrast that reads as a stock choice. Inter for
-   everything read at length. Noto Naskh Arabic for the bilingual layer, chosen
-   over a geometric Kufi because Naskh reads classical rather than technical. */
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+/* Outfit for display: geometric, signage-like, and close to the lettering in
+   the logo's own wordmark — this is a wayfinding brand, not a heritage one.
+   Inter for anything read at length, because the audience reads carefully in a
+   second or third language. Noto Naskh Arabic for the bilingual layer. */
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
   display: "swap",
 });
@@ -43,7 +43,9 @@ export const metadata: Metadata = {
     siteName: SITE.name,
     type: "website",
     locale: "en_AE",
+    images: [{ url: "/logo.png", width: 1536, height: 1024, alt: SITE.name }],
   },
+  twitter: { card: "summary_large_image", images: ["/logo.png"] },
   robots: { index: true, follow: true },
 };
 
@@ -59,7 +61,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
     <html
       lang={locale}
       dir={dirFor(locale)}
-      className={`${fraunces.variable} ${inter.variable} ${naskh.variable} h-full`}
+      className={`${outfit.variable} ${inter.variable} ${naskh.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <a

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArticleStrip } from "@/components/site/ArticleStrip";
-import { Guilloche, Seal } from "@/components/site/Guilloche";
 import { JobRow } from "@/components/site/JobRow";
 import { PathPicker } from "@/components/site/PathPicker";
 import { SectionHeading } from "@/components/site/SectionHeading";
@@ -22,18 +21,16 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
 
   return (
     <>
-      {/* The hero continues the masthead's navy, so the two read as one block. */}
-      <section className="relative overflow-hidden bg-ink pb-20 pt-10 sm:pb-24 sm:pt-14">
-        {/* Engraved off the right edge, the way a certificate carries its
-            rosette into the margin. Low enough to sit under the type. */}
-        <Guilloche className="pointer-events-none absolute -right-28 -top-20 h-[26rem] w-[26rem] text-brass opacity-[0.10] sm:-right-32 sm:-top-32 sm:h-[48rem] sm:w-[48rem] sm:opacity-[0.15]" />
-        <div className="relative mx-auto max-w-5xl px-5">
-          <h1 className="sign max-w-[14ch] text-[2.75rem] text-paper sm:text-[4rem]">
-            Start from where you are.
+      {/* The hero continues the masthead's dark, so the two read as one block
+          and the route can start high on the page. */}
+      <section className="bg-ink pb-20 pt-12 sm:pb-24 sm:pt-16">
+        <div className="mx-auto max-w-5xl px-5">
+          <h1 className="sign max-w-[15ch] text-[2.75rem] text-paper sm:text-[4.25rem]">
+            Your way through the UAE.
           </h1>
           <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-onink">
-            Everyone arrives at UAE paperwork somewhere in the middle. Choose your situation and
-            see the whole sequence — what happens, in what order, and which parts we handle.
+            Nobody arrives at UAE paperwork at the beginning. Pick where you actually are and see
+            the whole route — what happens, in what order, and which parts we can take off you.
           </p>
 
           <div className="mt-12">
@@ -54,11 +51,27 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
                   href={href(locale, `/services/${service.slug}`)}
                   className="group block py-5"
                 >
-                  <span className="sign block text-[1.0625rem] text-ink transition-colors group-hover:text-brass-deep">
+                  <span className="sign block text-[1.0625rem] text-ink transition-colors group-hover:text-teal-deep">
                     {service.name}
                   </span>
                   <span className="mt-1.5 block text-sm leading-relaxed text-ink-faint">
                     {service.tagline}
+                  </span>
+                  {/* Who actually delivers it, on the list rather than only on
+                      the service page — it changes whether this is a thing we
+                      do or a thing we arrange. */}
+                  <span className="mt-2 flex items-center gap-2 text-xs text-ink-faint">
+                    <span
+                      aria-hidden="true"
+                      className={
+                        service.delivery === "in-house"
+                          ? "inline-block h-2 w-2 shrink-0 rounded-full bg-teal-deep"
+                          : "inline-block h-2 w-2 shrink-0 rounded-full border-[1.5px] border-ink-faint"
+                      }
+                    />
+                    {service.delivery === "in-house"
+                      ? "We do this ourselves"
+                      : "We connect you with a licensed provider"}
                   </span>
                 </Link>
               </li>
@@ -68,9 +81,8 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
 
       </div>
 
-      <section className="relative mt-20 overflow-hidden bg-ink py-16">
-        <Seal className="pointer-events-none absolute -bottom-24 -right-20 h-72 w-72 text-brass opacity-[0.09]" />
-        <div className="relative mx-auto max-w-5xl px-5">
+      <section className="mt-20 bg-ink py-16">
+        <div className="mx-auto max-w-5xl px-5">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-brass/40 pb-3">
             <h2 className="sign text-[1.75rem] text-paper">How we work</h2>
             <span className="arabic text-base text-onink/70" aria-hidden="true">
