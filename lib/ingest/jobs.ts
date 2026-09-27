@@ -206,15 +206,19 @@ export async function ingestJobs(): Promise<IngestResult> {
 
   const enrichments = await mapLimit(fresh, AI_CONCURRENCY, (job) => enrich(job));
 
-  // Slugs are allocated serially: uniqueSlug reads committed rows, so running it
-  // in parallel over similar titles could hand out the same slug twice.
+  // Slugs are allocated serially *and* against a running set. uniqueSlug reads
+  // committed rows, and nothing in this batch is committed until the upsert
+  // below — so without the set, two listings called "Sales Executive" claim the
+  // same slug and the whole insert dies on the unique constraint. A real ingest
+  // of eight searches hit this on the first run; eleven unique titles had not.
+  const reserved = new Set<string>();
   const rows = [];
   for (let i = 0; i < fresh.length; i++) {
     const job = fresh[i];
     const { value } = enrichments[i];
     const salary = parseSalary(job.salary);
     rows.push({
-      slug: await uniqueSlug("jobs", job.title),
+      slug: await uniqueSlug("jobs", job.title, reserved),
       title: job.title,
       company: job.company,
       source_url: job.sourceUrl,

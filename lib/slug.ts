@@ -23,6 +23,19 @@ export function slugify(input: string): string {
 export async function uniqueSlug(
   table: "jobs" | "articles" | "answers",
   title: string,
+  /**
+   * Slugs handed out during this run but not yet written.
+   *
+   * The database only knows about committed rows, so a caller that builds a
+   * batch and inserts it at the end gets the same slug twice for two listings
+   * with the same title — "Sales Executive" is not a rare title — and the whole
+   * insert fails on the unique constraint. Serial execution does not help: it
+   * prevents a race between concurrent calls, not the fact that none of them
+   * have committed yet.
+   *
+   * Pass a Set and this adds to it.
+   */
+  reserved?: Set<string>,
 ): Promise<string> {
   const base = slugify(title) || "post";
   const db = supabaseAdmin();
@@ -32,12 +45,19 @@ export async function uniqueSlug(
   if (error) throw new Error(`slug lookup failed on ${table}: ${error.message}`);
 
   const taken = new Set((data ?? []).map((r) => (r as { slug: string }).slug));
-  if (!taken.has(base)) return base;
+  for (const slug of reserved ?? []) taken.add(slug);
+
+  const claim = (slug: string) => {
+    reserved?.add(slug);
+    return slug;
+  };
+
+  if (!taken.has(base)) return claim(base);
 
   for (let n = 2; n < 1000; n++) {
     const candidate = `${base}-${n}`;
-    if (!taken.has(candidate)) return candidate;
+    if (!taken.has(candidate)) return claim(candidate);
   }
   // Pathological case only.
-  return `${base}-${Date.now().toString(36)}`;
+  return claim(`${base}-${Date.now().toString(36)}`);
 }

@@ -45,10 +45,14 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
   // a web page, which changes what the button can honestly say.
   const applyLink = job.source_url;
   const byEmail = applyLink ? isEmailLink(applyLink) : false;
-  // Who is hiring. `source_name` is where the ingest found the listing — an
-  // aggregator, or the employer's own board — and is not what a jobseeker is
-  // choosing between. Falls back to it only when we never learned the company.
-  const employer = job.company || job.source_name;
+  // Who is hiring, or nothing.
+  //
+  // This used to fall back to `source_name`, which is where the ingest found
+  // the listing — and on an aggregated feed that is a board's domain, so the
+  // button read "View and apply at buzzon.khaleejtimes.com". Naming the
+  // middleman is the thing we took out; naming it only when we know least
+  // about a listing is worse than saying nothing.
+  const employer = job.company;
   const deadline = deadlineLabel(job.apply_by);
 
   return (
@@ -103,13 +107,11 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
             business. The outbound link still goes to the original posting. */}
         <p className="text-sm leading-relaxed text-ink-soft">
           {!applyLink
-            ? `This is a summary, and this listing did not come with an application link. Look for the role on ${employer}'s own careers page, or ask us and we will point you at it.`
+            ? `This is a summary, and this listing did not come with an application link.${employer ? ` Look for the role on ${employer}'s own careers page, or ask us and we will point you at it.` : " Ask us and we will try to trace it."}`
             : byEmail
-              ? `This is a summary. ${employer} takes applications by email — ask them for the full description, salary and process.`
-              : `This is a summary. The full description, salary and application process are on ${employer}'s original posting.`}
+              ? `This is a summary. ${employer ?? "The employer"} takes applications by email — ask them for the full description, salary and process.`
+              : `This is a summary. The full description, salary and application process are on ${employer ? `${employer}'s original posting` : "the original posting"}.`}
         </p>
-        {/* No link, no button. A dead control that looks live is worse than an
-            honest sentence saying there is nowhere to send you. */}
         {applyLink && (
           <a
             href={applyLink}
@@ -120,7 +122,9 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
           >
             {byEmail
               ? `Email your application to ${applyLink.slice(7)}`
-              : `View and apply at ${employer}`}
+              : employer
+                ? `View and apply at ${employer}`
+                : "View the original posting"}
           </a>
         )}
       </div>

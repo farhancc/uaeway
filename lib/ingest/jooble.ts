@@ -15,12 +15,24 @@
  * back to the original posting. Scraping the Gulf boards directly would breach
  * their terms, and they block server-side requests anyway.
  *
- * Key: https://jooble.org/api/about — a short form, no charge.
+ * Key: https://ae.jooble.org/api/about — a short form, no charge. Apply on the
+ * regional host, not the global one: the key is bound to that country's index.
  */
 
 import { dedupe, htmlToText, type JobSearch, type RawJob } from "./source";
 
-const ENDPOINT = "https://jooble.org/api";
+/**
+ * Jooble is regional, and both halves of that matter.
+ *
+ * A key issued at jooble.org only sees the US index: it returned 53,000 jobs
+ * for "engineer" and zero for every UAE query, because it is a different
+ * database rather than a filter over one. The key for this site comes from
+ * ae.jooble.org, and it answers 403 on the global host — so the endpoint has to
+ * match the key that was issued against it.
+ *
+ * JOOBLE_HOST exists for the day this site serves another market.
+ */
+const ENDPOINT = `https://${process.env.JOOBLE_HOST || "ae.jooble.org"}/api`;
 
 interface JoobleJob {
   title?: string;

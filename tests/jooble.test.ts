@@ -78,13 +78,15 @@ describe("fetchJooble", () => {
     expect(jobs[0].company).toBe("Emirates Hospital");
   });
 
-  it("posts the key in the path and the search in the body", async () => {
+  it("posts the key in the path, to the regional host, with the search in the body", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ jobs: [] }), { status: 200 }));
 
     await fetchJooble(search);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://jooble.org/api/test-key");
+    // The host is not incidental: a key issued at ae.jooble.org answers 403 on
+    // the global host, and a global key sees only the US index.
+    expect(url).toBe("https://ae.jooble.org/api/test-key");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toMatchObject({ keywords: "nurse", location: "Dubai" });
   });
