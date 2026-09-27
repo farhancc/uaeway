@@ -214,6 +214,14 @@ export async function POST(request: Request) {
 
         if (chips.length > 0) send("chips", { chips });
 
+        // What the conversation is about, so the callback form in the widget
+        // opens on the right service instead of making the visitor find it.
+        const topic =
+          plan.kind === "canned"
+            ? plan.answer.service_slug
+            : (matchServices(`${asked} ${reply}`, 1)[0]?.slug ?? null);
+        if (topic) send("topic", { serviceSlug: topic });
+
         await appendMessage(
           sessionId,
           "model",

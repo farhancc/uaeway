@@ -57,7 +57,29 @@ async function email(lead: LeadRow): Promise<void> {
   if (!res.ok) throw new Error(`resend HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
 }
 
+/** Whether any alert channel is configured at all. */
+export function alertChannels(): string[] {
+  const channels: string[] = [];
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) channels.push("telegram");
+  if (process.env.RESEND_API_KEY && process.env.LEAD_ALERT_EMAIL && process.env.LEAD_ALERT_FROM) {
+    channels.push("email");
+  }
+  return channels;
+}
+
 export async function alertSales(lead: LeadRow): Promise<void> {
+  // Both senders return quietly when their own credentials are missing, which
+  // is right per channel and wrong in aggregate: with neither configured a lead
+  // was written to the database and nobody was told, and nothing said so. The
+  // whole point of a lead is that someone answers it.
+  if (alertChannels().length === 0) {
+    console.error(
+      `[leads] lead ${lead.id} saved but NOT sent to anyone — no alert channel is configured. ` +
+        `Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (see README), or the Resend variables.`,
+    );
+    return;
+  }
+
   const results = await Promise.allSettled([telegram(lead), email(lead)]);
   for (const r of results) {
     if (r.status === "rejected") {

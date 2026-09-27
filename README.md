@@ -284,6 +284,51 @@ launch content purely as the seed. Edit answers in the admin, not in code.
 The trade-off: if Supabase is unreachable, service pages render without their
 FAQ block. Worth it for one editable definition of what we tell people.
 
+## Leads, and being told about them
+
+Two ways a conversation becomes a lead, and they cost different amounts:
+
+- **The callback form in the chat.** A button under every reply opens name,
+  contact, service and a consent box. Deterministic, no model call, and consent
+  is a ticked box rather than something a model inferred from prose.
+- **Typed in conversation.** If someone writes their number into a sentence
+  instead, a second model call reads the last four turns to pull out the
+  contact and decide whether they agreed to be contacted. It runs only when the
+  message plausibly holds a contact, and it is strict about consent — a wrong
+  `true` means messaging someone who never asked.
+
+Both land in `leads` with `consent_at` set, deduplicated per contact and
+service, and both call `alertSales`.
+
+### Telegram
+
+This is the channel that tells you a lead arrived. Without it a lead is saved
+and nobody is told — so `alertSales` now logs that loudly rather than returning
+in silence.
+
+1. Message [@BotFather](https://t.me/BotFather) → `/newbot`, and copy the token
+   into `TELEGRAM_BOT_TOKEN`.
+2. **Open your new bot and send it `/start`.** A bot cannot message someone who
+   has never messaged it, and skipping this is what produces `chat not found`.
+3. Get the chat id: open
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` and read
+   `result[0].message.chat.id`. Put it in `TELEGRAM_CHAT_ID`.
+   For a team group, add the bot to the group, post any message there, and use
+   the group's negative id instead.
+4. Prove it:
+
+```bash
+npm run check:alerts
+```
+
+That sends a clearly-marked test message through every configured channel and
+writes nothing to the database. Run it after any change to these variables —
+finding out from a missed lead is the expensive way.
+
+Email alerts through Resend are optional and independent: set `RESEND_API_KEY`,
+`LEAD_ALERT_EMAIL` and `LEAD_ALERT_FROM`. Either channel failing is logged and
+swallowed; the database row is the source of truth.
+
 ## Writing
 
 Three kinds of article, defined once in `lib/content/sections.ts`:
@@ -317,6 +362,8 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
 - [ ] Have `/privacy` and `/terms` reviewed by a UAE legal adviser.
 - [ ] Get a Careerjet v4 key and run one real ingest.
 - [ ] Add at least one admin to the `admins` table.
+- [ ] Set up Telegram alerts and run `npm run check:alerts`. Until a channel is
+      configured, every lead is saved and nobody is told.
 
 ## Deliberate decisions
 

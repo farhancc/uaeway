@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Chip } from "@/lib/chat/chips";
+import { LeadCapture } from "./LeadCapture";
 import { SITE } from "@/lib/site";
 
 /**
@@ -31,6 +32,10 @@ export function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  /** What the conversation is about, for the callback form's service picker. */
+  const [topic, setTopic] = useState<string | null>(null);
+  /** Mirrors the ref so the callback form re-renders once a session exists. */
+  const [sessionKnown, setSessionKnown] = useState<string | null>(null);
 
   const sessionId = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -90,6 +95,7 @@ export function ChatWidget() {
             const data = JSON.parse(raw);
             if (event === "meta") {
               sessionId.current = data.sessionId;
+              setSessionKnown(data.sessionId);
             } else if (event === "token") {
               setMessages((prev) => {
                 const next = [...prev];
@@ -107,6 +113,8 @@ export function ChatWidget() {
               });
             } else if (event === "chips") {
               setChips(data.chips);
+            } else if (event === "topic") {
+              setTopic(data.serviceSlug);
             } else if (event === "lead") {
               setLeadCaptured(true);
             }
@@ -223,6 +231,21 @@ export function ChatWidget() {
                 {chip.question}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* The way out of the conversation and into the sales pipeline. Shown
+            once there is something to talk about, and on every reply after
+            that — the canned answers carry no call to action of their own, so
+            without this the cheapest path through the chat was also the one
+            that never asked for the business. */}
+        {messages.length > 0 && !busy && !leadCaptured && (
+          <div className="pt-1">
+            <LeadCapture
+              sessionId={sessionKnown}
+              serviceSlug={topic}
+              onCaptured={() => setLeadCaptured(true)}
+            />
           </div>
         )}
 

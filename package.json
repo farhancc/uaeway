@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:answers": "tsx --env-file=.env.local scripts/seed-answers.ts",
-    "draft:blog": "tsx --env-file=.env.local scripts/draft-blog.ts"
+    "draft:blog": "tsx --env-file=.env.local scripts/draft-blog.ts",
+    "check:alerts": "tsx --env-file=.env.local scripts/check-alerts.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
