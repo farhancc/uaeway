@@ -8,7 +8,7 @@ import { LeadForm } from "@/components/site/LeadForm";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { href, LOCALES } from "@/lib/i18n";
 import { getService, SERVICES } from "@/lib/services";
-import { SITE, whatsappLink } from "@/lib/site";
+import { SITE } from "@/lib/site";
 
 // The FAQ block now comes from the answer bank, so the page reads the database
 // and is revalidated rather than frozen at build time.
@@ -37,7 +37,6 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   const service = getService(slug);
   if (!service) notFound();
 
-  const wa = whatsappLink(`Hello — I need help with ${service.shortName.toLowerCase()}.`);
   const related = service.related.map(getService).filter((s) => s !== undefined);
   const faqs = await answersForService(service.slug);
 
@@ -160,18 +159,8 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
           )}
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-6 lg:self-start">
           <LeadForm service={service} />
-          {wa && (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block rounded-md border border-rule bg-field px-4 py-3 text-center text-sm font-medium text-brass-deep transition-colors hover:border-brass"
-            >
-              Or message us on WhatsApp
-            </a>
-          )}
         </div>
       </div>
 

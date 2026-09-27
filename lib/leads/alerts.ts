@@ -5,9 +5,6 @@ import type { LeadRow } from "../supabase/types";
  * Notifies sales about a new lead. Alerts are best-effort: the database row is
  * the source of truth, so a Telegram outage must never lose an enquiry. Every
  * failure is logged and swallowed.
- *
- * WhatsApp Cloud API delivery is deliberately not here yet — it needs Meta
- * business verification and template approval, which would have blocked launch.
  */
 
 function summary(lead: LeadRow): string {
@@ -28,8 +25,9 @@ async function telegram(lead: LeadRow): Promise<void> {
   const chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) return;
 
-  const wa = lead.contact.includes("@") ? null : `https://wa.me/${lead.contact}`;
-  const text = summary(lead) + (wa ? `\n\nReply: ${wa}` : "");
+  // No reply link. The visitor consented to phone or email, and Telegram makes
+  // a bare number tappable anyway.
+  const text = summary(lead);
 
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",

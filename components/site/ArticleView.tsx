@@ -82,7 +82,7 @@ export function ArticleView({ article, locale }: { article: ArticleRow; locale: 
 
       {service && (
         <div className="mt-8">
-          <ServiceCTA service={service} locale={locale} context={article.title} />
+          <ServiceCTA service={service} locale={locale} />
         </div>
       )}
 

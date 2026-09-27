@@ -1,8 +1,8 @@
 import { assertCron } from "@/lib/cron";
-import { buildDigest } from "@/lib/social/whatsapp-digest";
+import { buildDigest } from "@/lib/social/jobs-digest";
 
-/** Daily. Returns the channel post for someone to paste, and sends it to the
- *  team's Telegram so it is waiting for them. */
+/** Daily. Returns the post for someone to paste, and sends it to the team's
+ *  Telegram so it is waiting for them. */
 export async function GET(request: Request) {
   const denied = assertCron(request);
   if (denied) return denied;
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chat, text: digest, disable_web_page_preview: true }),
     });
-    if (!res.ok) console.error(`[cron/whatsapp-digest] telegram HTTP ${res.status}`);
+    if (!res.ok) console.error(`[cron/jobs-digest] telegram HTTP ${res.status}`);
   }
 
   return new Response(digest, { headers: { "Content-Type": "text/plain; charset=utf-8" } });

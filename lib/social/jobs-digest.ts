@@ -1,13 +1,14 @@
 import { listJobs } from "../content/queries";
-import { SITE, whatsappNumber } from "../site";
+import { SITE } from "../site";
 
 /**
- * Ready-to-paste text for the WhatsApp Channel.
+ * Ready-to-paste text for wherever the day's openings get posted.
  *
  * Carried over from the prototype's script, now reading approved jobs from the
  * database rather than a JSON file. It deliberately produces text for a person
- * to post rather than posting by itself: WhatsApp Channels have no publishing
- * API, and a human glance before posting is worth having anyway.
+ * to post rather than posting by itself — a human glance before a broadcast
+ * goes out is worth having, and no channel worth posting to has an API that
+ * would make it automatic anyway.
  */
 export async function buildDigest(limit = 5): Promise<string | null> {
   const jobs = await listJobs({ limit });
@@ -25,11 +26,9 @@ export async function buildDigest(limit = 5): Promise<string | null> {
 
   lines.push("——————————————");
   lines.push(
-    "Applying for a job in the UAE? Most employers need your degree and experience certificates translated and attested before a work permit is issued. Send us the document and we will tell you what it needs and who can do it.",
+    "Applying for a job in the UAE? Most employers need your degree and experience certificates translated and attested before a work permit is issued. Ask our assistant what your document needs and who can do it.",
   );
-
-  const number = whatsappNumber();
-  if (number) lines.push(`https://wa.me/${number}`);
+  lines.push(`${SITE.url}/en/services/attestation`);
   lines.push("");
   lines.push("Never pay a fee to be given a job.");
 

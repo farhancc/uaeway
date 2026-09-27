@@ -6,7 +6,7 @@ import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
-import { SITE, whatsappLink } from "@/lib/site";
+import { SITE } from "@/lib/site";
 import "../../globals.css";
 
 /* Outfit for display: geometric, signage-like, and close to the lettering in
@@ -75,7 +75,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
           {children}
         </main>
         <Footer locale={locale} />
-        <ChatWidget whatsappHref={whatsappLink("Hello — I was using the assistant on your site.")} />
+        <ChatWidget />
         {/* Organization, not LocalBusiness: this site is not a storefront with
             an address and opening hours, it is a place people research from and
             get introduced to providers. Kept to facts we can stand behind. */}

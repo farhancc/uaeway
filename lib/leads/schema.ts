@@ -2,8 +2,11 @@ import { z } from "zod";
 import { serviceSlugs } from "../services";
 
 /**
- * One validated shape for every lead, whatever produced it — a service form, the
- * chatbot, or an inbound WhatsApp click.
+ * One validated shape for every lead, whatever produced it — a service form or
+ * the chatbot.
+ *
+ * `lead_origin` in the database still carries 'whatsapp' and 'import', because
+ * rows recorded under them are history. Neither can be created through here.
  *
  * `consent` is `z.literal(true)`, not a boolean. Under the UAE PDPL we need a
  * recorded moment of agreement to be contacted, so a lead that arrives without
@@ -16,7 +19,7 @@ export const leadInput = z.object({
   contact: z.string().trim().min(5).max(80),
   email: z.string().trim().email().max(160).optional(),
   need: z.string().trim().max(2000).optional(),
-  origin: z.enum(["chat", "form", "whatsapp"]).default("form"),
+  origin: z.enum(["chat", "form"]).default("form"),
   chatSessionId: z.string().uuid().optional(),
   pagePath: z.string().max(300).optional(),
   utm: z.record(z.string(), z.string()).default({}),

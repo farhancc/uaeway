@@ -43,9 +43,7 @@ export default async function LeadsPage() {
                 <p className="font-medium text-ink">{lead.name || "No name given"}</p>
                 {!lead.contact.includes("@") ? (
                   <a
-                    href={`https://wa.me/${lead.contact}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`tel:+${lead.contact}`}
                     className="text-sm text-brass-deep hover:underline"
                   >
                     +{lead.contact}

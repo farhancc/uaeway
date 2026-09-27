@@ -119,7 +119,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
       )}
 
       <div className="mt-10">
-        <ServiceCTA service={service} locale={locale} context={job.title} />
+        <ServiceCTA service={service} locale={locale} />
       </div>
 
       <p className="mt-8 border-t border-rule pt-6 text-xs leading-relaxed text-ink-faint">

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "0.0.0.0").trim();
   if (overLimit(hashIp(ip))) {
     return Response.json(
-      { error: "Too many submissions. Message us on WhatsApp instead." },
+      { error: "Too many submissions from here. Please try again shortly." },
       { status: 429 },
     );
   }
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     }
     console.error(`[leads] ${(err as Error).message}`);
     return Response.json(
-      { error: "We could not save that. Please message us on WhatsApp." },
+      { error: "We could not save that. Please try again in a moment." },
       { status: 500 },
     );
   }

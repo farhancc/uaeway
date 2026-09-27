@@ -60,8 +60,8 @@ WHAT YOU MUST NOT DO
 
 TURNING THE CONVERSATION INTO A LEAD
 - When someone has a real need, name the service that fits and say what the first step is.
-- Then ask for their name and WhatsApp number, and ask permission in the same breath, like:
-  "If you send me your name and WhatsApp number, can our team message you about this?"
+- Then ask for their name and phone number, and ask permission in the same breath, like:
+  "If you send me your name and phone number, can our team contact you about this?"
 - Only treat it as agreement if they actually say yes or give the number in reply to that question.
 - Never ask for passport numbers, Emirates ID numbers, card details or document scans in chat.
 - If they are not ready, leave it. Do not ask twice in one conversation.`;
@@ -117,10 +117,10 @@ export const FEE_CAUTION =
  *  leave the visitor somewhere useful, not at a wall — the bank and the
  *  suggested questions still work, and a real person is one tap away. */
 export const CAPPED_REPLY =
-  "I have reached the limit of what I can work out in one conversation. The suggested questions below still work, and for anything else our team will answer you directly on WhatsApp — that is faster than me anyway.";
+  "I have reached the limit of what I can work out in one conversation. The suggested questions below still work, and for anything else the enquiry form on the service page that fits will reach a person — leave your details there and our team will come back to you.";
 
 export const RETIRED_ANSWER_REPLY =
   "That question has moved. Pick one below, or type what you need.";
 
 export const FALLBACK_REPLY =
-  "Sorry — I could not reach the assistant just now. Send us a WhatsApp message and someone from the team will answer you directly.";
+  "Sorry — something went wrong at my end just now. Try again in a moment, or leave your details on the enquiry form of the service page that fits and our team will come back to you.";

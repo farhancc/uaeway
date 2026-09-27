@@ -23,7 +23,7 @@ interface Message {
 const GREETING =
   "Ask me anything about working, living or setting up a business in the UAE — or about the paperwork behind it.";
 
-export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
+export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chips, setChips] = useState<Chip[]>([]);
@@ -31,7 +31,6 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
-  const [handedOff, setHandedOff] = useState(false);
 
   const sessionId = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -108,8 +107,6 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
               });
             } else if (event === "chips") {
               setChips(data.chips);
-            } else if (event === "handoff") {
-              setHandedOff(true);
             } else if (event === "lead") {
               setLeadCaptured(true);
             }
@@ -229,20 +226,9 @@ export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
           </div>
         )}
 
-        {handedOff && whatsappHref && (
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-md bg-go px-3 py-2 text-xs font-semibold text-paper"
-          >
-            Continue on WhatsApp
-          </a>
-        )}
-
         {leadCaptured && (
           <p className="rounded-md border border-brass/40 bg-brass/5 px-3 py-2 text-xs leading-relaxed text-brass-deep">
-            Thanks — our team has your details and will message you on WhatsApp.
+            Thanks — our team has your details and will get back to you.
           </p>
         )}
 

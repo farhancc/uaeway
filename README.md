@@ -48,7 +48,6 @@ Then fill in `.env.local`:
 | `GEMINI_MODEL` | Optional. Overrides the pinned chat model (see `lib/ai/gemini.ts`) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings |
 | `CAREERJET_API_KEY` | Careerjet **v4** publisher key — see below |
-| `WHATSAPP_NUMBER` | Sales number, international format, no `+` |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | @BotFather |
 | `RESEND_API_KEY`, `LEAD_ALERT_EMAIL`, `LEAD_ALERT_FROM` | resend.com |
 | `CRON_SECRET` | `openssl rand -hex 32` |
@@ -241,7 +240,7 @@ Now most turns cost nothing:
 tapped suggestion ─────────────> exact lookup by slug            0 tokens
 typed question ──> confident keyword match? ──yes──> the bank    0 tokens
                             └──no──> Gemini, trimmed prompt
-                                      └─ used its 8 model replies? ──> handoff + WhatsApp
+                                      └─ used its 8 model replies? ──> the enquiry form
 ```
 
 **Suggestions are the mechanism, not decoration.** A tapped chip is an exact
@@ -261,8 +260,8 @@ snippets to 4 with shorter excerpts; history from 12 turns to 8; and service
 grounding no longer repeats the FAQs the bank already answers.
 
 **Each conversation gets 8 model replies.** After that the bank still answers,
-suggestions still work, and the visitor is offered WhatsApp — so a capped
-session stays useful and costs nothing. Lead capture is exempt: a lead is worth
+suggestions still work, and the visitor is pointed at the enquiry form on the
+service page that fits — so a capped session stays useful and costs nothing. Lead capture is exempt: a lead is worth
 far more than the tokens.
 
 `/admin` shows the figure that matters: **percentage of replies answered without
@@ -332,8 +331,10 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
   text, and brass appears only as hairlines, numerals and small marks — never a
   filled button, which is what makes these sites read as gold-plated. Each
   colour has one job: navy for actions, brass for rules and numerals, green for
-  WhatsApp only, red for warnings only. Brass fails contrast as text on ivory,
+  the one button that starts an enquiry, red for warnings only. Brass fails contrast as text on ivory,
   so `--color-brass-deep` exists for links and numerals on light grounds.
-- **WhatsApp Cloud API deferred.** It needs Meta business verification and
-  template approval. Leads reach sales through Telegram and email today, and
-  visitors reach the team through `wa.me` click-to-chat.
+- **One inbound channel: the assistant.** No WhatsApp, no phone number, no
+  mailto. Every route in goes through the chat or a service page's enquiry
+  form, so every enquiry arrives as a `leads` row with recorded consent rather
+  than as a message in someone's personal app. Leads reach sales through
+  Telegram and email.

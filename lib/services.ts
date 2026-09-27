@@ -65,7 +65,7 @@ export interface Service {
 
 const CONTACT_FIELDS: IntakeField[] = [
   { name: "name", label: "Your name", type: "text", required: true },
-  { name: "phone", label: "WhatsApp number", type: "tel", required: true },
+  { name: "phone", label: "Phone number", type: "tel", required: true },
   { name: "email", label: "Email", type: "email", required: false },
 ];
 
@@ -84,7 +84,7 @@ export const SERVICES: Service[] = [
       "Companies filing contracts, MoUs or licences",
     ],
     process: [
-      "Send a photo or scan on WhatsApp and tell us what the translation is for",
+      "Send a photo or scan through the form and tell us what the translation is for",
       "We work out what it actually needs — certified translation, attestation first, or both",
       "We put you in touch with a translator licensed by the Ministry of Justice, with the price and turnaround agreed before anything starts",
       "They produce the stamped, signed certified copy; we stay in the loop until you have it",
@@ -413,7 +413,7 @@ export const SERVICES: Service[] = [
     ],
     process: [
       "You send your current CV and the kind of role you are targeting",
-      "A short call or WhatsApp exchange to pull out achievements you left off",
+      "A short call to pull out the achievements you left off",
       "We write the CV, cover letter and LinkedIn summary",
       "One round of revisions included",
     ],

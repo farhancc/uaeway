@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
   if (session.turnCount >= MAX_TURNS) {
     return Response.json(
-      { error: "This conversation has reached its limit. Please message us on WhatsApp." },
+      { error: "This conversation has reached its limit. Leave your details on any service page and our team will come back to you." },
       { status: 429 },
     );
   }

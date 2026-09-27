@@ -63,8 +63,8 @@ export function LeadForm({ service }: { service: Service }) {
       <div className="rounded-md border border-brass/40 bg-brass/5 p-5">
         <p className="sign text-brass-deep">Got it.</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          Someone from the team will message you on WhatsApp. If it is urgent, message us first —
-          that reaches us fastest.
+          Someone from the team will get back to you on the number or email you gave us. If it
+          is urgent, the assistant in the corner can usually answer straight away.
         </p>
       </div>
     );
@@ -134,7 +134,7 @@ export function LeadForm({ service }: { service: Service }) {
         <label className="flex items-start gap-2 pt-1 text-sm leading-relaxed text-ink-soft">
           <input type="checkbox" name="consent" required className="mt-1" />
           <span>
-            Our team can contact me on WhatsApp or email about this enquiry. We will not pass your
+            Our team can contact me by phone or email about this enquiry. We will not pass your
             details to anyone else.
           </span>
         </label>
