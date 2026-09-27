@@ -2,6 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { fetchBoards } from "@/lib/ingest/boards";
+import {
+  articleImport,
+  asArray,
+  checkApplyLinks,
+  jobImport,
+  parseRows,
+  toCitations,
+  type RowError,
+} from "@/lib/admin/import";
 import { requireAdmin } from "@/lib/admin/auth";
 import { clearAnswerCache } from "@/lib/chat/answers";
 import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
@@ -404,4 +413,111 @@ export async function setAnswerOpener(id: string, isOpener: boolean): Promise<vo
 
   clearAnswerCache();
   revalidatePath("/admin/answers");
+}
+
+
+export interface ImportResult {
+  imported: number;
+  /** Jobs already held, matched on the apply link. Not an error: re-pasting a
+   *  list you have partly imported should be safe and boring. */
+  duplicates: number;
+  errors: RowError[];
+}
+
+/** Shared front door: valid JSON, and something to actually import. */
+function readBatch(raw: string): unknown[] {
+  const text = raw.trim();
+  if (!text) throw new Error("Paste some JSON first.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`That is not valid JSON: ${(err as Error).message}`);
+  }
+
+  const items = asArray(parsed);
+  if (items.length === 0) throw new Error("The array is empty.");
+  if (items.length > 200) throw new Error("Import at most 200 at a time.");
+  return items;
+}
+
+/**
+ * Bulk job import. Everything lands as `pending` for review, exactly as the
+ * nightly ingest does.
+ */
+export async function importJobs(raw: string): Promise<ImportResult> {
+  await requireAdmin();
+
+  const { rows, errors } = parseRows(jobImport, readBatch(raw));
+  const linkErrors = checkApplyLinks(rows);
+  const allErrors = [...errors, ...linkErrors].sort((a, b) => a.row - b.row);
+
+  // Nothing is written while anything is wrong: a partial import leaves you
+  // guessing which half landed.
+  if (allErrors.length > 0) return { imported: 0, duplicates: 0, errors: allErrors };
+
+  const db = await supabaseServer();
+  let imported = 0;
+  let duplicates = 0;
+
+  // Serially: uniqueSlug reads committed rows, so running it in parallel over
+  // similar titles could hand out the same slug twice.
+  for (const { value: row } of rows) {
+    const applyLink = normalizeApplyLink(row.applyLink)!;
+    const postedAt = row.postedAt ? new Date(row.postedAt).toISOString() : new Date().toISOString();
+
+    const { error } = await db.from("jobs").insert({
+      slug: await uniqueSlug("jobs", row.title),
+      title: row.title,
+      company: row.company,
+      source_url: applyLink,
+      source_name: row.sourceName || row.company,
+      emirate: row.emirate ?? null,
+      category: row.category,
+      summary: row.summary ?? null,
+      documents_needed: row.documentsNeeded,
+      posted_at: postedAt,
+      expires_at: jobExpiry(postedAt),
+      status: "pending",
+    });
+
+    if (!error) imported += 1;
+    else if (error.code === "23505") duplicates += 1;
+    else throw new Error(`Row for "${row.title}" failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  return { imported, duplicates, errors: [] };
+}
+
+/** Bulk article import — guides, news or blog posts. Also `pending`. */
+export async function importArticles(raw: string): Promise<ImportResult> {
+  await requireAdmin();
+
+  const { rows, errors } = parseRows(articleImport, readBatch(raw));
+  if (errors.length > 0) return { imported: 0, duplicates: 0, errors };
+
+  const db = await supabaseServer();
+  let imported = 0;
+
+  for (const { value: row } of rows) {
+    const { error } = await db.from("articles").insert({
+      slug: await uniqueSlug("articles", row.title),
+      locale: row.locale,
+      kind: row.kind,
+      title: row.title,
+      excerpt: row.excerpt ?? null,
+      body_md: row.bodyMd,
+      service_slug: row.serviceSlug ?? null,
+      citations: toCitations(row.sources),
+      status: "pending",
+    });
+
+    if (error) throw new Error(`Row for "${row.title}" failed: ${error.message}`);
+    imported += 1;
+  }
+
+  revalidatePath("/admin");
+  return { imported, duplicates: 0, errors: [] };
 }

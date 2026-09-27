@@ -36,6 +36,9 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
             <Link href="/admin/new" className="text-sm text-ink-soft hover:text-ink">
               Write a post
             </Link>
+            <Link href="/admin/import" className="text-sm text-ink-soft hover:text-ink">
+              Import
+            </Link>
             <Link href="/admin/boards" className="text-sm text-ink-soft hover:text-ink">
               Employers
             </Link>
