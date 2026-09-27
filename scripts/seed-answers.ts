@@ -7,6 +7,7 @@
  * never overwrites an answer someone has since edited in the admin.
  */
 
+import { getService } from "../lib/services";
 import { PATHS } from "../lib/paths";
 import { SEED_FAQS } from "./seed-data/faqs";
 import { slugify } from "../lib/slug";
@@ -90,10 +91,19 @@ function fromPaths(): Row[] {
   return PATHS.map((path, i) => {
     const steps = path.steps
       .map((step, n) => {
-        const service = step.service
-          ? ` — we handle this: [/services/${step.service}](/services/${step.service})`
-          : " — your employer handles this part.";
-        return `${n + 1}. ${step.text}${step.service ? service : service}`;
+        // Who actually does it, drawn from the service rather than assumed.
+        // This used to say "we handle this" for every step with a service
+        // attached — including attestation, legal translation, notarisation and
+        // visa filing, which are regulated activities this site does not
+        // perform. Saying otherwise in a chat reply is the one claim the whole
+        // site is built to avoid.
+        const service = step.service ? getService(step.service) : undefined;
+        const tail = !service
+          ? " — your employer handles this part."
+          : service.delivery === "in-house"
+            ? ` — we do this ourselves: [/services/${service.slug}](/services/${service.slug})`
+            : ` — we can help with this: [/services/${service.slug}](/services/${service.slug})`;
+        return `${n + 1}. ${step.text}${tail}`;
       })
       .join("\n");
 

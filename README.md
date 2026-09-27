@@ -353,12 +353,15 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
 
 ## Before launch
 
-- [ ] **Decide which services are delivered in-house vs referred out.** Set
-      `licence` on each entry in `lib/services.ts` to `direct` (we do it) or
-      `partner` (a licensed provider does it, and the page says so). Most are
-      `unconfirmed` today and the copy stays neutral until you change them.
-      Visa processing, attestation, notary and legal translation are regulated
-      activities in the UAE — this site must not imply it performs them.
+- [x] **Which services are in-house vs referred out.** `delivery` on each entry
+      in `lib/services.ts` is `in-house` (CV writing, websites) or `referred`
+      (everything else). Visa processing, attestation, notary and legal
+      translation are regulated activities in the UAE — this site must not imply
+      it performs them, so anything that describes a service reads its
+      `delivery` rather than hardcoding a claim. `scripts/seed-answers.ts` got
+      this wrong once and shipped four chat answers saying "we handle this"
+      about attestation; if you add another such surface, take the wording from
+      the service.
 - [ ] Have `/privacy` and `/terms` reviewed by a UAE legal adviser.
 - [ ] Get a Careerjet v4 key and run one real ingest.
 - [ ] Add at least one admin to the `admins` table.
