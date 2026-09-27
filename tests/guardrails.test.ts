@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findUnsupportedAmounts } from "@/lib/chat/prompt";
+import { findUnsupportedAmounts, SYSTEM_PROMPT, withContext } from "@/lib/chat/prompt";
 import { matchServices } from "@/lib/services";
 import { normalizeEmirate } from "@/lib/uae";
 
@@ -70,5 +70,28 @@ describe("emirate normalisation", () => {
   it("returns null rather than guessing", () => {
     expect(normalizeEmirate("Remote")).toBeNull();
     expect(normalizeEmirate(null)).toBeNull();
+  });
+});
+
+describe("prompt shape", () => {
+  it("keeps the instructions free of per-turn content, so the prefix is cacheable", () => {
+    // The old buildSystemPrompt(context) made every request byte-different and
+    // forfeited Gemini's implicit caching on each one.
+    expect(SYSTEM_PROMPT).not.toContain("CONTEXT:\n");
+    expect(SYSTEM_PROMPT).not.toMatch(/\[\d+\] (SERVICE|ARTICLE|JOB):/);
+  });
+
+  it("carries the grounding on the visitor's own message", () => {
+    const turn = withContext("how long does it take?", "[1] SERVICE: Attestation\nSome text");
+    expect(turn).toContain("CONTEXT:");
+    expect(turn).toContain("[1] SERVICE: Attestation");
+    expect(turn).toContain("VISITOR: how long does it take?");
+  });
+
+  it("produces the same instructions whatever the context", () => {
+    const a = SYSTEM_PROMPT;
+    withContext("x", "one context");
+    withContext("y", "a completely different context");
+    expect(SYSTEM_PROMPT).toBe(a);
   });
 });

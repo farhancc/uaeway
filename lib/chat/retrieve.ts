@@ -24,7 +24,9 @@ export interface Snippet {
 }
 
 function serviceSnippet(service: Service): Snippet {
-  const faqs = service.faqs.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n");
+  // Deliberately without the FAQs. Those live in the answer bank and are served
+  // directly, so putting them in the model's context too would be paying twice
+  // for the same sentences.
   return {
     kind: "service",
     title: service.name,
@@ -33,12 +35,11 @@ function serviceSnippet(service: Service): Snippet {
       service.summary,
       `Turnaround: ${service.turnaround}`,
       `What we need from the client: ${service.documents.join("; ")}`,
-      faqs,
     ].join("\n"),
   };
 }
 
-export async function retrieve(query: string, limit = 6): Promise<Snippet[]> {
+export async function retrieve(query: string, limit = 4): Promise<Snippet[]> {
   // Services first: they are the answer to most questions and cost no query.
   const snippets: Snippet[] = matchServices(query, 2).map(serviceSnippet);
 
@@ -72,7 +73,9 @@ export async function retrieve(query: string, limit = 6): Promise<Snippet[]> {
       title: row.title,
       path: articlePath(row.kind, row.slug),
       // Enough to answer from without filling the context with one article.
-      text: (row.excerpt ? `${row.excerpt}\n` : "") + row.body_md.slice(0, 1200),
+      // Halved once the answer bank took the common questions: what reaches the
+      // model now is the unusual question, where breadth beats depth.
+      text: (row.excerpt ? `${row.excerpt}\n` : "") + row.body_md.slice(0, 600),
     });
   }
 

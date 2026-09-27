@@ -38,6 +38,9 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
             <Link href="/admin/searches" className="text-sm text-ink-soft hover:text-ink">
               Searches
             </Link>
+            <Link href="/admin/answers" className="text-sm text-ink-soft hover:text-ink">
+              Answers
+            </Link>
             <Link href="/en" className="ml-auto text-sm text-ink-faint hover:text-ink">
               View site
             </Link>

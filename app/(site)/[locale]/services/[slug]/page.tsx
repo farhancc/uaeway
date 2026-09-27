@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import { answersForService } from "@/lib/chat/answers";
 import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { LeadForm } from "@/components/site/LeadForm";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { href, LOCALES } from "@/lib/i18n";
 import { getService, SERVICES } from "@/lib/services";
 import { SITE, whatsappLink } from "@/lib/site";
+
+// The FAQ block now comes from the answer bank, so the page reads the database
+// and is revalidated rather than frozen at build time.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return LOCALES.flatMap((locale) => SERVICES.map((s) => ({ locale, slug: s.slug })));
@@ -33,6 +39,7 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
 
   const wa = whatsappLink(`Hello — I need help with ${service.shortName.toLowerCase()}.`);
   const related = service.related.map(getService).filter((s) => s !== undefined);
+  const faqs = await answersForService(service.slug);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
@@ -104,19 +111,21 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
             </p>
           </section>
 
+          {faqs.length > 0 && (
           <section className="mt-10">
             <SectionHeading arabic="أسئلة متكررة">Questions we get</SectionHeading>
             <div className="mt-4 divide-y divide-rule border-y border-rule">
-              {service.faqs.map((faq) => (
-                <details key={faq.q} className="qa py-4">
-                  <summary className="font-medium text-ink">
-                    {faq.q}
-                  </summary>
-                  <p className="mt-2 max-w-[64ch] text-sm leading-relaxed text-ink-soft">{faq.a}</p>
+              {faqs.map((faq) => (
+                <details key={faq.slug} className="qa py-4">
+                  <summary className="font-medium text-ink">{faq.question}</summary>
+                  <div className="prose-doc mt-2 max-w-[64ch] text-sm">
+                    <ReactMarkdown>{faq.answer_md}</ReactMarkdown>
+                  </div>
                 </details>
               ))}
             </div>
           </section>
+          )}
 
           {related.length > 0 && (
             <section className="mt-10">
@@ -163,18 +172,21 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
       />
       {/* FAQ markup: Google restricted FAQ rich results to authoritative health
           and government sites, so this is for machine readability — including by
-          AI search — rather than for a rich snippet. */}
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          mainEntity: service.faqs.map((faq) => ({
-            "@type": "Question",
-            name: faq.q,
-            acceptedAnswer: { "@type": "Answer", text: faq.a },
-          })),
-        }}
-      />
+          AI search — rather than for a rich snippet. Omitted entirely when the
+          bank has nothing, rather than emitting an empty FAQPage. */}
+      {faqs.length > 0 && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: { "@type": "Answer", text: faq.answer_md },
+            })),
+          }}
+        />
+      )}
     </div>
   );
 }

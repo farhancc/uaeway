@@ -1,3 +1,5 @@
+import { phraseMatches, tokenize } from "./text";
+
 /**
  * The eight service lines the site exists to sell.
  *
@@ -23,11 +25,6 @@ export interface IntakeField {
   options?: string[];
 }
 
-export interface Faq {
-  q: string;
-  a: string;
-}
-
 export interface Service {
   slug: string;
   /** Full name, used as the page H1. */
@@ -47,7 +44,6 @@ export interface Service {
   /** Documents the client must provide. Often the real reason someone calls. */
   documents: string[];
   turnaround: string;
-  faqs: Faq[];
   /** Matched against visitor questions and job categories for CTA targeting. */
   keywords: string[];
   intake: IntakeField[];
@@ -92,20 +88,6 @@ export const SERVICES: Service[] = [
       "The authority the translation is for, if you know it",
     ],
     turnaround: "Same day for short documents; 2–3 working days for long or technical files",
-    faqs: [
-      {
-        q: "Why was my translation rejected?",
-        a: "Almost always because it was not produced by a translator licensed by the UAE Ministry of Justice, or because the name spelling did not match the passport. Both are things we check before delivery.",
-      },
-      {
-        q: "Do you translate the whole document or only part of it?",
-        a: "Certified translations must cover the complete document, including stamps and seals. Partial translations get rejected.",
-      },
-      {
-        q: "Do I need attestation as well as translation?",
-        a: "Often yes — they are separate steps. Attestation proves the original is genuine; translation makes it readable to the authority. We can tell you which you need for your specific case.",
-      },
-    ],
     keywords: [
       "legal translation",
       "certified translation",
@@ -161,20 +143,6 @@ export const SERVICES: Service[] = [
       "Any attestation stamps already obtained",
     ],
     turnaround: "Depends heavily on the issuing country — we give a realistic range before starting",
-    faqs: [
-      {
-        q: "Can you attest a photocopy?",
-        a: "No. Attestation is performed on the original document. Anyone offering to attest a copy is not doing real attestation.",
-      },
-      {
-        q: "How much does attestation cost?",
-        a: "The government fees differ by country and document type and are revised periodically, so we quote per case rather than publishing a figure that would soon be wrong.",
-      },
-      {
-        q: "My degree is from India. Does that change anything?",
-        a: "Yes. Each country has its own route — for example some require state-level authentication before the national foreign ministry. We handle the specific chain for your country.",
-      },
-    ],
     keywords: [
       "attestation",
       "certificate attestation",
@@ -232,20 +200,6 @@ export const SERVICES: Service[] = [
       "Supporting documents that vary by visa type — we confirm per case",
     ],
     turnaround: "Varies by visa type and authority; we give a current estimate at the start",
-    faqs: [
-      {
-        q: "What does a UAE visa cost?",
-        a: "Government fees depend on visa type, emirate, duration and whether the application is inside or outside the country, and they are revised from time to time. We quote per case and always show government fees separately from our own fee. Always confirm current official fees with ICP or the relevant authority.",
-      },
-      {
-        q: "Can you guarantee approval?",
-        a: "No, and nobody honestly can — approval is the authority's decision. What we can do is make sure the file does not fail on paperwork.",
-      },
-      {
-        q: "My visa application was rejected. Can you help?",
-        a: "Usually yes. We look at the rejection reason, fix the underlying document problem, and advise whether to reapply or take a different route.",
-      },
-    ],
     keywords: [
       "visa",
       "residence visa",
@@ -304,16 +258,6 @@ export const SERVICES: Service[] = [
       "Details of the person or company being granted authority",
     ],
     turnaround: "Typically 1–3 working days including the appointment",
-    faqs: [
-      {
-        q: "Does a power of attorney need to be in Arabic?",
-        a: "UAE notaries work in Arabic, so instruments are normally notarised bilingually with a certified Arabic translation. We handle both parts together.",
-      },
-      {
-        q: "Can I notarise a document if I am outside the UAE?",
-        a: "There is usually a route through the UAE embassy in your country, or via a power of attorney granted to someone here. Which one applies depends on the document.",
-      },
-    ],
     keywords: [
       "notary",
       "notary public",
@@ -370,20 +314,6 @@ export const SERVICES: Service[] = [
       "Existing corporate documents if a company is a shareholder",
     ],
     turnaround: "Free zone setups are typically faster than mainland; we give a realistic timeline per jurisdiction",
-    faqs: [
-      {
-        q: "Mainland or free zone?",
-        a: "It depends on who your customers are. Free zones suit businesses trading internationally or serving other companies; mainland is generally needed to trade freely inside the UAE market and to bid for certain contracts. We work it out from your actual activity rather than defaulting to whichever is cheapest to sell.",
-      },
-      {
-        q: "How much does it cost to set up a company?",
-        a: "Licence and registration fees vary widely by jurisdiction, activity, visa quota and office requirement, and they change between licensing periods. We quote against a specific structure instead of advertising a headline figure that few applicants actually qualify for.",
-      },
-      {
-        q: "Can I own 100% of the company?",
-        a: "In free zones, yes. On the mainland, full foreign ownership is available for a large list of activities, but not all of them — it depends on your specific activity code.",
-      },
-    ],
     keywords: [
       "business setup",
       "company formation",
@@ -436,16 +366,6 @@ export const SERVICES: Service[] = [
       "English language test result where required",
     ],
     turnaround: "Driven by university intake deadlines — start early",
-    faqs: [
-      {
-        q: "What is certificate equivalency and do I need it?",
-        a: "It is official recognition that a qualification earned outside the UAE is equivalent to the UAE standard. It is commonly required for university admission and for some professional roles. We confirm whether your case needs it.",
-      },
-      {
-        q: "Can you guarantee admission?",
-        a: "No. We make the application as strong and as complete as it can be; the decision is the university's.",
-      },
-    ],
     keywords: [
       "higher studies",
       "university admission",
@@ -496,16 +416,6 @@ export const SERVICES: Service[] = [
       "Certificates you want referenced",
     ],
     turnaround: "2–3 working days",
-    faqs: [
-      {
-        q: "Should I put my photo, age and marital status on a UAE CV?",
-        a: "A photo is common and generally expected in this market. Age, marital status and nationality are often asked for too — we will tell you what helps for your target roles and what is better left off.",
-      },
-      {
-        q: "Do you write the CV from scratch?",
-        a: "We rewrite rather than invent. Everything on the finished CV has to be true and something you can defend in an interview.",
-      },
-    ],
     keywords: [
       "cv",
       "resume",
@@ -550,16 +460,6 @@ export const SERVICES: Service[] = [
       "Text, photos and product details, or brief us and we will write it",
     ],
     turnaround: "1–3 weeks for a standard business site",
-    faqs: [
-      {
-        q: "Do I own the site afterwards?",
-        a: "Yes — the domain, the hosting account and the code are yours. We do not hold your site hostage.",
-      },
-      {
-        q: "Will it rank on Google?",
-        a: "We build the technical foundation that makes ranking possible — speed, structure, metadata, schema. Ranking itself depends on competition and ongoing content, and anyone promising a position is guessing.",
-      },
-    ],
     keywords: [
       "website",
       "web design",
@@ -597,30 +497,6 @@ export function serviceSlugs(): string[] {
   return SERVICES.map((s) => s.slug);
 }
 
-/** Words in a piece of text, lowercased. */
-function tokenize(text: string): string[] {
-  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-}
-
-/**
- * Whether two words are the same word for matching purposes.
- *
- * People type "translate my degree", not "legal translation", so exact token
- * equality misses most real questions. Comparing on a shared prefix catches the
- * inflections that matter — translate/translation, attest/attestation,
- * notary/notarised — while staying tight enough to keep visa/visit and
- * company/compare apart. Short words must match exactly, so "cv" never matches
- * "cvs" by accident.
- */
-function sameWord(a: string, b: string): boolean {
-  if (a.length < 4 || b.length < 4) return a === b;
-
-  const n = Math.min(a.length, b.length);
-  let shared = 0;
-  while (shared < n && a[shared] === b[shared]) shared++;
-  return shared >= Math.min(5, n);
-}
-
 /**
  * Services whose keywords appear in the given text, best match first.
  *
@@ -636,9 +512,9 @@ export function matchServices(text: string, limit = 3): Service[] {
   return SERVICES.map((service) => {
     let score = 0;
     for (const keyword of service.keywords) {
-      const parts = tokenize(keyword);
-      const matched = parts.every((part) => words.some((word) => sameWord(word, part)));
-      if (matched) score += parts.length * 2 + keyword.length / 10;
+      if (phraseMatches(words, keyword)) {
+        score += tokenize(keyword).length * 2 + keyword.length / 10;
+      }
     }
     return { service, score };
   })

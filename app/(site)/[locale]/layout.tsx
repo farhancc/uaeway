@@ -5,7 +5,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
-import { SITE } from "@/lib/site";
+import { SITE, whatsappLink } from "@/lib/site";
 import "../../globals.css";
 
 /* One Latin family, contrast from weight: Archivo Black for signage-weight
@@ -73,7 +73,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
           {children}
         </main>
         <Footer locale={locale} />
-        <ChatWidget />
+        <ChatWidget whatsappHref={whatsappLink("Hello — I was using the assistant on your site.")} />
       </body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
+import { clearAnswerCache } from "@/lib/chat/answers";
 import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
 import { uniqueSlug } from "@/lib/slug";
 import { EMIRATES, JOB_CATEGORIES } from "@/lib/uae";
@@ -258,4 +259,91 @@ export async function deleteJobSearch(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/searches");
+}
+
+/* ── Answer bank ─────────────────────────────────────────────────────────────
+   These are human-written answers, not AI drafts, so they do not go through the
+   review queue: saving one publishes it. The cache is cleared on every write so
+   an edit shows in the chatbot immediately rather than after the TTL. */
+
+function lines(form: FormData, field: string, limit: number): string[] {
+  return String(form.get(field) ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function answerFields(form: FormData) {
+  const question = String(form.get("question") ?? "").trim();
+  const answer_md = String(form.get("answer_md") ?? "").trim();
+  if (!question) throw new Error("A question is required.");
+  if (!answer_md) throw new Error("An answer is required.");
+
+  return {
+    question,
+    answer_md,
+    service_slug: String(form.get("service_slug") ?? "").trim() || null,
+    keywords: lines(form, "keywords", 12),
+    follow_up_slugs: form.getAll("follow_up_slugs").map(String).filter(Boolean).slice(0, 6),
+    is_opener: form.get("is_opener") === "on",
+    show_on_page: form.get("show_on_page") === "on",
+    position: Number(form.get("position") ?? 0) || 0,
+    active: form.get("active") !== "off",
+  };
+}
+
+export async function createAnswer(form: FormData): Promise<{ slug: string }> {
+  await requireAdmin();
+
+  const fields = answerFields(form);
+  // The slug is the identity a suggestion chip refers to, so it is set once at
+  // creation and never edited: changing it would break chips already on screen.
+  const slug = await uniqueSlug("answers", String(form.get("slug") ?? "") || fields.question);
+
+  const db = await supabaseServer();
+  const { error } = await db.from("answers").insert({ slug, ...fields });
+  if (error) {
+    if (error.code === "23505") throw new Error("That slug is already taken.");
+    throw new Error(error.message);
+  }
+
+  clearAnswerCache();
+  revalidatePath("/admin/answers");
+  return { slug };
+}
+
+export async function updateAnswer(id: string, form: FormData): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("answers").update(answerFields(form)).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  clearAnswerCache();
+  revalidatePath("/admin/answers");
+}
+
+/** Retire an answer without deleting it, so chips pointing at it degrade
+ *  gracefully instead of vanishing mid-conversation. */
+export async function setAnswerActive(id: string, active: boolean): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("answers").update({ active }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  clearAnswerCache();
+  revalidatePath("/admin/answers");
+}
+
+export async function setAnswerOpener(id: string, isOpener: boolean): Promise<void> {
+  await requireAdmin();
+
+  const db = await supabaseServer();
+  const { error } = await db.from("answers").update({ is_opener: isOpener }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  clearAnswerCache();
+  revalidatePath("/admin/answers");
 }

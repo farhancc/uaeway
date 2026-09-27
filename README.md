@@ -49,8 +49,7 @@ Then fill in `.env.local`:
 | `CRON_SECRET` | `openssl rand -hex 32` |
 
 Apply the schema by running the files in `supabase/migrations/` in order
-(`0001_init.sql`, `0002_article_authoring.sql`, `0003_manual_jobs.sql`) in the
-Supabase SQL editor,
+(`0001_init.sql` … `0004_answers.sql`) in the Supabase SQL editor,
 then grant yourself admin access:
 
 ```sql
@@ -65,6 +64,7 @@ npm run dev             # http://localhost:3000  (redirects to /en)
 npm test                # unit tests
 npm run build           # production build
 npm run seed:prospects  # load data/dubai-b2b-leads.csv into `prospects`
+npm run seed:answers    # fill the answer bank from the launch FAQs and paths
 ```
 
 The scheduled jobs are HTTP routes, called by Vercel Cron (`vercel.json`) with
@@ -143,6 +143,56 @@ supabase/migrations/   schema and RLS
 `lib/services.ts` is the file to edit when a service changes: it drives the
 service pages, the intake forms, the chatbot's grounding and the CTA shown on
 each job.
+
+## The answer bank, and what the chatbot costs
+
+The chatbot used to call Gemini on every turn — around 2,500–4,000 input tokens
+each — including for the twenty questions we had already written answers to.
+
+Now most turns cost nothing:
+
+```
+tapped suggestion ─────────────> exact lookup by slug            0 tokens
+typed question ──> confident keyword match? ──yes──> the bank    0 tokens
+                            └──no──> Gemini, trimmed prompt
+                                      └─ used its 8 model replies? ──> handoff + WhatsApp
+```
+
+**Suggestions are the mechanism, not decoration.** A tapped chip is an exact
+lookup, so the follow-ups set on each answer are what keeps a whole conversation
+free rather than just its opening. They appear before the first message and
+after every reply. Set them in `/admin/answers`.
+
+**Typed questions are matched conservatively.** A single common word is
+deliberately not enough, and two answers that fit equally well both lose — the
+question goes to Gemini instead. Telling someone the golden visa fee when they
+asked about family sponsorship costs more than the tokens do.
+
+The turns that still reach Gemini are about 42% smaller: the instructions no
+longer embed the per-turn context, so the system instruction is byte-identical
+across calls and can hit Gemini's implicit cache; retrieval dropped from 6
+snippets to 4 with shorter excerpts; history from 12 turns to 8; and service
+grounding no longer repeats the FAQs the bank already answers.
+
+**Each conversation gets 8 model replies.** After that the bank still answers,
+suggestions still work, and the visitor is offered WhatsApp — so a capped
+session stays useful and costs nothing. Lead capture is exempt: a lead is worth
+far more than the tokens.
+
+`/admin` shows the figure that matters: **percentage of replies answered without
+calling the AI, last 7 days.** A low share means people are asking things the
+bank does not cover, or the follow-ups are not leading anywhere — both fixable
+in `/admin/answers`.
+
+### One source for answers
+
+The `answers` table feeds both the chatbot and the "Questions we get" block on
+each service page, including its `FAQPage` markup. `Service.faqs` was removed
+from `lib/services.ts` when this landed; `scripts/seed-data/faqs.ts` holds the
+launch content purely as the seed. Edit answers in the admin, not in code.
+
+The trade-off: if Supabase is unreachable, service pages render without their
+FAQ block. Worth it for one editable definition of what we tell people.
 
 ## Writing
 

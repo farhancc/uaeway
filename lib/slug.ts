@@ -20,7 +20,10 @@ export function slugify(input: string): string {
  * different address, which breaks shares and backlinks. A counter keeps the
  * first (and almost always only) instance clean.
  */
-export async function uniqueSlug(table: "jobs" | "articles", title: string): Promise<string> {
+export async function uniqueSlug(
+  table: "jobs" | "articles" | "answers",
+  title: string,
+): Promise<string> {
   const base = slugify(title) || "post";
   const db = supabaseAdmin();
 

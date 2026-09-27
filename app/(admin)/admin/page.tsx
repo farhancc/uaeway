@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
+import { chatSavings } from "@/lib/admin/stats";
 import { supabaseServer } from "@/lib/supabase/server";
 import { ReviewCard, type ReviewItem } from "./ReviewCard";
 
@@ -8,7 +10,8 @@ export default async function ReviewQueuePage() {
   await requireAdmin();
   const db = await supabaseServer();
 
-  const [jobs, articles] = await Promise.all([
+  const [savings, jobs, articles] = await Promise.all([
+    chatSavings(db),
     db
       .from("jobs")
       .select("id, title, summary, company, emirate, source_name, source_url, created_at")
@@ -45,6 +48,8 @@ export default async function ReviewQueuePage() {
 
   const error = jobs.error ?? articles.error;
 
+
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-xl font-semibold text-ink">
@@ -54,6 +59,19 @@ export default async function ReviewQueuePage() {
         Nothing here is public yet. Read it as a stranger would: if a fee, a date or a requirement
         looks invented, it probably is — reject it and say why.
       </p>
+
+      {/* The one number that says whether the answer bank is earning its keep.
+          Low share means people are asking things the bank does not cover, or
+          the follow-up suggestions are not leading anywhere useful. */}
+      {savings.share !== null && (
+        <p className="field mt-6 px-4 py-3 text-sm text-ink-soft">
+          <strong className="sign text-ink">{savings.share}%</strong> of chatbot replies in the
+          last 7 days were answered without calling the AI ({savings.free} of {savings.total}).{" "}
+          <Link href="/admin/answers" className="text-go underline underline-offset-2">
+            Improve the answers
+          </Link>
+        </p>
+      )}
 
       {error && (
         <p className="mt-6 rounded-[2px] border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">

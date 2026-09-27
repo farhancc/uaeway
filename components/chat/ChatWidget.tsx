@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Chip } from "@/lib/chat/chips";
 
 /**
- * The site assistant. Opens from the floating button and answers from published
- * site content only; the server refuses to invent fees and flags it when the
- * model does it anyway.
+ * The site assistant.
+ *
+ * Suggested questions are the point, not decoration: tapping one is an exact
+ * lookup by slug on the server — no matching, no model call — so a whole
+ * conversation can run without costing anything. They appear before the first
+ * message and after every reply.
  */
 
 interface Message {
@@ -18,26 +22,35 @@ interface Message {
 const GREETING =
   "Ask me anything about working, living or setting up a business in the UAE — or about the paperwork behind it.";
 
-export function ChatWidget() {
+export function ChatWidget({ whatsappHref }: { whatsappHref?: string | null }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chips, setChips] = useState<Chip[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
 
   const sessionId = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, answerSlug?: string) => {
       const question = text.trim();
-      if (!question || busy) return;
+      if ((!question && !answerSlug) || busy) return;
 
       setError(null);
       setBusy(true);
-      setMessages((prev) => [...prev, { role: "user", text: question }, { role: "model", text: "" }]);
+      // Clear the chips immediately: leaving them up while a reply streams
+      // invites a second tap that would be answered out of order.
+      setChips([]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text: question },
+        { role: "model", text: "" },
+      ]);
       setInput("");
 
       try {
@@ -46,6 +59,7 @@ export function ChatWidget() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: question,
+            answerSlug,
             sessionId: sessionId.current,
             pagePath: window.location.pathname,
           }),
@@ -91,6 +105,10 @@ export function ChatWidget() {
                 next[next.length - 1] = { ...next[next.length - 1], caution: data.text };
                 return next;
               });
+            } else if (event === "chips") {
+              setChips(data.chips);
+            } else if (event === "handoff") {
+              setHandedOff(true);
             } else if (event === "lead") {
               setLeadCaptured(true);
             }
@@ -98,7 +116,6 @@ export function ChatWidget() {
         }
       } catch (err) {
         setError((err as Error).message);
-        // Drop the empty reply bubble so the error is not shown twice.
         setMessages((prev) => (prev.at(-1)?.text === "" ? prev.slice(0, -1) : prev));
       } finally {
         setBusy(false);
@@ -106,6 +123,26 @@ export function ChatWidget() {
     },
     [busy],
   );
+
+  // The opening suggestions, fetched once the panel is first opened so a
+  // visitor who never opens it costs nothing.
+  useEffect(() => {
+    if (!open || chips.length > 0 || messages.length > 0) return;
+    let cancelled = false;
+
+    fetch("/api/chat")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.chips) setChips(data.chips);
+      })
+      .catch(() => {
+        // No suggestions is a fine state; typing still works.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, chips.length, messages.length]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -120,14 +157,14 @@ export function ChatWidget() {
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [messages]);
+  }, [messages, chips]);
 
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 rounded-[2px] bg-ink px-5 py-3 text-sm font-medium text-paper shadow-lg transition-colors hover:bg-go"
+        className="fixed bottom-4 right-4 z-40 rounded-[2px] bg-ink px-5 py-3 text-sm font-semibold text-paper shadow-lg transition-colors hover:bg-go"
       >
         Ask a question
       </button>
@@ -138,7 +175,7 @@ export function ChatWidget() {
     <div
       role="dialog"
       aria-label="Site assistant"
-      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col rounded-[2px] border border-rule bg-paper shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
+      className="fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col border border-rule bg-field shadow-2xl sm:inset-x-auto sm:right-4 sm:w-[24rem]"
     >
       <div className="flex items-center justify-between border-b border-rule px-4 py-3">
         <p className="sign text-base text-ink">Ask UAE Gateway</p>
@@ -176,6 +213,32 @@ export function ChatWidget() {
           </div>
         ))}
 
+        {chips.length > 0 && !busy && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {chips.map((chip) => (
+              <button
+                key={chip.slug}
+                type="button"
+                onClick={() => void send(chip.question, chip.slug)}
+                className="rounded-[2px] border border-rule bg-paper px-2.5 py-1.5 text-left text-xs leading-snug text-ink-soft transition-colors hover:border-go hover:text-go"
+              >
+                {chip.question}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {handedOff && whatsappHref && (
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block rounded-[2px] bg-go px-3 py-2 text-xs font-semibold text-paper"
+          >
+            Continue on WhatsApp
+          </a>
+        )}
+
         {leadCaptured && (
           <p className="rounded-[2px] border border-go/40 bg-go/5 px-3 py-2 text-xs leading-relaxed text-go-dark">
             Thanks — our team has your details and will message you on WhatsApp.
@@ -207,7 +270,7 @@ export function ChatWidget() {
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-[2px] bg-go px-3 py-2 text-sm font-medium text-paper transition-colors hover:bg-go-dark disabled:opacity-40"
+          className="rounded-[2px] bg-go px-3 py-2 text-sm font-semibold text-paper transition-colors hover:bg-go-dark disabled:opacity-40"
         >
           Send
         </button>
