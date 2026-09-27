@@ -1,5 +1,10 @@
 /**
- * Careerjet Partners API v4 — the primary job source.
+ * Careerjet Partners API v4 — an optional second source.
+ *
+ * Jooble (./jooble.ts) is the one that runs by default; this stays because it
+ * works and costs nothing to keep, and both can feed the same ingest. It is
+ * dormant unless CAREERJET_API_KEY is set, and needs publisher approval, which
+ * is why it is not the default.
  *
  * Careerjet is used because it is built for publishers: it expects us to show an
  * excerpt and link back to the original posting, which is exactly the posture
@@ -14,23 +19,10 @@
  * Docs: https://www.careerjet.com/partners/api
  */
 
+import { dedupe, type JobSearch, type RawJob } from "./source";
+
 const ENDPOINT = "https://search.api.careerjet.net/v4/query";
 
-export interface RawJob {
-  title: string;
-  company: string | null;
-  sourceUrl: string;
-  sourceName: string;
-  locations: string | null;
-  salary: string | null;
-  description: string;
-  postedAt: string;
-}
-
-export interface JobSearch {
-  keywords: string;
-  location: string;
-}
 
 interface V4Job {
   title?: string;
@@ -126,7 +118,5 @@ export async function fetchCareerjet(searches: JobSearch[]): Promise<RawJob[]> {
     }
   }
 
-  // The same job matches several searches; the source URL is the identity.
-  const seen = new Set<string>();
-  return all.filter((j) => (seen.has(j.sourceUrl) ? false : (seen.add(j.sourceUrl), true)));
+  return dedupe(all);
 }

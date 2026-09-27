@@ -12,7 +12,9 @@ import { jobExpiry } from "../jobs";
 import { uniqueSlug } from "../slug";
 import { supabaseAdmin } from "../supabase/admin";
 import { JOB_CATEGORIES, normalizeEmirate } from "../uae";
-import { fetchCareerjet, type JobSearch, type RawJob } from "./careerjet";
+import { fetchCareerjet } from "./careerjet";
+import { fetchJooble } from "./jooble";
+import { dedupe, type JobSearch, type RawJob } from "./source";
 
 /** One per pooled key: the pool is the real concurrency limit. */
 const AI_CONCURRENCY = 5;
@@ -109,7 +111,11 @@ export async function ingestJobs(): Promise<IngestResult> {
     return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
   }
 
-  const fetched = await fetchCareerjet(searches);
+  // Every configured source, in parallel. A source with no key logs that it is
+  // skipping and returns nothing, so this is also how the ingest behaves before
+  // anyone has signed up for anything: it runs, finds nothing, and says so.
+  const batches = await Promise.all([fetchJooble(searches), fetchCareerjet(searches)]);
+  const fetched = dedupe(batches.flat());
   console.log(`[ingest] fetched ${fetched.length} listings`);
   if (fetched.length === 0) return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
 

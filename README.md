@@ -81,18 +81,40 @@ curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/ingest-jobs
 
 ## Job sources
 
-The primary source is the **Careerjet Partners API v4**
-(`https://search.api.careerjet.net/v4/query`, HTTP Basic auth with the API key
-as the username and an empty password). Register as a publisher at
-<https://www.careerjet.com/partners/api>.
+A source turns the searches in `/admin/searches` into `RawJob`s. The contract is
+`lib/ingest/source.ts`; `lib/ingest/jobs.ts` runs every source in parallel and
+de-duplicates by source URL, so a source with no key simply contributes nothing.
 
-The legacy `public.api.careerjet.net/search` endpoint that the earlier prototype
-used is closed — it answers *"only accessible for authenticated legacy users"* —
-and it was plain HTTP. Do not go back to it.
+**Jooble** (`lib/ingest/jooble.ts`) is the default. Free, covers the Emirates,
+and built for publishers. Get a key from the short form at
+<https://jooble.org/api/about> and set `JOOBLE_API_KEY`.
 
-Careerjet is used because it is built for publishers to display an excerpt and
-link back. Scraping job boards would breach their terms. Never add a source that
-lists pay-to-apply jobs.
+**Careerjet** (`lib/ingest/careerjet.ts`) is an optional second source, dormant
+unless `CAREERJET_API_KEY` is set. Also free, but it needs publisher approval,
+which is why it is not the default. Its legacy `public.api.careerjet.net/search`
+endpoint is closed — *"only accessible for authenticated legacy users"* — and
+was plain HTTP. Do not go back to it; v4 is HTTPS with Basic auth.
+
+### Why not something keyless
+
+There is no free, keyless, general UAE job feed. Measured, not assumed:
+
+| Source | Key | UAE listings |
+| --- | --- | --- |
+| Arbeitnow | none | 0 of 325 |
+| The Muse | none | 0 across 60 |
+| Jobicy, Remotive | none | remote boards only |
+| Adzuna | free tier | no `adzuna.ae` — no UAE market |
+| Greenhouse / Lever boards | none | per employer (Careem: 11 of 18) |
+
+Greenhouse and Lever publish each company's board with no key at all, which is
+worth revisiting if you ever want curated employer feeds — it needs an admin
+screen for the employer list, which is why it is not here.
+
+Both sources are used because they are built for publishers to display an
+excerpt and link back. The Gulf boards block server-side requests and scraping
+them would breach their terms anyway. Never add a source that lists pay-to-apply
+jobs.
 
 ## Adding jobs
 
@@ -363,7 +385,7 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
       about attestation; if you add another such surface, take the wording from
       the service.
 - [ ] Have `/privacy` and `/terms` reviewed by a UAE legal adviser.
-- [ ] Get a Careerjet v4 key and run one real ingest.
+- [ ] Get a Jooble key (<https://jooble.org/api/about>) and run one real ingest.
 - [ ] Add at least one admin to the `admins` table.
 - [ ] Set up Telegram alerts and run `npm run check:alerts`. Until a channel is
       configured, every lead is saved and nobody is told.
