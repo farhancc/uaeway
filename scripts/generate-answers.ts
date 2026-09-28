@@ -83,12 +83,26 @@ async function write(prompt: string, system: string): Promise<{ answers: Generat
     temperature: 0.8,
     // Generous, because the thinking models draw from the same budget as the
     // answer: too tight and the whole batch comes back as no text at all.
-    maxOutputTokens: 24000,
+    maxOutputTokens: 8192,
   });
 }
-/** Per model call. Small enough that one bad batch is cheap to lose, large
- *  enough that the grounding is not re-sent for every single question. */
-const BATCH = 20;
+/**
+ * Per model call. Twenty overran the output budget often enough that most
+ * services ended on a half-written JSON object; twelve leaves room for the
+ * answers to be as long as they need to be.
+ */
+const BATCH = 12;
+
+/**
+ * Consecutive batches that may fail before a service is abandoned.
+ *
+ * A truncated response is transient — the next one usually parses — but the
+ * first version treated any empty batch as "this service is finished" and every
+ * one of the eight stopped early on a single bad parse. It also has to stop
+ * eventually: once the model is genuinely out of distinct questions it returns
+ * duplicates forever, and retrying that just spends tokens.
+ */
+const GIVE_UP_AFTER = 3;
 
 /**
  * What the model is allowed to know about this service.
@@ -191,7 +205,9 @@ async function generateFor(service: Service, shortfall: number): Promise<Generat
   const seen = new Set<string>();
   let rejected = 0;
 
-  while (kept.length < shortfall) {
+  let barren = 0;
+
+  while (kept.length < shortfall && barren < GIVE_UP_AFTER) {
     const want = Math.min(BATCH, shortfall - kept.length);
     // The model is told what it has already written so batch nine does not
     // rediscover batch one. Only the questions — sending the answers back would
@@ -206,8 +222,9 @@ async function generateFor(service: Service, shortfall: number): Promise<Generat
     );
 
     if (!out?.answers?.length) {
-      console.log(`    model returned nothing — stopping ${service.slug} at ${kept.length}`);
-      break;
+      barren++;
+      console.log(`    empty batch (${barren}/${GIVE_UP_AFTER})`);
+      continue;
     }
 
     let added = 0;
@@ -226,15 +243,15 @@ async function generateFor(service: Service, shortfall: number): Promise<Generat
       if (kept.length >= shortfall) break;
     }
 
-    console.log(`    +${added}  (${kept.length}/${shortfall})`);
-    // A batch that adds nothing twice over means the model has run out of
-    // distinct questions for this service. Pushing on just burns tokens.
-    if (added === 0) {
-      console.log(`    no new questions — stopping ${service.slug} at ${kept.length}`);
-      break;
-    }
+    // Only a batch that adds nothing counts against the service. A batch that
+    // adds even one question means there are still questions left to ask.
+    barren = added === 0 ? barren + 1 : 0;
+    console.log(`    +${added}  (${kept.length}/${shortfall})${added === 0 ? `  nothing new (${barren}/${GIVE_UP_AFTER})` : ""}`);
   }
 
+  if (barren >= GIVE_UP_AFTER) {
+    console.log(`    out of questions — ${service.slug} ends at ${kept.length}`);
+  }
   if (rejected > 0) console.log(`    ${rejected} dropped by the guardrails`);
   return kept;
 }
