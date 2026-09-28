@@ -1,6 +1,10 @@
-import { createHash } from "crypto";
-import { supabaseAdmin } from "../supabase/admin";
-import type { ChatMessageRow } from "../supabase/types";
+import { createHash, randomUUID } from "crypto";
+import {
+  messagesCollection,
+  sessionsCollection,
+  type ChatMessageDoc,
+  type MessageSource,
+} from "../mongo/chat-db";
 import type { Turn } from "../ai/gemini";
 
 /** Conversation limits. These bound our AI spend and stop a script from using
@@ -36,78 +40,77 @@ export async function startSession(
   userAgent: string | null,
   pagePath: string | null,
 ): Promise<Session> {
-  const db = supabaseAdmin();
+  const sessions = await sessionsCollection();
 
   // Not in development. The limit is per IP, and a dev machine is one IP, so
   // every reload and every curl spends one of the twelve — you lock yourself
   // out of your own chatbot in an afternoon's work and the failure looks like
   // a bug in whatever you were actually testing.
   if (process.env.NODE_ENV === "production") {
-    const since = new Date(Date.now() - 3600_000).toISOString();
-    const { count } = await db
-      .from("chat_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("ip_hash", ipHash)
-      .gte("created_at", since);
+    const started = await sessions.countDocuments({
+      ip_hash: ipHash,
+      created_at: { $gte: new Date(Date.now() - 3600_000) },
+    });
 
-    if ((count ?? 0) >= MAX_SESSIONS_PER_IP_HOUR) throw new RateLimited();
+    if (started >= MAX_SESSIONS_PER_IP_HOUR) throw new RateLimited();
   }
 
-  const { data, error } = await db
-    .from("chat_sessions")
-    .insert({ ip_hash: ipHash, user_agent: userAgent, page_path: pagePath })
-    .select("id, turn_count, ai_turns")
-    .single();
+  const now = new Date();
+  // A uuid rather than an ObjectId: this id goes to the browser and is stored
+  // on the lead in Postgres, where the column is a uuid.
+  const id = randomUUID();
 
-  if (error) throw new Error(`could not start chat session: ${error.message}`);
-  return { id: data.id as string, turnCount: data.turn_count as number, aiTurns: 0 };
+  await sessions.insertOne({
+    _id: id,
+    ip_hash: ipHash,
+    user_agent: userAgent,
+    page_path: pagePath,
+    turn_count: 0,
+    ai_turns: 0,
+    created_at: now,
+    updated_at: now,
+  });
+
+  return { id, turnCount: 0, aiTurns: 0 };
 }
 
 /** Loads a session, confirming it belongs to this visitor so a leaked id cannot
  *  be used to read someone else's conversation. */
 export async function loadSession(id: string, ipHash: string): Promise<Session | null> {
-  const { data } = await supabaseAdmin()
-    .from("chat_sessions")
-    .select("id, turn_count, ai_turns, ip_hash")
-    .eq("id", id)
-    .maybeSingle();
+  const doc = await (await sessionsCollection()).findOne(
+    { _id: id },
+    { projection: { turn_count: 1, ai_turns: 1, ip_hash: 1 } },
+  );
 
-  if (!data || data.ip_hash !== ipHash) return null;
-  return {
-    id: data.id as string,
-    turnCount: data.turn_count as number,
-    aiTurns: (data.ai_turns as number) ?? 0,
-  };
+  if (!doc || doc.ip_hash !== ipHash) return null;
+  return { id: doc._id, turnCount: doc.turn_count ?? 0, aiTurns: doc.ai_turns ?? 0 };
 }
 
 export async function history(sessionId: string): Promise<Turn[]> {
-  const { data } = await supabaseAdmin()
-    .from("chat_messages")
-    .select("role, content")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(HISTORY_TURNS);
+  // Newest first, then reversed: the limit has to take the *last* eight turns,
+  // and `_id` breaks a tie inside one millisecond so a canned reply can never
+  // sort ahead of the question it answers.
+  const docs = await (await messagesCollection())
+    .find({ session_id: sessionId }, { projection: { role: 1, content: 1 } })
+    .sort({ created_at: -1, _id: -1 })
+    .limit(HISTORY_TURNS)
+    .toArray();
 
-  const rows = ((data ?? []) as Pick<ChatMessageRow, "role" | "content">[]).reverse();
-  return rows.map((r) => ({ role: r.role, text: r.content }));
+  return docs.reverse().map((d) => ({ role: d.role, text: d.content }));
 }
 
-export type ReplySource = "canned" | "model" | "capped";
+/** How a reply was produced. Defined with the document it is stored on. */
+export type ReplySource = MessageSource;
 
 /** Canned answers already served in this conversation, so the chips never
  *  offer a question the visitor has just had answered. */
 export async function usedAnswerSlugs(sessionId: string): Promise<Set<string>> {
-  const { data } = await supabaseAdmin()
-    .from("chat_messages")
-    .select("answer_slug")
-    .eq("session_id", sessionId)
-    .not("answer_slug", "is", null);
+  const slugs = await (await messagesCollection()).distinct("answer_slug", {
+    session_id: sessionId,
+    answer_slug: { $type: "string" },
+  });
 
-  return new Set(
-    ((data ?? []) as { answer_slug: string | null }[])
-      .map((r) => r.answer_slug)
-      .filter((slug): slug is string => Boolean(slug)),
-  );
+  return new Set(slugs.filter((slug): slug is string => Boolean(slug)));
 }
 
 export async function appendMessage(
@@ -120,29 +123,32 @@ export async function appendMessage(
   /** The canned answer served, when one was. */
   answerSlug?: string | null,
 ): Promise<void> {
-  const { error } = await supabaseAdmin()
-    .from("chat_messages")
-    .insert({
+  try {
+    const messages = await messagesCollection();
+    await messages.insertOne({
       session_id: sessionId,
       role,
       content,
       source: source ?? null,
       answer_slug: answerSlug ?? null,
-    });
-  if (error) console.warn(`[chat] could not store ${role} message: ${error.message}`);
+      created_at: new Date(),
+    } as ChatMessageDoc);
+  } catch (err) {
+    // Losing the transcript is not worth losing the reply over.
+    console.warn(`[chat] could not store ${role} message: ${(err as Error).message}`);
+  }
 }
 
 /** Records the turn, and the model call if this one cost us anything. */
-export async function countTurn(
-  sessionId: string,
-  session: Session,
-  usedModel: boolean,
-): Promise<void> {
-  await supabaseAdmin()
-    .from("chat_sessions")
-    .update({
-      turn_count: session.turnCount + 1,
-      ai_turns: session.aiTurns + (usedModel ? 1 : 0),
-    })
-    .eq("id", sessionId);
+export async function countTurn(sessionId: string, usedModel: boolean): Promise<void> {
+  // Incremented rather than written back from the loaded session: two turns
+  // that overlap then both count, where a read-modify-write would lose one and
+  // hand the conversation a free model call.
+  await (await sessionsCollection()).updateOne(
+    { _id: sessionId },
+    {
+      $inc: { turn_count: 1, ai_turns: usedModel ? 1 : 0 },
+      $set: { updated_at: new Date() },
+    },
+  );
 }

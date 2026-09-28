@@ -47,18 +47,58 @@ Then fill in `.env.local`:
 | `GEMINI_API_KEYS` | AI Studio keys, comma separated. One is enough; more only buys headroom |
 | `GEMINI_MODEL` | Optional. Overrides the pinned chat model (see `lib/ai/gemini.ts`) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings |
+| `MONGODB_URI` / `MONGODB_DB` | The chat database — Atlas, or `mongodb://localhost:27017`. See below |
 | `CAREERJET_API_KEY` | Careerjet **v4** publisher key — see below |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | @BotFather |
 | `RESEND_API_KEY`, `LEAD_ALERT_EMAIL`, `LEAD_ALERT_FROM` | resend.com |
 | `CRON_SECRET` | `openssl rand -hex 32` |
 
-Apply the schema by running the files in `supabase/migrations/` in order
-(`0001_init.sql` … `0004_answers.sql`) in the Supabase SQL editor,
-then grant yourself admin access:
+Apply the schema by running the files in `supabase/migrations/` in order in the
+Supabase SQL editor, then grant yourself admin access:
 
 ```sql
 insert into admins (user_id, email)
 select id, email from auth.users where email = 'you@example.com';
+```
+
+### Two databases
+
+The chatbot — the answer bank, and the conversations it serves — lives in
+MongoDB. Everything else is Postgres.
+
+The split is along a real seam rather than a preference. The chat writes a row
+per message and reads nothing but *"this session's messages, newest first"*; the
+answer bank is a few dozen documents whose two most-edited fields
+(`trigger_groups`, `choices`) were already `jsonb`, because Postgres arrays must
+be rectangular and those are ragged by nature. Neither joins anything else in
+the schema. Jobs, articles, leads and admins do join each other, and they stay
+where their foreign keys and RLS are.
+
+Nothing needs creating on the Mongo side: the collections and their indexes are
+made on first connection, so a new environment needs the connection string and
+nothing else.
+
+Two things the move gave up, both deliberately:
+
+- **RLS was a second line under the `active` filter on answers**, so a query that
+  forgot it still could not leak a retired answer. Now the filter in
+  `loadAnswers` is the only line — which is why that is the one place answers
+  are read from.
+- **`leads.chat_session_id` is no longer a foreign key.** It is still the same
+  uuid identifying the same conversation; what it lost is the cascade. A lead
+  outliving the transcript it came from is the behaviour we want anyway.
+
+If you are moving an existing deployment: apply `0011_chat_moved_out.sql`
+**before** deploying — without it the first chat lead fails its insert against a
+foreign key whose table no longer has the row. Then copy the data and, once the
+admin looks right, drop what is left behind:
+
+```bash
+npm run move:chat-to-mongo   # read-only on Postgres; safe to re-run
+```
+
+```sql
+-- supabase/migrations/0012_drop_chat_tables.sql, by hand and last
 ```
 
 ## Run
@@ -246,12 +286,13 @@ app/(site)/[locale]/   public pages — every URL carries its locale from day on
 app/(admin)/admin/     review queue and leads inbox (Supabase auth + `admins`)
 app/api/               chat (SSE), leads, cron
 lib/ai/                Gemini client and key pool
-lib/chat/              retrieval, system prompt, guardrails, sessions
+lib/chat/              retrieval, matching, system prompt, guardrails, sessions
+lib/mongo/chat-db.ts   the chat database: answers, sessions, messages
 lib/ingest/            Careerjet client and the job pipeline
 lib/leads/             validation, capture, alerting
 lib/content/sections.ts  guides / blog / news — one definition of each
 lib/services.ts        the eight service lines — the commercial core
-supabase/migrations/   schema and RLS
+supabase/migrations/   Postgres schema and RLS — everything except the chat
 ```
 
 `lib/services.ts` is the file to edit when a service changes: it drives the
@@ -348,13 +389,14 @@ in `/admin/answers`.
 
 ### One source for answers
 
-The `answers` table feeds both the chatbot and the "Questions we get" block on
+The `answers` collection feeds both the chatbot and the "Questions we get" block on
 each service page, including its `FAQPage` markup. `Service.faqs` was removed
 from `lib/services.ts` when this landed; `scripts/seed-data/faqs.ts` holds the
 launch content purely as the seed. Edit answers in the admin, not in code.
 
-The trade-off: if Supabase is unreachable, service pages render without their
-FAQ block. Worth it for one editable definition of what we tell people.
+The trade-off: if the chat database is unreachable, service pages render
+without their FAQ block. Worth it for one editable definition of what we tell
+people.
 
 ## Leads, and being told about them
 

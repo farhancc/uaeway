@@ -12,7 +12,7 @@ export default async function ReviewQueuePage() {
   const db = await supabaseServer();
 
   const [savings, jobs, articles, pendingJobs, pendingArticles] = await Promise.all([
-    chatSavings(db),
+    chatSavings(),
     db
       .from("jobs")
       .select("id, title, summary, company, emirate, source_name, source_url, created_at")

@@ -1,4 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { messagesCollection, type MessageSource } from "../mongo/chat-db";
+
+/** Every way of answering that did not call the model. */
+export const FREE_SOURCES: MessageSource[] = ["canned", "capped", "unavailable"];
 
 /** How much of the chatbot's work is costing nothing. */
 export interface ChatSavings {
@@ -17,29 +20,38 @@ export interface ChatSavings {
  * the follow-up suggestions are not leading anywhere useful — both fixable in
  * /admin/answers.
  */
-export async function chatSavings(db: SupabaseClient, days = 7): Promise<ChatSavings> {
-  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+export async function chatSavings(days = 7): Promise<ChatSavings> {
+  const messages = await messagesCollection();
+  const window = { role: "model" as const, created_at: { $gte: new Date(Date.now() - days * 86_400_000) } };
 
   const [free, total] = await Promise.all([
-    db
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "model")
-      .in("source", ["canned", "capped"])
-      .gte("created_at", since),
-    db
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "model")
-      .gte("created_at", since),
+    messages.countDocuments({
+      ...window,
+      source: { $in: FREE_SOURCES },
+    }),
+    messages.countDocuments(window),
   ]);
 
-  const freeCount = free.count ?? 0;
-  const totalCount = total.count ?? 0;
-
   return {
-    free: freeCount,
-    total: totalCount,
-    share: totalCount > 0 ? Math.round((freeCount / totalCount) * 100) : null,
+    free,
+    total,
+    share: total > 0 ? Math.round((free / total) * 100) : null,
   };
+}
+
+/**
+ * How often each answer has actually been served.
+ *
+ * An answer nobody reaches is either badly worded or missing from the
+ * follow-ups, so this is the other half of the picture /admin/answers shows.
+ */
+export async function answerUses(): Promise<Map<string, number>> {
+  const rows = await (await messagesCollection())
+    .aggregate<{ _id: string; count: number }>([
+      { $match: { answer_slug: { $type: "string" } } },
+      { $group: { _id: "$answer_slug", count: { $sum: 1 } } },
+    ])
+    .toArray();
+
+  return new Map(rows.map((r) => [r._id, r.count]));
 }

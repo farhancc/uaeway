@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { streamChat, generateJSON, type Turn } from "@/lib/ai/gemini";
+import { modelAvailable } from "@/lib/ai/pool";
 import { planReply } from "@/lib/chat/plan";
 import { loadAnswers } from "@/lib/chat/answers";
 import { nextChips, openerChips, type Chip } from "@/lib/chat/chips";
@@ -11,6 +12,7 @@ import {
   findUnsupportedAmounts,
   RETIRED_ANSWER_REPLY,
   SYSTEM_PROMPT,
+  UNAVAILABLE_REPLY,
   withContext,
 } from "@/lib/chat/prompt";
 import {
@@ -28,7 +30,7 @@ import {
   type Session,
 } from "@/lib/chat/session";
 import { captureLead } from "@/lib/leads/capture";
-import { looksContactable } from "@/lib/leads/schema";
+import { findContact, looksContactable } from "@/lib/leads/schema";
 import { matchServices, serviceSlugs } from "@/lib/services";
 
 /** Streamed over SSE, so the visitor sees the answer forming. */
@@ -57,8 +59,13 @@ export async function GET() {
   return Response.json({
     chips: await openerChips(),
     triggers: answers
-      .filter((a) => (a.trigger_groups ?? []).length > 0)
-      .map((a) => ({ slug: a.slug, question: a.question, groups: a.trigger_groups })),
+      .filter((a) => (a.trigger_groups ?? []).length > 0 || (a.any_keywords ?? []).length > 0)
+      .map((a) => ({
+        slug: a.slug,
+        question: a.question,
+        groups: a.trigger_groups ?? [],
+        any: a.any_keywords ?? [],
+      })),
   });
 }
 
@@ -206,7 +213,7 @@ export async function POST(request: Request) {
           source = "capped";
           reply = CAPPED_REPLY;
           send("token", { text: reply });
-          send("handoff", { reason: "budget" });
+          send("handoff", { reason: "budget", contact: null, serviceSlug: null });
           chips = await nextChips({ text: asked, used });
         } else {
           for await (const chunk of streamChat(
@@ -218,8 +225,25 @@ export async function POST(request: Request) {
           }
 
           if (!reply) {
-            reply = answerSlug ? RETIRED_ANSWER_REPLY : FALLBACK_REPLY;
+            // The model gave us nothing. Which of the two silences this is
+            // decides both what we say and whether the conversation is charged
+            // for it — see modelAvailable().
+            const reachable = modelAvailable();
+            source = reachable ? "model" : "unavailable";
+            reply = answerSlug
+              ? RETIRED_ANSWER_REPLY
+              : reachable
+                ? FALLBACK_REPLY
+                : UNAVAILABLE_REPLY;
             send("token", { text: reply });
+
+            if (!reachable) {
+              // Tells the widget to offer the callback form, as a capped
+              // conversation does. The bank still answers, but anything it does
+              // not cover now needs a person.
+              send("handoff", { reason: "unavailable", contact: null, serviceSlug: null });
+              console.warn("[chat] answered from the bank only — no model key is usable");
+            }
           } else {
             // The prompt forbids unsupported figures; this catches it when the
             // model does it anyway, rather than trusting the instruction.
@@ -230,7 +254,13 @@ export async function POST(request: Request) {
             }
           }
 
-          chips = await nextChips({ text: `${asked} ${reply}`, used });
+          // The reply only helps pick follow-ups when it is a real answer. A
+          // fallback message is our words, not the topic, and matching on it
+          // suggests questions about enquiry forms.
+          chips = await nextChips({
+            text: source === "model" && reply ? `${asked} ${reply}` : asked,
+            used,
+          });
         }
 
         if (chips.length > 0) send("chips", { chips });
@@ -250,17 +280,40 @@ export async function POST(request: Request) {
           source,
           plan.kind === "canned" ? plan.answer.slug : null,
         );
-        await countTurn(sessionId, session, source === "model");
+        // "unavailable" is not charged: a conversation must not spend its
+        // eight model replies on calls that never reached a model, or an outage
+        // caps every visitor who talks through it and the chat stays degraded
+        // long after the keys come back.
+        await countTurn(sessionId, source === "model");
 
         // Only worth an extraction call when the visitor typed something that
         // could be a phone number or an email.
-        if (/\d{8,}|@/.test(message) && matchServices(`${message} ${reply}`, 1).length > 0) {
-          const captured = await maybeCaptureLead(
-            [...past, { role: "user", text: asked }, { role: "model", text: reply }],
-            sessionId,
-            pagePath,
-          );
-          if (captured) send("lead", { serviceSlug: captured });
+        const contactShaped = /\d{8,}|@/.test(message);
+        const captured =
+          contactShaped && matchServices(`${message} ${reply}`, 1).length > 0
+            ? await maybeCaptureLead(
+                [...past, { role: "user", text: asked }, { role: "model", text: reply }],
+                sessionId,
+                pagePath,
+              )
+            : null;
+
+        if (captured) {
+          send("lead", { serviceSlug: captured });
+        } else if (contactShaped) {
+          // They gave us a way to reach them and nothing came of it — either the
+          // model could not run, or it ran and found no agreement to be
+          // contacted. Both are the same thing to the visitor: they have said
+          // what they want and are waiting. So open the callback form with what
+          // they typed already in it, and let them tick the box themselves.
+          //
+          // This is the one turn where losing someone costs an actual customer,
+          // and it used to be the turn most likely to end in silence.
+          send("handoff", {
+            reason: "contact",
+            contact: findContact(message),
+            serviceSlug: topic,
+          });
         }
       } catch (err) {
         console.error(`[chat] stream failed: ${(err as Error).message}`);

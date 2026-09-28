@@ -1,18 +1,12 @@
 import { requireAdmin } from "@/lib/admin/auth";
-import { supabaseServer } from "@/lib/supabase/server";
+import { answerOptions } from "@/lib/chat/answers";
 import { AnswerForm } from "../AnswerForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewAnswerPage() {
   await requireAdmin();
-  const db = await supabaseServer();
-
-  const { data } = await db
-    .from("answers")
-    .select("slug, question, service_slug")
-    .eq("active", true)
-    .order("question");
+  const others = await answerOptions();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -22,7 +16,7 @@ export default async function NewAnswerPage() {
         the review queue.
       </p>
 
-      <AnswerForm others={(data ?? []) as { slug: string; question: string; service_slug: string | null }[]} />
+      <AnswerForm others={others} />
     </div>
   );
 }

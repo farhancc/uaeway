@@ -70,7 +70,7 @@ function parseDelay(value: string | undefined): number | undefined {
  * credit answers 429 exactly like one that is briefly rate-limited, and putting
  * the exhausted one back into rotation a minute later just fails again.
  */
-function classify(
+export function classify(
   status: number,
   body: string,
 ): { kind: FailureKind | null; retryAfterMs?: number; detail: string } {
@@ -97,6 +97,13 @@ function classify(
   if (status === 403) return { kind: "invalid", detail };
   if (status === 400) return { kind: null, detail };
   if (status === 404) return { kind: null, detail };
+
+  // A key whose prepaid credit has run out answers 402, not 429. That fell
+  // through to the unfamiliar-4xx case below and abandoned the whole request,
+  // so one depleted key took every working key down with it — the same failure
+  // the 400 line above was written for, on a different status code. It is a
+  // fact about this key and nothing else: bench it and let the next one try.
+  if (status === 402) return { kind: "exhausted", detail };
 
   if (status === 429) {
     // A daily or lifetime quota will not clear in a minute.
