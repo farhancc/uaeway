@@ -444,30 +444,15 @@ nav, sitemap, chatbot retrieval and home page pick it up from `SECTIONS`.
   configuration, not content.
 - **Light theme only.** A second theme would double the QA surface for no user
   gain here.
-- **It looks like a messaging app, on purpose.** The people this site is for
-  run their lives in a green chat app, so the site borrows its grammar: warm
-  beige ground `#ECE5DD`, deep teal `#075E54` for structure and actions, a
-  tiled doodle field behind conversations, and replies as bubbles with tails
-  rather than panels.
-
-  Borrowed, not impersonated. No third party's logo, name or wordmark appears
-  anywhere, the doodles are our own drawings of passports, planes and stamps
-  rather than a copy of someone else's artwork, and the site says UAEvia
-  everywhere a visitor looks. Worth keeping that line in mind before adding
-  anything that would make a visitor think they are messaging on another
-  service — the assistant is ours and should read as ours.
-
-  The palette is measured, not eyeballed, against the beige ground: deep teal
-  `#075E54` reads at 6.14 and carries everything that must be read; teal
-  `#128C7E` is 3.31 and is large-text and rules only; bright green `#25D366`
-  is **1.59 and is never a text colour** — it is the send button's fill, with
-  dark ink on it at 8.8, because white on it reads at 1.98. The beige is
-  darker than the ivory it replaced, which pushed `--color-ink-faint` and
-  `--color-brass-deep` below AA until both were darkened.
-
-  One thing deliberately not borrowed: the masthead stays light. The logo
-  carries its own transparency and is drawn in navy and gold for a light
-  ground — it was put on a dark band once already and disappeared.
+- **Navy leads, brass is a material.** The palette is ink navy `#0E1B33`,
+  ivory `#FAF8F4` and brass `#B0873C`, with Fraunces for display and Inter for
+  text. Two rules keep it from looking like every other consultancy site: the
+  masthead and hero are full-bleed navy rather than an ivory page with navy
+  text, and brass appears only as hairlines, numerals and small marks — never a
+  filled button, which is what makes these sites read as gold-plated. Each
+  colour has one job: navy for actions, brass for rules and numerals, green for
+  the one button that starts an enquiry, red for warnings only. Brass fails contrast as text on ivory,
+  so `--color-brass-deep` exists for links and numerals on light grounds.
 - **One inbound channel: the assistant.** No WhatsApp, no phone number, no
   mailto. Every route in goes through the chat or a service page's enquiry
   form, so every enquiry arrives as a `leads` row with recorded consent rather

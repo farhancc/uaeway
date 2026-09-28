@@ -118,7 +118,7 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
             {...(byEmail ? {} : { target: "_blank" })}
             // nofollow: outbound links on listings we did not write and do not vouch for.
             rel="nofollow noopener noreferrer"
-            className="mt-4 inline-block rounded-full bg-deep px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90"
           >
             {byEmail
               ? `Email your application to ${applyLink.slice(7)}`
