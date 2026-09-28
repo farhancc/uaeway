@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { triggersMatch } from "@/lib/chat/answers";
+import { triggersMatch } from "@/lib/chat/matching";
 import { tokenize } from "@/lib/text";
 
 /**

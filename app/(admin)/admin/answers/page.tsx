@@ -1,47 +1,34 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
-import { supabaseServer } from "@/lib/supabase/server";
+import { answerUses } from "@/lib/admin/stats";
+import { listAnswers } from "@/lib/chat/answers";
 import { AnswerRow, type AnswerSummary } from "./AnswerRows";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnswersPage() {
   await requireAdmin();
-  const db = await supabaseServer();
 
-  const [answers, uses] = await Promise.all([
-    db
-      .from("answers")
-      .select("id, slug, question, service_slug, is_opener, active, position, follow_up_slugs")
-      .order("active", { ascending: false })
-      .order("service_slug")
-      .order("position"),
-    // How often each answer has actually been served. An answer nobody reaches
-    // is either badly worded or missing from the follow-ups.
-    db.from("chat_messages").select("answer_slug").not("answer_slug", "is", null),
-  ]);
-
-  const counts = new Map<string, number>();
-  for (const row of (uses.data ?? []) as { answer_slug: string }[]) {
-    counts.set(row.answer_slug, (counts.get(row.answer_slug) ?? 0) + 1);
+  // An answer nobody reaches is either badly worded or missing from the
+  // follow-ups, so the list is only useful next to how often each was served.
+  let raw: Awaited<ReturnType<typeof listAnswers>> = [];
+  let counts = new Map<string, number>();
+  let loadError: string | null = null;
+  try {
+    [raw, counts] = await Promise.all([listAnswers(), answerUses()]);
+  } catch (err) {
+    loadError = (err as Error).message;
   }
-
-  type Raw = Omit<AnswerSummary, "uses" | "suggests" | "unreachable"> & {
-    follow_up_slugs: string[] | null;
-  };
-  const raw = (answers.data ?? []) as Raw[];
 
   const questionBySlug = new Map(raw.map((a) => [a.slug, a.question]));
   // Every slug some other live answer points at. What is missing from this set,
   // and is not an opener, cannot be reached by tapping at all.
-  const linked = new Set(
-    raw.filter((a) => a.active).flatMap((a) => a.follow_up_slugs ?? []),
-  );
+  const linked = new Set(raw.filter((a) => a.active).flatMap((a) => a.follow_up_slugs));
 
   const rows: AnswerSummary[] = raw.map((a) => ({
     ...a,
     uses: counts.get(a.slug) ?? 0,
-    suggests: (a.follow_up_slugs ?? [])
+    suggests: a.follow_up_slugs
       .map((slug) => questionBySlug.get(slug))
       .filter((q): q is string => Boolean(q)),
     unreachable: !a.is_opener && !linked.has(a.slug),
@@ -69,13 +56,13 @@ export default async function AnswersPage() {
         you set on each answer are what keeps the bill down.
       </p>
 
-      {answers.error && (
+      {loadError && (
         <p className="mt-6 rounded-md border border-seal/30 bg-seal/5 px-4 py-3 text-sm text-seal">
-          Could not load answers: {answers.error.message}
+          Could not load answers: {loadError}
         </p>
       )}
 
-      {rows.length === 0 && !answers.error ? (
+      {rows.length === 0 && !loadError ? (
         <p className="field mt-6 px-4 py-6 text-sm leading-relaxed text-ink-soft">
           The bank is empty. Run <code>npm run seed:answers</code> to fill it from the FAQs and
           paths already written, then edit them here.

@@ -1,4 +1,8 @@
+import { answerSlugs } from "./chat/answers";
 import { supabaseAdmin } from "./supabase/admin";
+
+/** Everything that hands out slugs. */
+export type SlugTable = "jobs" | "articles" | "answers";
 
 /** URL-safe slug from a title. */
 export function slugify(input: string): string {
@@ -21,7 +25,7 @@ export function slugify(input: string): string {
  * first (and almost always only) instance clean.
  */
 export async function uniqueSlug(
-  table: "jobs" | "articles" | "answers",
+  table: SlugTable,
   title: string,
   /**
    * Slugs handed out during this run but not yet written.
@@ -38,13 +42,8 @@ export async function uniqueSlug(
   reserved?: Set<string>,
 ): Promise<string> {
   const base = slugify(title) || "post";
-  const db = supabaseAdmin();
 
-  // One query: every existing slug that could collide.
-  const { data, error } = await db.from(table).select("slug").like("slug", `${base}%`);
-  if (error) throw new Error(`slug lookup failed on ${table}: ${error.message}`);
-
-  const taken = new Set((data ?? []).map((r) => (r as { slug: string }).slug));
+  const taken = new Set(await slugsFrom(table, base));
   for (const slug of reserved ?? []) taken.add(slug);
 
   const claim = (slug: string) => {
@@ -60,4 +59,21 @@ export async function uniqueSlug(
   }
   // Pathological case only.
   return claim(`${base}-${Date.now().toString(36)}`);
+}
+
+/**
+ * Every existing slug that could collide with `base`.
+ *
+ * Two stores, because the answer bank moved to the chat database while jobs and
+ * articles stayed in Postgres. The counter above does not care which: it needs
+ * the set of names already spoken for, and nothing else.
+ */
+async function slugsFrom(table: SlugTable, base: string): Promise<string[]> {
+  // Tens of answers in total, so filtering in process costs less than a
+  // prefix query would.
+  if (table === "answers") return (await answerSlugs()).filter((slug) => slug.startsWith(base));
+
+  const { data, error } = await supabaseAdmin().from(table).select("slug").like("slug", `${base}%`);
+  if (error) throw new Error(`slug lookup failed on ${table}: ${error.message}`);
+  return (data ?? []).map((r) => (r as { slug: string }).slug);
 }

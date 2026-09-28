@@ -105,21 +105,3 @@ export interface JobBoardRow {
   last_error: string | null;
   created_at: string;
 }
-
-export interface ChatSessionRow {
-  id: string;
-  ip_hash: string | null;
-  user_agent: string | null;
-  page_path: string | null;
-  turn_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ChatMessageRow {
-  id: string;
-  session_id: string;
-  role: "user" | "model";
-  content: string;
-  created_at: string;
-}

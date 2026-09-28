@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AnswerChoice } from "@/lib/chat/answers";
-import { triggersMatch } from "@/lib/chat/answers";
+// From ./matching, not ./answers: this runs in the browser, and answers.ts
+// opens the Mongo connection.
+import { triggersMatch, type AnswerChoice } from "@/lib/chat/matching";
 import { charsVisible } from "@/lib/chat/typing";
 import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";

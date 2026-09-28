@@ -250,7 +250,7 @@ export async function POST(request: Request) {
           source,
           plan.kind === "canned" ? plan.answer.slug : null,
         );
-        await countTurn(sessionId, session, source === "model");
+        await countTurn(sessionId, source === "model");
 
         // Only worth an extraction call when the visitor typed something that
         // could be a phone number or an email.

@@ -58,17 +58,12 @@ const bank = [
   },
 ];
 
-vi.mock("@/lib/supabase/public", () => ({
-  isPublicDbConfigured: () => true,
-  supabasePublic: () => ({
-    from: () => {
-      const q = {
-        select: () => q,
-        eq: () => q,
-        order: async () => ({ data: bank, error: null }),
-      };
-      return q;
-    },
+vi.mock("@/lib/mongo/chat-db", () => ({
+  isChatDbConfigured: () => true,
+  answersCollection: async () => ({
+    find: () => ({
+      sort: () => ({ toArray: async () => bank.map(({ id, ...rest }) => ({ _id: id, ...rest })) }),
+    }),
   }),
 }));
 
