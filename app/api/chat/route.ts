@@ -30,7 +30,7 @@ import {
   type Session,
 } from "@/lib/chat/session";
 import { captureLead } from "@/lib/leads/capture";
-import { looksContactable } from "@/lib/leads/schema";
+import { findContact, looksContactable } from "@/lib/leads/schema";
 import { matchServices, serviceSlugs } from "@/lib/services";
 
 /** Streamed over SSE, so the visitor sees the answer forming. */
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
           source = "capped";
           reply = CAPPED_REPLY;
           send("token", { text: reply });
-          send("handoff", { reason: "budget" });
+          send("handoff", { reason: "budget", contact: null, serviceSlug: null });
           chips = await nextChips({ text: asked, used });
         } else {
           for await (const chunk of streamChat(
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
               // Tells the widget to offer the callback form, as a capped
               // conversation does. The bank still answers, but anything it does
               // not cover now needs a person.
-              send("handoff", { reason: "unavailable" });
+              send("handoff", { reason: "unavailable", contact: null, serviceSlug: null });
               console.warn("[chat] answered from the bank only — no model key is usable");
             }
           } else {
@@ -288,13 +288,32 @@ export async function POST(request: Request) {
 
         // Only worth an extraction call when the visitor typed something that
         // could be a phone number or an email.
-        if (/\d{8,}|@/.test(message) && matchServices(`${message} ${reply}`, 1).length > 0) {
-          const captured = await maybeCaptureLead(
-            [...past, { role: "user", text: asked }, { role: "model", text: reply }],
-            sessionId,
-            pagePath,
-          );
-          if (captured) send("lead", { serviceSlug: captured });
+        const contactShaped = /\d{8,}|@/.test(message);
+        const captured =
+          contactShaped && matchServices(`${message} ${reply}`, 1).length > 0
+            ? await maybeCaptureLead(
+                [...past, { role: "user", text: asked }, { role: "model", text: reply }],
+                sessionId,
+                pagePath,
+              )
+            : null;
+
+        if (captured) {
+          send("lead", { serviceSlug: captured });
+        } else if (contactShaped) {
+          // They gave us a way to reach them and nothing came of it — either the
+          // model could not run, or it ran and found no agreement to be
+          // contacted. Both are the same thing to the visitor: they have said
+          // what they want and are waiting. So open the callback form with what
+          // they typed already in it, and let them tick the box themselves.
+          //
+          // This is the one turn where losing someone costs an actual customer,
+          // and it used to be the turn most likely to end in silence.
+          send("handoff", {
+            reason: "contact",
+            contact: findContact(message),
+            serviceSlug: topic,
+          });
         }
       } catch (err) {
         console.error(`[chat] stream failed: ${(err as Error).message}`);

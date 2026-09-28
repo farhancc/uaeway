@@ -49,3 +49,32 @@ export function looksContactable(raw: string): boolean {
   const c = normalizeContact(raw);
   return c.includes("@") ? /.+@.+\..+/.test(c) : c.length >= 9;
 }
+
+/**
+ * The first phone number or email in a piece of free text, if there is one we
+ * would actually accept.
+ *
+ * Used to prefill the callback form when someone types their number into the
+ * chat instead of the box — so they are not made to type it twice on the one
+ * turn that matters commercially.
+ *
+ * It never creates a lead on its own. The visitor still sees what was found,
+ * can correct it, and still ticks the consent box, so the recorded moment of
+ * agreement is theirs rather than something we inferred. Returns null when
+ * nothing usable is found, which is the safe outcome: an empty field.
+ */
+export function findContact(text: string): string | null {
+  const patterns = [
+    /[\w.+-]+@[\w-]+\.[\w.-]+/,
+    // +971 50 123 4567, 050-123-4567, 0501234567.
+    /\+?\d[\d\s()-]{7,}\d/,
+  ];
+
+  for (const pattern of patterns) {
+    const found = text.match(pattern)?.[0]?.trim();
+    // Checked against the same rule the form is, so we never prefill a value
+    // that would be rejected on submit.
+    if (found && found.length <= 80 && looksContactable(found)) return found;
+  }
+  return null;
+}

@@ -51,6 +51,8 @@ export function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  /** Set by a `handoff`, which opens the callback form. */
+  const [prompt, setPrompt] = useState<{ contact: string | null } | null>(null);
   /** What the conversation is about, for the callback form's service picker. */
   const [topic, setTopic] = useState<string | null>(null);
   /** Mirrors the ref so the callback form re-renders once a session exists. */
@@ -237,6 +239,13 @@ export function ChatWidget() {
               setTopic(data.serviceSlug);
             } else if (event === "lead") {
               setLeadCaptured(true);
+            } else if (event === "handoff") {
+              // The conversation has reached the edge of what the assistant can
+              // do — out of budget, out of model, or the visitor has just told
+              // us how to reach them. All three mean the same thing: stop
+              // suggesting and start asking.
+              if (data.serviceSlug) setTopic(data.serviceSlug);
+              setPrompt({ contact: data.contact ?? null });
             }
           }
         }
@@ -467,6 +476,7 @@ export function ChatWidget() {
             <LeadCapture
               sessionId={sessionKnown}
               serviceSlug={topic}
+              prompt={prompt}
               onCaptured={() => setLeadCaptured(true)}
             />
           </div>
