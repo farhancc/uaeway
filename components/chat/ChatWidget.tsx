@@ -63,6 +63,9 @@ export function ChatWidget() {
    * server when they do send, so tapping the hint and pressing enter give the
    * same answer.
    */
+  /** Something to send, and nothing in flight. */
+  const canSend = input.trim().length > 0 && !busy;
+
   const hint = useMemo(() => {
     if (busy || triggers.length === 0) return null;
     const words = tokenize(input);
@@ -144,7 +147,7 @@ export function ChatWidget() {
     [],
   );
   const scroller = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const send = useCallback(
     async (text: string, answerSlug?: string) => {
@@ -281,6 +284,14 @@ export function ChatWidget() {
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [messages, chips, expanded]);
+
+  // Grow with the message, up to a point, then scroll inside itself.
+  useEffect(() => {
+    const box = inputRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${Math.min(box.scrollHeight, 120)}px`;
+  }, [input]);
 
   // Escape steps back one level rather than dumping you out of the
   // conversation: full screen first, then the panel.
@@ -489,22 +500,47 @@ export function ChatWidget() {
         <label htmlFor="chat-input" className="sr-only">
           Your question
         </label>
-        <input
+        {/* A textarea, not an input, so the box grows with a long message the
+            way a messaging app does rather than scrolling a single line out of
+            sight. Enter sends; shift-enter is a new line. */}
+        <textarea
           id="chat-input"
           ref={inputRef}
           value={input}
+          rows={1}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.shiftKey) return;
+            e.preventDefault();
+            void send(input);
+          }}
           placeholder="Type a message"
           maxLength={1000}
-          className="min-w-0 flex-1 rounded-full bg-[var(--chat-in)] px-4 py-2.5 text-sm text-[var(--chat-ink)] shadow-sm placeholder:text-[var(--chat-ink-soft)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--chat-bar)]/30"
+          // No focus ring on a pointer — the seam between box and field is
+          // what makes it feel like a message composer rather than a form
+          // control. focus-visible keeps it for keyboard users, who are the
+          // ones the ring is actually for.
+          className="min-w-0 flex-1 resize-none rounded-[1.25rem] bg-[var(--chat-in)] px-4 py-2.5 text-sm leading-relaxed text-[var(--chat-ink)] shadow-sm outline-none placeholder:text-[var(--chat-ink-soft)]/60 focus-visible:ring-2 focus-visible:ring-[var(--chat-bar)]/40"
         />
-        {/* A round send button, and dark ink on it rather than white: bright
+        {/* Appears only when there is something to send, the way the mic gives
+            way to the arrow. Dark ink on the green rather than white: bright
             green reads at 1.98 against white and 8.8 against this ink. */}
         <button
           type="submit"
-          disabled={busy || !input.trim()}
+          disabled={!canSend}
           aria-label="Send"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--chat-send)] text-[var(--chat-ink)] shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+          // Inline rather than toggled utility classes. Tailwind generates
+          // classes it finds by scanning source text, and a class that only
+          // ever appears inside a runtime branch is exactly where that gets
+          // missed — this shipped once with the class present in the DOM and
+          // no rule behind it, so the button never appeared. A style attribute
+          // has no build step to get wrong.
+          style={{
+            opacity: canSend ? 1 : 0,
+            transform: canSend ? "scale(1)" : "scale(0.75)",
+            pointerEvents: canSend ? "auto" : "none",
+          }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--chat-send)] text-[var(--chat-ink)] shadow-sm transition-all duration-150 hover:brightness-95"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="currentColor">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
