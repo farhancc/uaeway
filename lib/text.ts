@@ -38,3 +38,24 @@ export function phraseMatches(words: string[], phrase: string): boolean {
   if (parts.length === 0) return false;
   return parts.every((part) => words.some((word) => sameWord(word, part)));
 }
+
+/**
+ * Whether `phrase` appears in `words` as a run of adjacent words.
+ *
+ * The difference from `phraseMatches` is the whole point of a keyword with a
+ * space in it. "golden visa" written as a trigger means the thing called a
+ * golden visa, so it must not fire on "is my visa golden or blue" — both words
+ * are there, and the question is about something else entirely.
+ *
+ * Punctuation between the words is fine: `tokenize` has already removed it, so
+ * "golden-visa" and "golden, visa" both read as adjacent.
+ */
+export function phraseRun(words: string[], phrase: string): boolean {
+  const parts = tokenize(phrase);
+  if (parts.length === 0) return false;
+
+  for (let i = 0; i + parts.length <= words.length; i++) {
+    if (parts.every((part, j) => sameWord(words[i + j], part))) return true;
+  }
+  return false;
+}

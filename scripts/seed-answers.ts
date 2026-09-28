@@ -145,6 +145,7 @@ async function main() {
       // The seed only sets what it knows about; the rest are the defaults the
       // table used to supply.
       trigger_groups: [],
+      any_keywords: [],
       choices: [],
       active: true,
       created_at: now,

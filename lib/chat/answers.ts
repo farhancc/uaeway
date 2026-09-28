@@ -11,6 +11,7 @@ import { randomUUID } from "crypto";
 import { tokenize } from "../text";
 import { answersCollection, isChatDbConfigured, type AnswerDoc } from "../mongo/chat-db";
 import {
+  anyKeywordMatches,
   contentWords,
   MIN_MARGIN,
   MIN_SCORE,
@@ -24,7 +25,7 @@ import {
 // pulling the Mongo driver. Re-exported here because this module is the answer
 // bank's public face, and every caller already imports these from it.
 export type { Answer, AnswerChoice, Match } from "./matching";
-export { triggersMatch } from "./matching";
+export { anyKeywordMatches, triggersMatch } from "./matching";
 
 /** Everything the matcher and both surfaces need. `active`, `created_at` and
  *  `updated_at` are deliberately absent: nothing downstream reads them, and the
@@ -36,6 +37,7 @@ const FIELDS = {
   service_slug: 1,
   keywords: 1,
   trigger_groups: 1,
+  any_keywords: 1,
   choices: 1,
   follow_up_slugs: 1,
   is_opener: 1,
@@ -64,6 +66,7 @@ function toAnswer(doc: Partial<AnswerDoc> & { _id: string }): Answer {
     service_slug: doc.service_slug ?? null,
     keywords: doc.keywords ?? [],
     trigger_groups: doc.trigger_groups ?? [],
+    any_keywords: doc.any_keywords ?? [],
     choices: doc.choices ?? [],
     follow_up_slugs: doc.follow_up_slugs ?? [],
     is_opener: doc.is_opener ?? false,
@@ -105,9 +108,14 @@ export async function getAnswer(slug: string): Promise<Answer | null> {
 /**
  * The exact match, tried before the scored one.
  *
- * An author who wrote a trigger group meant it, so it beats anything the
- * scorer might have preferred. Order among answers is `position`, which is
- * already the order loadAnswers returns.
+ * An author who wrote a trigger meant it, so it beats anything the scorer might
+ * have preferred. Order among answers is `position`, which is already the order
+ * loadAnswers returns.
+ *
+ * Two passes, and the order between them is the point. Every answer's ALL
+ * category is tried before any answer's ANY category, so a twenty-keyword list
+ * that matches is never beaten by an earlier answer that merely shares one
+ * word. Within a pass it is still `position` that decides.
  */
 export async function matchTriggers(text: string): Promise<Answer | null> {
   const answers = await loadAnswers();
@@ -116,7 +124,12 @@ export async function matchTriggers(text: string): Promise<Answer | null> {
   // Every word, not just content words: a trigger of "in" or "to" is a
   // deliberate choice by whoever wrote it, and the noise list would eat it.
   const words = tokenize(text);
-  return answers.find((a) => triggersMatch(a.trigger_groups ?? [], words)) ?? null;
+
+  return (
+    answers.find((a) => triggersMatch(a.trigger_groups ?? [], words)) ??
+    answers.find((a) => anyKeywordMatches(a.any_keywords ?? [], words)) ??
+    null
+  );
 }
 
 export async function matchAnswer(text: string): Promise<Match | null> {

@@ -463,6 +463,10 @@ async function answerFields(form: FormData): Promise<AnswerFields> {
     service_slug: String(form.get("service_slug") ?? "").trim() || null,
     keywords: lines(form, "keywords", 12),
     trigger_groups: triggerGroups(form, "trigger_groups"),
+    // One per line, and a line may be a phrase. Commas are NOT separators
+    // here: the whole point of this box is that each line stands alone, and
+    // splitting on commas would silently turn one phrase into two keywords.
+    any_keywords: lines(form, "any_keywords", 40).map((k) => k.toLowerCase()),
     choices: choices(form, "choices", knownSlugs),
     follow_up_slugs: form.getAll("follow_up_slugs").map(String).filter(Boolean).slice(0, 6),
     is_opener: form.get("is_opener") === "on",

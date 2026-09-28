@@ -57,8 +57,13 @@ export async function GET() {
   return Response.json({
     chips: await openerChips(),
     triggers: answers
-      .filter((a) => (a.trigger_groups ?? []).length > 0)
-      .map((a) => ({ slug: a.slug, question: a.question, groups: a.trigger_groups })),
+      .filter((a) => (a.trigger_groups ?? []).length > 0 || (a.any_keywords ?? []).length > 0)
+      .map((a) => ({
+        slug: a.slug,
+        question: a.question,
+        groups: a.trigger_groups ?? [],
+        any: a.any_keywords ?? [],
+      })),
   });
 }
 

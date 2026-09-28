@@ -31,6 +31,7 @@ export interface AnswerDoc {
   service_slug: string | null;
   keywords: string[];
   trigger_groups: string[][];
+  any_keywords: string[];
   choices: { label: string; answer_slug: string }[];
   follow_up_slugs: string[];
   is_opener: boolean;

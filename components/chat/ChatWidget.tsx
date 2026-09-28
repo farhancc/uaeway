@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // From ./matching, not ./answers: this runs in the browser, and answers.ts
 // opens the Mongo connection.
-import { triggersMatch, type AnswerChoice } from "@/lib/chat/matching";
+import { anyKeywordMatches, triggersMatch, type AnswerChoice } from "@/lib/chat/matching";
 import { charsVisible } from "@/lib/chat/typing";
 import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";
@@ -30,6 +30,7 @@ interface Trigger {
   slug: string;
   question: string;
   groups: string[][];
+  any: string[];
 }
 
 const GREETING =
@@ -71,7 +72,13 @@ export function ChatWidget() {
     if (busy || triggers.length === 0) return null;
     const words = tokenize(input);
     if (words.length === 0) return null;
-    return triggers.find((t) => triggersMatch(t.groups, words)) ?? null;
+    // The same two passes the server runs, in the same order, or the hint shown
+    // while typing would not be the answer that arrives on send.
+    return (
+      triggers.find((t) => triggersMatch(t.groups, words)) ??
+      triggers.find((t) => anyKeywordMatches(t.any ?? [], words)) ??
+      null
+    );
   }, [input, triggers, busy]);
 
   const sessionId = useRef<string | null>(null);

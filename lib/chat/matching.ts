@@ -9,7 +9,7 @@
  * Nothing here touches the database or any Node builtin. Keep it that way.
  */
 
-import { phraseMatches, sameWord, tokenize } from "../text";
+import { phraseMatches, phraseRun, tokenize } from "../text";
 
 /** One option an answer offers instead of guessing which case applies. */
 export interface AnswerChoice {
@@ -32,6 +32,16 @@ export interface Answer {
    * matches, that answer is the answer.
    */
   trigger_groups: string[][];
+  /**
+   * The other exact category: ANY ONE of these being present is enough.
+   *
+   * Separate from `trigger_groups` rather than expressed as a list of
+   * one-keyword groups, because the two are written and reasoned about
+   * separately — "all twenty of these" and "any one of these twenty" are
+   * different questions about a question, and an author editing one should not
+   * have to read the other to know what they are changing.
+   */
+  any_keywords: string[];
   /** Offered after the answer, when it cannot be answered without knowing more. */
   choices: AnswerChoice[];
   follow_up_slugs: string[];
@@ -41,29 +51,46 @@ export interface Answer {
 }
 
 /**
- * Whether a piece of text fires an answer's exact triggers.
+ * Whether one keyword is present.
+ *
+ * A keyword with a space in it is a phrase and must appear as one — see
+ * `phraseRun`. Word comparison is shared with everything else (`sameWord`), so
+ * "attest" matches a keyword written as "attestation". Demanding the exact
+ * inflection would make these fire almost never, which is the failure nobody
+ * notices.
+ */
+function keywordPresent(keyword: string, words: string[]): boolean {
+  return phraseRun(words, keyword);
+}
+
+/**
+ * The ALL category: every keyword of ANY ONE group must be present.
  *
  * Exported so the browser can run the same check as the visitor types, against
  * the same rules — a hint that appears while typing and then does not happen on
  * send would be worse than no hint.
- *
- * Word comparison is shared with everything else (`sameWord`), so "attest"
- * fires a group written as "attestation". Demanding the exact inflection would
- * make these triggers fire almost never, which is the failure nobody notices.
  */
 export function triggersMatch(groups: string[][], words: string[]): boolean {
   if (words.length === 0) return false;
 
   return groups.some(
-    (group) =>
-      group.length > 0 &&
-      group.every((keyword) => {
-        const parts = tokenize(keyword);
-        return (
-          parts.length > 0 && parts.every((part) => words.some((word) => sameWord(word, part)))
-        );
-      }),
+    (group) => group.length > 0 && group.every((keyword) => keywordPresent(keyword, words)),
   );
+}
+
+/**
+ * The ANY category: one keyword present is enough.
+ *
+ * Deliberately the weaker of the two, and checked second everywhere, because a
+ * single word is thin evidence of what someone meant. A twenty-keyword ALL list
+ * that matches has established far more about the question than "visa"
+ * appearing once, and on fee and visa topics answering the wrong question costs
+ * more than the model call it saved.
+ */
+export function anyKeywordMatches(keywords: string[], words: string[]): boolean {
+  if (words.length === 0) return false;
+
+  return keywords.some((keyword) => keyword.trim().length > 0 && keywordPresent(keyword, words));
 }
 
 /** Words that carry no matching signal. Kept short on purpose: an aggressive

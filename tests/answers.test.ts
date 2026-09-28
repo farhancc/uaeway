@@ -9,6 +9,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const bank = [
   {
+    id: "0",
+    slug: "visa-general",
+    question: "What visas do you handle?",
+    answer_md: "All of the main categories.",
+    service_slug: "visa-processing",
+    keywords: [],
+    // Broad, and it sorts FIRST.
+    any_keywords: ["visa"],
+    follow_up_slugs: [],
+    is_opener: false,
+    show_on_page: false,
+    position: 0,
+  },
+  {
     id: "1",
     slug: "attestation-photocopy",
     question: "Can you attest a photocopy?",
@@ -39,10 +53,13 @@ const bank = [
     answer_md: "Government fees depend on the category.",
     service_slug: "visa-processing",
     keywords: ["visa cost", "golden visa"],
+    // The specific one, and it sorts LAST — so if it still wins, it won on the
+    // strength of the category and not on position.
+    trigger_groups: [["golden visa", "cost"]],
     follow_up_slugs: [],
     is_opener: false,
     show_on_page: true,
-    position: 0,
+    position: 9,
   },
   {
     id: "4",
@@ -67,9 +84,8 @@ vi.mock("@/lib/mongo/chat-db", () => ({
   }),
 }));
 
-const { clearAnswerCache, getAnswer, matchAnswer, answersForService } = await import(
-  "@/lib/chat/answers"
-);
+const { clearAnswerCache, getAnswer, matchAnswer, matchTriggers, answersForService } =
+  await import("@/lib/chat/answers");
 const { nextChips, openerChips } = await import("@/lib/chat/chips");
 
 beforeEach(() => clearAnswerCache());
@@ -173,5 +189,34 @@ describe("service page FAQ", () => {
   it("returns that service's answers in order", async () => {
     const faqs = await answersForService("attestation");
     expect(faqs.map((f) => f.slug)).toEqual(["attestation-photocopy", "attestation-country"]);
+  });
+});
+
+describe("which exact category wins", () => {
+  it("tries every answer's ALL list before any answer's ANY list", async () => {
+    // "visa" alone would fire visa-general, which is earlier in the bank. The
+    // ALL list on golden-visa-cost is the better answer and must win despite
+    // sorting last — the whole reason the two passes are ordered.
+    const match = await matchTriggers("what does a golden visa cost");
+    expect(match?.slug).toBe("golden-visa-cost");
+  });
+
+  it("falls back to the ANY list when no ALL list matches", async () => {
+    const match = await matchTriggers("can I ask about a visa");
+    expect(match?.slug).toBe("visa-general");
+  });
+
+  it("fires nothing when neither category matches", async () => {
+    expect(await matchTriggers("where can I watch camel racing")).toBeNull();
+  });
+
+  it("does not let a phrase fire on scattered words", async () => {
+    // Every word of ["golden visa", "cost"] is in this sentence, but "golden
+    // visa" is not a phrase here — so the specific answer must not fire. It
+    // falls through to the broad ANY list instead, which is the right outcome:
+    // a general answer about visas, not a confident one about golden visa fees.
+    const match = await matchTriggers("is my visa golden, and what is the cost");
+    expect(match?.slug).not.toBe("golden-visa-cost");
+    expect(match?.slug).toBe("visa-general");
   });
 });

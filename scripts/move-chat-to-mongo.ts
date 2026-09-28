@@ -66,6 +66,8 @@ async function moveAnswers(): Promise<number> {
           service_slug: (row.service_slug as string | null) ?? null,
           keywords: (row.keywords as string[]) ?? [],
           trigger_groups: (row.trigger_groups as string[][]) ?? [],
+          // Added after the move; Postgres rows never had it.
+          any_keywords: (row.any_keywords as string[]) ?? [],
           choices: (row.choices as AnswerDoc["choices"]) ?? [],
           follow_up_slugs: (row.follow_up_slugs as string[]) ?? [],
           is_opener: Boolean(row.is_opener),

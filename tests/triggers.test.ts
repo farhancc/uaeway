@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { triggersMatch } from "@/lib/chat/matching";
+import { anyKeywordMatches, triggersMatch } from "@/lib/chat/matching";
 import { tokenize } from "@/lib/text";
 
 /**
@@ -88,5 +88,54 @@ describe("partial typing", () => {
     expect(fires(groups, "what does a visa")).toBe(false);
     expect(fires(groups, "what does a visa co")).toBe(false);
     expect(fires(groups, "what does a visa cost")).toBe(true);
+  });
+});
+
+describe("a keyword with a space is a phrase", () => {
+  // The whole reason this rule exists: both words being present somewhere says
+  // nothing about whether the question is about the thing they name together.
+  const groups = [["golden visa"]];
+
+  it("fires when the words are adjacent", () => {
+    expect(fires(groups, "how much is a golden visa")).toBe(true);
+    expect(fires(groups, "golden visa cost please")).toBe(true);
+  });
+
+  it("does not fire when the words are merely both present", () => {
+    expect(fires(groups, "is my visa golden or blue")).toBe(false);
+    expect(fires(groups, "golden retriever visa")).toBe(false);
+  });
+
+  it("ignores punctuation between the words", () => {
+    expect(fires(groups, "the golden-visa route")).toBe(true);
+  });
+
+  it("still matches the way people inflect words", () => {
+    expect(fires([["legal translation"]], "i need a legal translator")).toBe(true);
+  });
+});
+
+describe("the ANY category", () => {
+  const any = (keywords: string[], text: string) => anyKeywordMatches(keywords, tokenize(text));
+  const keywords = ["golden visa", "emirates id", "residence permit"];
+
+  it("fires on any single keyword", () => {
+    expect(any(keywords, "how do I renew my emirates id")).toBe(true);
+    expect(any(keywords, "tell me about the golden visa")).toBe(true);
+    expect(any(keywords, "residence permit question")).toBe(true);
+  });
+
+  it("does not fire when none of them appear", () => {
+    expect(any(keywords, "how much does attestation cost")).toBe(false);
+    // "visa" alone is not "golden visa" — the phrase rule applies here too.
+    expect(any(keywords, "i need a visa")).toBe(false);
+  });
+
+  it("is empty-safe at both ends", () => {
+    expect(any([], "anything at all")).toBe(false);
+    expect(any(keywords, "")).toBe(false);
+    // A blank line in the admin textarea must not become a keyword that
+    // matches everything.
+    expect(any(["", "   "], "anything at all")).toBe(false);
   });
 });
