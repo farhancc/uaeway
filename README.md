@@ -79,6 +79,13 @@ The scheduled jobs are HTTP routes, called by Vercel Cron (`vercel.json`) with
 curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/ingest-jobs
 ```
 
+## Deploy
+
+Vercel, building from GitHub (`farhancc/uaeway`). A push to `main` deploys to
+production; any other branch gets a preview. Environment variables live in the
+Vercel project, not in the repo — `.env*` is gitignored and only `.env.example`
+is committed.
+
 ## Job sources
 
 A source turns the searches in `/admin/searches` into `RawJob`s. The contract is
