@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AnswerChoice } from "@/lib/chat/answers";
 import { triggersMatch } from "@/lib/chat/answers";
+import { charsVisible } from "@/lib/chat/typing";
 import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";
 import { LeadCapture } from "./LeadCapture";
@@ -35,6 +36,9 @@ const GREETING =
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
+  /** Full screen. Kept here rather than in a route so nothing is lost — the
+   *  conversation, the buffer and the session all carry straight over. */
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chips, setChips] = useState<Chip[]>([]);
   /** Offered when an answer could not be given without knowing which case. */
@@ -67,6 +71,78 @@ export function ChatWidget() {
   }, [input, triggers, busy]);
 
   const sessionId = useRef<string | null>(null);
+
+  /**
+   * Text that has arrived but has not been shown yet.
+   *
+   * The two kinds of reply arrive completely differently — a stored answer is
+   * one block the instant the server reads it, a model answer trickles in over
+   * a second or two — and without this they read as two different assistants.
+   * Everything now goes through the same buffer and is revealed at the same
+   * pace, so a visitor cannot tell which kind of answer they are getting, which
+   * is the point: the stored ones are the good ones.
+   */
+  const pending = useRef("");
+  const revealing = useRef(false);
+  const streamDone = useRef(true);
+  const revealFrame = useRef<number | null>(null);
+
+  /** Appends to the visible text of the reply being written. */
+  const appendVisible = useCallback((text: string) => {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const last = next[next.length - 1];
+      next[next.length - 1] = { ...last, text: last.text + text };
+      return next;
+    });
+  }, []);
+
+  const reveal = useCallback(() => {
+    if (revealing.current) return;
+    revealing.current = true;
+
+    const startedAt = performance.now();
+    let shown = 0;
+
+    const tick = () => {
+      if (pending.current.length === 0) {
+        revealing.current = false;
+        // Only now is the reply actually finished, whatever the network did.
+        if (streamDone.current) setBusy(false);
+        return;
+      }
+
+      // How much *should* be visible by now, from the clock — not from how
+      // many frames happened to fire. A frame delayed by throttling then takes
+      // a proportionally bigger bite, so the reply lands in about REVEAL_MS
+      // whether the tab is focused or not. Per-frame deltas were measured
+      // stretching a one-second reveal to five in an unfocused tab.
+      const queued = shown + pending.current.length;
+      const want = charsVisible(performance.now() - startedAt, queued);
+      const size = Math.max(1, want - shown);
+
+      appendVisible(pending.current.slice(0, size));
+      pending.current = pending.current.slice(size);
+      shown += size;
+      revealFrame.current = requestAnimationFrame(tick);
+    };
+
+    revealFrame.current = requestAnimationFrame(tick);
+  }, [appendVisible]);
+
+  /** Anyone who has asked not to see motion gets the whole reply at once. */
+  const instant = useRef(false);
+  useEffect(() => {
+    instant.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+    },
+    [],
+  );
   const scroller = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +154,10 @@ export function ChatWidget() {
       setError(null);
       setBusy(true);
       setChoices([]);
+      if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+      pending.current = "";
+      revealing.current = false;
+      streamDone.current = false;
       // Clear the chips immediately: leaving them up while a reply streams
       // invites a second tap that would be answered out of order.
       setChips([]);
@@ -127,14 +207,11 @@ export function ChatWidget() {
               sessionId.current = data.sessionId;
               setSessionKnown(data.sessionId);
             } else if (event === "token") {
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = {
-                  ...next[next.length - 1],
-                  text: next[next.length - 1].text + data.text,
-                };
-                return next;
-              });
+              if (instant.current) appendVisible(data.text);
+              else {
+                pending.current += data.text;
+                reveal();
+              }
             } else if (event === "caution") {
               setMessages((prev) => {
                 const next = [...prev];
@@ -154,12 +231,18 @@ export function ChatWidget() {
         }
       } catch (err) {
         setError((err as Error).message);
+        pending.current = "";
         setMessages((prev) => (prev.at(-1)?.text === "" ? prev.slice(0, -1) : prev));
-      } finally {
+        streamDone.current = true;
         setBusy(false);
+      } finally {
+        streamDone.current = true;
+        // The network is done; the reply is not until the buffer has drained.
+        // Whoever finishes last turns off the indicator.
+        if (!revealing.current && pending.current.length === 0) setBusy(false);
       }
     },
-    [busy],
+    [busy, appendVisible, reveal],
   );
 
   // The opening suggestions, fetched once the panel is first opened so a
@@ -197,7 +280,22 @@ export function ChatWidget() {
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [messages, chips]);
+  }, [messages, chips, expanded]);
+
+  // Escape steps back one level rather than dumping you out of the
+  // conversation: full screen first, then the panel.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setExpanded((wasExpanded) => {
+        if (!wasExpanded) setOpen(false);
+        return false;
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   if (!open) {
     return (
@@ -218,11 +316,15 @@ export function ChatWidget() {
     <div
       role="dialog"
       aria-label="Site assistant"
-      className="chat-skin fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-xl bg-[var(--chat-ground)] shadow-2xl ring-1 ring-black/10 sm:inset-x-auto sm:right-4 sm:w-[24rem]"
+      className={
+        expanded
+          ? "chat-skin fixed inset-0 z-50 flex flex-col bg-[var(--chat-ground)]"
+          : "chat-skin fixed inset-x-3 bottom-3 z-40 flex max-h-[min(34rem,85vh)] flex-col overflow-hidden rounded-xl bg-[var(--chat-ground)] shadow-2xl ring-1 ring-black/10 sm:inset-x-auto sm:right-4 sm:w-[24rem]"
+      }
     >
       {/* The bar a messaging app puts at the top: dark, with who you are
           talking to and whether they are there. */}
-      <div className="flex items-center gap-3 bg-[var(--chat-bar)] px-3 py-2.5 text-white">
+      <div className={`flex items-center gap-3 bg-[var(--chat-bar)] px-3 py-2.5 text-white ${expanded ? "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto" : ""}`}>
         <span
           aria-hidden="true"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold"
@@ -237,7 +339,25 @@ export function ChatWidget() {
         </span>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => setExpanded((was) => !was)}
+          aria-label={expanded ? "Leave full screen" : "Open full screen"}
+          aria-pressed={expanded}
+          className="rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="currentColor">
+            {expanded ? (
+              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+            ) : (
+              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+            )}
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(false);
+            setOpen(false);
+          }}
           aria-label="Close assistant"
           className="rounded-full px-2 py-1 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
         >
@@ -245,7 +365,12 @@ export function ChatWidget() {
         </button>
       </div>
 
-      <div ref={scroller} className="chat-field flex-1 space-y-2 overflow-y-auto px-3 py-3">
+      <div
+        ref={scroller}
+        className={`chat-field flex-1 space-y-2 overflow-y-auto px-3 py-3 ${
+          expanded ? "[&>*]:mx-auto [&>*]:w-full [&>*]:max-w-2xl" : ""
+        }`}
+      >
         {messages.length === 0 && (
           <div className="chat-in max-w-[85%]">
             <p className="text-sm leading-relaxed">{GREETING}</p>
@@ -261,7 +386,16 @@ export function ChatWidget() {
                   : "chat-in max-w-[88%] whitespace-pre-wrap text-sm leading-relaxed"
               }
             >
-              {m.text || (busy && i === messages.length - 1 ? "…" : "")}
+              {m.text ||
+                (busy && i === messages.length - 1 ? (
+                  <span className="chat-typing" role="status" aria-label="Typing">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                ) : (
+                  ""
+                ))}
             </div>
             {m.caution && (
               <p className="mt-1.5 max-w-[92%] border-l-2 border-seal pl-2 text-xs leading-relaxed text-ink-faint">
@@ -350,7 +484,7 @@ export function ChatWidget() {
           e.preventDefault();
           void send(input);
         }}
-        className="flex items-end gap-2 bg-[var(--chat-ground)] px-2 py-2"
+        className={`flex items-end gap-2 bg-[var(--chat-ground)] px-2 py-2 ${expanded ? "mx-auto w-full max-w-2xl" : ""}`}
       >
         <label htmlFor="chat-input" className="sr-only">
           Your question

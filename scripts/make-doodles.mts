@@ -15,10 +15,13 @@
  */
 
 const SIZE = 320;
-/** Few and large. The first pass put fifty-two tiny motifs in a 300px tile
- *  and it read as confetti — at this opacity a shape has to be big enough to
- *  be recognised at a glance or it is just noise. */
-const COUNT = 20;
+/**
+ * Found by bracketing, not by guessing. Fifty-two motifs at 13–31px read as
+ * confetti; twenty at 36–66px read as a few big objects on empty ground, which
+ * is what "zoomed out" looks like. A doodle field wants them small enough to
+ * be texture and dense enough to leave little bare beige.
+ */
+const COUNT = 40;
 const SEED = 20260928;
 
 /** Motifs drawn in a 0–24 box, centred on 12,12. Line art only, no fills. */
@@ -80,7 +83,7 @@ function build(): string {
   let attempts = 0;
   while (placed.length < COUNT && attempts < COUNT * 60) {
     attempts++;
-    const scale = 1.5 + random() * 1.25;
+    const scale = 1.0 + random() * 0.7;
     const radius = 12 * scale;
     const x = random() * SIZE;
     const y = random() * SIZE;
@@ -90,7 +93,8 @@ function build(): string {
     const clash = placed.some((p) => {
       const dx = Math.min(Math.abs(p.x - x), SIZE - Math.abs(p.x - x));
       const dy = Math.min(Math.abs(p.y - y), SIZE - Math.abs(p.y - y));
-      return Math.hypot(dx, dy) < (radius + p.r) * 0.92;
+      // Packed tight. A generous gap is what leaves the bare patches.
+      return Math.hypot(dx, dy) < (radius + p.r) * 0.78;
     });
     if (clash) continue;
 
@@ -115,7 +119,7 @@ function build(): string {
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">`,
-    `<g fill="none" stroke="#0b3b36" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.14">`,
+    `<g fill="none" stroke="#0b3b36" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.14">`,
     ...parts,
     `</g></svg>`,
   ].join("");
