@@ -64,13 +64,24 @@ export interface ChatSessionDoc {
  * so the id is the tiebreak that keeps a replayed transcript in the order it
  * was actually said.
  */
+/**
+ * How a reply was produced. Everything but "model" was free, which is what the
+ * admin counts. "unavailable" is its own value rather than folded into
+ * "capped": both are free, but one is a conversation that spent its budget and
+ * the other is an outage, and a week of them should not read as healthy.
+ *
+ * Defined here, with the document, so there is one list. `lib/chat/session.ts`
+ * re-exports it as `ReplySource` for callers that never touch the driver.
+ */
+export type MessageSource = "canned" | "model" | "capped" | "unavailable";
+
 export interface ChatMessageDoc {
   _id: ObjectId;
   session_id: string;
   role: "user" | "model";
   content: string;
-  /** How a reply was produced. Null on the visitor's own messages. */
-  source: "canned" | "model" | "capped" | null;
+  /** Null on the visitor's own messages. */
+  source: MessageSource | null;
   /** The canned answer served, when one was. */
   answer_slug: string | null;
   created_at: Date;

@@ -136,6 +136,23 @@ export function reportFailure(
   );
 }
 
+/**
+ * Whether any key could be tried right now.
+ *
+ * Read after a failed call to tell the two silences apart: a model that
+ * answered with nothing (blocked, or out of output budget) cost us a request
+ * and should be charged for, while a pool with every key benched never made
+ * one. The chatbot says something different in each case, and only one of them
+ * is worth spending a conversation's model budget on.
+ *
+ * Per-process, like the rest of the bench: on serverless it describes this
+ * instance, which is exactly the instance that just failed.
+ */
+export function modelAvailable(): boolean {
+  const now = Date.now();
+  return states().some((s) => s.coldUntil <= now);
+}
+
 /** Which keys are usable right now. Per-process, so it describes this instance
  *  rather than the deployment as a whole. */
 export function poolStatus(): {

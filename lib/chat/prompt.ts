@@ -122,5 +122,18 @@ export const CAPPED_REPLY =
 export const RETIRED_ANSWER_REPLY =
   "That question has moved. Pick one below, or type what you need.";
 
+/**
+ * Said when the assistant cannot reach its model at all.
+ *
+ * Deliberately not "try again in a moment": an exhausted key is benched for an
+ * hour, so inviting a retry sends the visitor round a loop that cannot succeed
+ * and makes the site look broken rather than limited. What is still true is
+ * that everything in the answer bank works — it never needed the model — so
+ * this points at the suggestions underneath it, which are the things that will
+ * actually answer.
+ */
+export const UNAVAILABLE_REPLY =
+  "I can't work that one out right now, but the questions below I can answer straight away — they are the ones we are asked most. For anything else, the enquiry form on the service page that fits will reach a person.";
+
 export const FALLBACK_REPLY =
   "Sorry — something went wrong at my end just now. Try again in a moment, or leave your details on the enquiry form of the service page that fits and our team will come back to you.";

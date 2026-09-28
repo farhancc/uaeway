@@ -1,4 +1,7 @@
-import { messagesCollection } from "../mongo/chat-db";
+import { messagesCollection, type MessageSource } from "../mongo/chat-db";
+
+/** Every way of answering that did not call the model. */
+export const FREE_SOURCES: MessageSource[] = ["canned", "capped", "unavailable"];
 
 /** How much of the chatbot's work is costing nothing. */
 export interface ChatSavings {
@@ -22,7 +25,10 @@ export async function chatSavings(days = 7): Promise<ChatSavings> {
   const window = { role: "model" as const, created_at: { $gte: new Date(Date.now() - days * 86_400_000) } };
 
   const [free, total] = await Promise.all([
-    messages.countDocuments({ ...window, source: { $in: ["canned", "capped"] } }),
+    messages.countDocuments({
+      ...window,
+      source: { $in: FREE_SOURCES },
+    }),
     messages.countDocuments(window),
   ]);
 

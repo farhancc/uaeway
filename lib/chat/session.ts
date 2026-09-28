@@ -3,6 +3,7 @@ import {
   messagesCollection,
   sessionsCollection,
   type ChatMessageDoc,
+  type MessageSource,
 } from "../mongo/chat-db";
 import type { Turn } from "../ai/gemini";
 
@@ -98,7 +99,8 @@ export async function history(sessionId: string): Promise<Turn[]> {
   return docs.reverse().map((d) => ({ role: d.role, text: d.content }));
 }
 
-export type ReplySource = "canned" | "model" | "capped";
+/** How a reply was produced. Defined with the document it is stored on. */
+export type ReplySource = MessageSource;
 
 /** Canned answers already served in this conversation, so the chips never
  *  offer a question the visitor has just had answered. */
