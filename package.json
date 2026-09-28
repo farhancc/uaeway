@@ -13,7 +13,8 @@
     "seed:answers": "tsx --env-file=.env.local scripts/seed-answers.ts",
     "move:chat-to-mongo": "tsx --env-file=.env.local scripts/move-chat-to-mongo.ts",
     "draft:blog": "tsx --env-file=.env.local scripts/draft-blog.ts",
-    "check:alerts": "tsx --env-file=.env.local scripts/check-alerts.ts"
+    "check:alerts": "tsx --env-file=.env.local scripts/check-alerts.ts",
+    "generate:answers": "tsx --env-file=.env.local scripts/generate-answers.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
