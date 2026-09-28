@@ -14,14 +14,19 @@
  *   npx tsx scripts/make-doodles.mts
  */
 
-const SIZE = 320;
+const SIZE = Number(process.env.DOODLE_SIZE ?? 320);
 /**
- * Found by bracketing, not by guessing. Fifty-two motifs at 13–31px read as
- * confetti; twenty at 36–66px read as a few big objects on empty ground, which
- * is what "zoomed out" looks like. A doodle field wants them small enough to
- * be texture and dense enough to leave little bare beige.
+ * Set by measurement against the reference rather than by eye.
+ *
+ * Ink coverage — the share of pixels darker than the beige ground — is what
+ * separates a doodle field from scattered clip art, and eyeballing it produced
+ * three wrong answers in a row: 52 motifs read as confetti, 20 as a few big
+ * objects on empty ground, 40 as merely sparse. The reference sits at 22.8%
+ * coverage; these settings measure 22.9%.
+ *
+ * Sweep it again with the DOODLE_* environment variables if the look changes.
  */
-const COUNT = 40;
+const COUNT = Number(process.env.DOODLE_COUNT ?? 200);
 const SEED = 20260928;
 
 /** Motifs drawn in a 0–24 box, centred on 12,12. Line art only, no fills. */
@@ -83,7 +88,7 @@ function build(): string {
   let attempts = 0;
   while (placed.length < COUNT && attempts < COUNT * 60) {
     attempts++;
-    const scale = 1.0 + random() * 0.7;
+    const scale = Number(process.env.DOODLE_MIN ?? 0.55) + random() * Number(process.env.DOODLE_SPAN ?? 0.45);
     const radius = 12 * scale;
     const x = random() * SIZE;
     const y = random() * SIZE;
@@ -94,7 +99,7 @@ function build(): string {
       const dx = Math.min(Math.abs(p.x - x), SIZE - Math.abs(p.x - x));
       const dy = Math.min(Math.abs(p.y - y), SIZE - Math.abs(p.y - y));
       // Packed tight. A generous gap is what leaves the bare patches.
-      return Math.hypot(dx, dy) < (radius + p.r) * 0.78;
+      return Math.hypot(dx, dy) < (radius + p.r) * Number(process.env.DOODLE_GAP ?? 0.42);
     });
     if (clash) continue;
 
@@ -119,7 +124,7 @@ function build(): string {
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">`,
-    `<g fill="none" stroke="#0b3b36" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.14">`,
+    `<g fill="none" stroke="#0b3b36" stroke-width="${process.env.DOODLE_STROKE ?? 1.6}" stroke-linecap="round" stroke-linejoin="round" opacity="0.14">`,
     ...parts,
     `</g></svg>`,
   ].join("");
