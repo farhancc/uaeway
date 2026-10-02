@@ -58,27 +58,39 @@ export function servicesInFlow(doc: FlowDoc): Set<string> {
 
 export function subgraphFor(doc: FlowDoc, serviceId: string): Set<string> {
   const byId = new Map(doc.nodes.map((n) => [n.id, n]));
-  const seeds = doc.nodes.filter((n) => serviceOf(n) === serviceId).map((n) => n.id);
+
+  // Arrows indexed by where they start, once. The walk below used to scan all
+  // 6,408 of them per box it reached, which on a 280-box service is nearly two
+  // million comparisons — and the builder recomputes this on every edit, so
+  // that was a pause on every keystroke rather than a cost paid on open.
+  const outgoing = new Map<string, string[]>();
+  for (const edge of doc.edges) {
+    const list = outgoing.get(edge.from);
+    if (list) list.push(edge.to);
+    else outgoing.set(edge.from, [edge.to]);
+  }
+
+  const seeds = new Set(doc.nodes.filter((n) => serviceOf(n) === serviceId).map((n) => n.id));
   const visible = new Set<string>(seeds);
 
   const queue = [...seeds];
   while (queue.length > 0) {
     const id = queue.pop()!;
-    for (const edge of doc.edges) {
-      if (edge.from !== id || visible.has(edge.to)) continue;
-      visible.add(edge.to);
+    for (const to of outgoing.get(id) ?? []) {
+      if (visible.has(to)) continue;
+      visible.add(to);
 
       // Shown, but the walk stops here: this box is where another service's
       // conversation begins, and that conversation is its own view.
-      const target = byId.get(edge.to);
+      const target = byId.get(to);
       const owner = target ? serviceOf(target) : null;
-      if (owner === null || owner === serviceId) queue.push(edge.to);
+      if (owner === null || owner === serviceId) queue.push(to);
     }
   }
 
   // One hop back, so the arrows that lead in are visible with their labels.
   for (const edge of doc.edges) {
-    if (seeds.includes(edge.to)) visible.add(edge.from);
+    if (seeds.has(edge.to)) visible.add(edge.from);
   }
 
   // Always, even when nothing leads from it here: it is where every
@@ -87,4 +99,18 @@ export function subgraphFor(doc: FlowDoc, serviceId: string): Set<string> {
   if (start) visible.add(start.id);
 
   return visible;
+}
+
+/**
+ * Just the boxes this service owns, in document order.
+ *
+ * `subgraphFor` deliberately includes its neighbours — the boxes another
+ * service's conversation begins at — so that the link between services is
+ * visible. Those neighbours live in that service's part of the diagram, which
+ * can be tens of thousands of pixels away, so fitting the viewport to the
+ * whole subgraph frames mostly the gap between the two. The viewport aims at
+ * these instead.
+ */
+export function boxesOwnedBy(doc: FlowDoc, serviceId: string): string[] {
+  return doc.nodes.filter((n) => serviceOf(n) === serviceId).map((n) => n.id);
 }

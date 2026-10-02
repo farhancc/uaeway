@@ -20,6 +20,7 @@
 
 import { loadDefinitions } from "../lib/chat/qualify/store";
 import { lintFlow, publishable } from "../lib/chat/flow/lint";
+import { arrange } from "../lib/chat/flow/layout";
 import {
   buildAuthoredFlow,
   mergeFlows,
@@ -140,7 +141,17 @@ async function main(): Promise<void> {
   // cap fails there with a zod dump instead of the explanation above.
   checkCaps(mergedCounts(existing, authored));
 
-  const merged = mergeFlows(existing, authored);
+  // Laid out by service before it is saved, not left in the order the packs
+  // were concatenated in.
+  //
+  // `buildAuthoredFlow` positions each pack in its own grid, which is the
+  // right unit for authoring and the wrong one for reading: a service is
+  // written about across every pack, so "legal translation" ended up with its
+  // 241 boxes spread over 45,000px of canvas with other services in between.
+  // Filtering /admin/flow to one service then framed the gaps rather than the
+  // service. `arrange` groups a service's boxes into one block, which takes
+  // the same 241 down to 11,560px of contiguous diagram.
+  const merged = arrange(mergeFlows(existing, authored));
 
   const findings = lintFlow(merged);
   const errors = findings.filter((f) => f.severity === "error");

@@ -19,7 +19,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { lintFlow, type Finding } from "@/lib/chat/flow/lint";
-import { servicesInFlow, subgraphFor } from "@/lib/chat/flow/subgraph";
+import { boxesOwnedBy, servicesInFlow, subgraphFor } from "@/lib/chat/flow/subgraph";
 import { arrange } from "@/lib/chat/flow/layout";
 import type { EdgeCondition, FlowDoc, FlowNode, NodeKind } from "@/lib/chat/flow/schema";
 import { publishCurrentDraft, revertToVersion, saveFlowDraft } from "./actions";
@@ -198,6 +198,10 @@ function blankNode(kind: NodeKind, id: string, serviceId: string): FlowNode {
  */
 const DRAW_EVERYTHING_UNDER = 150;
 
+/** What a box takes up on the canvas. `jumpTo` centres on half of each. */
+const BOX_WIDTH = 240;
+const BOX_HEIGHT = 100;
+
 /**
  * The view the builder opens on.
  *
@@ -231,7 +235,7 @@ export function FlowEditor(props: EditorProps) {
 }
 
 function Editor({ initial, versions, services }: EditorProps) {
-  const { setCenter, getZoom, fitView } = useReactFlow();
+  const { setCenter, getZoom, fitView, fitBounds, screenToFlowPosition } = useReactFlow();
   const [doc, setDoc] = useState<FlowDoc>(initial);
   const [selection, setSelection] = useState<Selection | null>(null);
   /** The service whose conversation is being looked at, or null for all of it. */
@@ -279,6 +283,9 @@ function Editor({ initial, versions, services }: EditorProps) {
 
   // The document as it was, kept in a ref so `edit` can snapshot it without
   // depending on the current render.
+  /** The canvas's box on screen, so a new node can be put where you are
+   *  looking rather than at the end of the document. */
+  const wrapper = useRef<HTMLDivElement>(null);
   const docRef = useRef(doc);
   useEffect(() => {
     docRef.current = doc;
@@ -347,6 +354,41 @@ function Editor({ initial, versions, services }: EditorProps) {
     return shown;
   }, [doc, topic, justAdded]);
 
+  /**
+   * Put the viewport on the service you just chose.
+   *
+   * Measured off the document rather than off the canvas, which is the whole
+   * reason this is `fitBounds` and not `fitView`. `fitView` fits boxes React
+   * Flow has measured, and on a view that has just changed it has measured
+   * none of them yet — so it either did nothing or framed the start box, and
+   * the canvas sat on blank space. A rectangle worked out from the positions
+   * we already hold needs nothing measured and is right on the first frame.
+   *
+   * It aims at the boxes the service *owns*, not at everything on screen: a
+   * view deliberately includes the boxes where neighbouring services begin,
+   * and those live in their own part of the diagram, tens of thousands of
+   * pixels away. Fitting all of it frames the gap between them and little
+   * else.
+   */
+  useEffect(() => {
+    const owned = new Set(topic ? boxesOwnedBy(docRef.current, topic) : []);
+    const points = docRef.current.nodes.filter((n) => !topic || owned.has(n.id));
+    if (points.length === 0) return;
+
+    const xs = points.map((n) => n.position.x);
+    const ys = points.map((n) => n.position.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    fitBounds(
+      // The box's own size, so the rightmost and lowest boxes are inside the
+      // frame rather than half out of it. Same figures `jumpTo` centres on.
+      { x, y, width: Math.max(...xs) - x + BOX_WIDTH, height: Math.max(...ys) - y + BOX_HEIGHT },
+      { padding: 0.1 },
+    );
+    // Only when the view changes: `docRef` is a ref precisely so that editing
+    // does not re-run this and yank the canvas away from what you are doing.
+  }, [topic, fitBounds]);
+
   /** Dragging a label nudges it and nothing else — the arrow itself does not
    *  move, because where it starts and ends is the graph rather than a choice. */
   const moveLabel = useCallback(
@@ -409,12 +451,25 @@ function Editor({ initial, versions, services }: EditorProps) {
     [doc.nodes, selection, visible, nodeData, dragPositions],
   );
 
+  /**
+   * Intent names by id, for the labels on the arrows.
+   *
+   * A `find` over the list looked harmless and was not: every arrow that says
+   * "they ask about a topic" ran one, and on the authored flow that is a scan
+   * of 1,572 intents per arrow — several million comparisons each time this
+   * list is rebuilt, which is every edit and every change of view.
+   */
+  const intentNames = useMemo(
+    () => new Map(doc.intents.map((i) => [i.id, i.name])),
+    [doc.intents],
+  );
+
   const rfEdges = useMemo(() => {
     // Arrows in and out of the selected box are drawn heavier, so "what leads
     // here and where does it go" is answerable by clicking rather than by
     // tracing.
     const focus = selection?.kind === "node" ? selection.id : null;
-    const topicName = (id: string) => doc.intents.find((i) => i.id === id)?.name ?? "topic";
+    const topicName = (id: string) => intentNames.get(id) ?? "topic";
 
     // Position within the bundle leaving each box. Taken in the author's own
     // edge order so a lane is stable across renders — a line that changes
@@ -492,7 +547,7 @@ function Editor({ initial, versions, services }: EditorProps) {
         selected,
       };
     });
-  }, [doc.edges, doc.intents, selection, visible, numbers, moveLabel, jumpTo]);
+  }, [doc.edges, intentNames, selection, visible, numbers, moveLabel, jumpTo]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -566,10 +621,14 @@ function Editor({ initial, versions, services }: EditorProps) {
 
   const addNode = (kind: NodeKind) => {
     const id = `n-${crypto.randomUUID().slice(0, 8)}`;
-    // Offset from whatever is already there, so a new box never lands exactly
-    // on top of one you cannot then find.
-    const x = Math.max(0, ...doc.nodes.map((n) => n.position.x)) + 320;
-    const node = { ...blankNode(kind, id, services[0]?.slug ?? ""), position: { x, y: 80 } };
+    // Where you are looking, rather than to the right of the whole document.
+    // The old rule put a new box past the rightmost one, which on the authored
+    // flow is 78,000px away — added, selected, and nowhere on screen.
+    const frame = wrapper.current?.getBoundingClientRect();
+    const position = frame
+      ? screenToFlowPosition({ x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 })
+      : { x: Math.max(0, ...doc.nodes.map((n) => n.position.x)) + 320, y: 80 };
+    const node = { ...blankNode(kind, id, services[0]?.slug ?? ""), position };
     edit({ ...doc, nodes: [...doc.nodes, node] });
     // Kept visible where it was made, rather than dropping the filter and
     // redrawing the whole flow around it.
@@ -792,18 +851,25 @@ function Editor({ initial, versions, services }: EditorProps) {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1">
+        <div ref={wrapper} className="min-w-0 flex-1">
           <ReactFlow
-            key={topic ?? "all"}
+            // Deliberately not keyed on the topic. Remounting threw away every
+            // box component and rebuilt it on each change of view, and it reset
+            // the viewport after the effect above had aimed it — so switching
+            // service was both slow and landed you on blank canvas.
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            // Mount what is on screen, not what is in the document. React Flow
-            // renders a component per box and per arrow otherwise, so the cost
-            // of a view was the size of the whole view rather than the size of
-            // the window looking at it — and panning around a service is the
-            // normal way to read one.
+            // Mount what is on screen, not what the view contains. A service
+            // is several hundred boxes and a couple of thousand arrows, and
+            // committing all of them at once is seconds of synchronous React.
+            //
+            // This only works because the viewport is aimed by `fitBounds` off
+            // the document above: culling hides a box before React Flow can
+            // measure it, so anything that waits to be told a box's size — the
+            // `fitView` prop, `fitView({ nodes })` — has nothing to go on and
+            // leaves the canvas on blank space.
             onlyRenderVisibleElements
             onNodesChange={onNodesChange}
             // No `onEdgesChange`: arrows are selected and deleted through the
@@ -812,7 +878,6 @@ function Editor({ initial, versions, services }: EditorProps) {
             onNodeClick={(_, n) => setSelection({ kind: "node", id: n.id })}
             onEdgeClick={(_, e) => setSelection({ kind: "edge", id: e.id })}
             onPaneClick={() => setSelection(null)}
-            fitView
             proOptions={{ hideAttribution: false }}
           >
             <Background />
