@@ -14,7 +14,7 @@
  * that way: the widget imports it.
  */
 
-import { foldText, phraseRun, tokenize } from "../../text";
+import { foldText, phraseRunTokens, tokenize } from "../../text";
 
 /**
  * Folded, punctuation dropped, spaces collapsed — so "How much does attestation
@@ -47,8 +47,43 @@ export function normalizeQuestion(text: string): string {
 const MIN_RUN_WORDS = 3;
 const MIN_RUN_CHARS = 12;
 
-function specificEnough(phrase: string): boolean {
-  return tokenize(phrase).length >= MIN_RUN_WORDS || phrase.trim().length >= MIN_RUN_CHARS;
+interface Prepared {
+  /** For the exact pass. */
+  normalized: string;
+  /** For the containment pass, so `phraseRun` need not tokenize again. */
+  tokens: string[];
+  specific: boolean;
+}
+
+/**
+ * The three derived forms of one authored phrase, worked out once.
+ *
+ * Both passes below need a phrase normalized, tokenized, and judged long
+ * enough to match inside a sentence — and before this, each call recomputed
+ * all three for every candidate. `tokenize` and `normalizeQuestion` both run
+ * `String.normalize("NFC")`, so a merged draft of eight packs meant tens of
+ * thousands of NFC passes over a fixed set of strings per message typed.
+ *
+ * Keyed on the phrase because that is what makes it safe to keep: phrases are
+ * authored content, so the set is bounded by the flow document and a cache
+ * entry lives as long as it is worth living. **Never put a visitor's message
+ * in here** — that side is unbounded, and it is why `normalizeQuestion` stays
+ * uncached and this helper is not exported.
+ */
+const prepCache = new Map<string, Prepared>();
+
+function prepare(phrase: string): Prepared {
+  const hit = prepCache.get(phrase);
+  if (hit) return hit;
+
+  const tokens = tokenize(phrase);
+  const made: Prepared = {
+    normalized: normalizeQuestion(phrase),
+    tokens,
+    specific: tokens.length >= MIN_RUN_WORDS || phrase.trim().length >= MIN_RUN_CHARS,
+  };
+  prepCache.set(phrase, made);
+  return made;
 }
 
 /** Whether this message is one of these phrasings, or contains one outright. */
@@ -57,15 +92,15 @@ export function phraseHit(message: string, phrases: string[]): boolean {
   if (!asked) return false;
 
   for (const phrase of phrases) {
-    if (normalizeQuestion(phrase) === asked) return true;
+    if (prepare(phrase).normalized === asked) return true;
   }
 
   const words = tokenize(message);
   for (const phrase of phrases) {
-    // `phraseRun` matches adjacent words and shares the inflection rule with
-    // everything else here, so "attest my degree" is found inside "how do I
-    // attest my degrees".
-    if (specificEnough(phrase) && phraseRun(words, phrase)) return true;
+    // Adjacent words, sharing the inflection rule with everything else here,
+    // so "attest my degree" is found inside "how do I attest my degrees".
+    const prep = prepare(phrase);
+    if (prep.specific && phraseRunTokens(words, prep.tokens)) return true;
   }
 
   return false;
@@ -86,15 +121,17 @@ export function matchByPhrase(
   if (!asked) return null;
 
   for (const candidate of candidates) {
-    for (const phrase of [candidate.name, ...candidate.phrases]) {
-      if (normalizeQuestion(phrase) === asked) return candidate.id;
+    if (prepare(candidate.name).normalized === asked) return candidate.id;
+    for (const phrase of candidate.phrases) {
+      if (prepare(phrase).normalized === asked) return candidate.id;
     }
   }
 
   const words = tokenize(message);
   for (const candidate of candidates) {
     for (const phrase of [candidate.name, ...candidate.phrases]) {
-      if (specificEnough(phrase) && phraseRun(words, phrase)) return candidate.id;
+      const prep = prepare(phrase);
+      if (prep.specific && phraseRunTokens(words, prep.tokens)) return candidate.id;
     }
   }
 

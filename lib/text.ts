@@ -97,7 +97,19 @@ export function phraseMatches(words: string[], phrase: string): boolean {
  * "golden-visa" and "golden, visa" both read as adjacent.
  */
 export function phraseRun(words: string[], phrase: string): boolean {
-  const parts = tokenize(phrase);
+  return phraseRunTokens(words, tokenize(phrase));
+}
+
+/**
+ * `phraseRun` against a phrase that is already tokenized.
+ *
+ * Same rule, same result — split out because the caller that runs this over
+ * every authored phrase on every message would otherwise re-tokenize a fixed
+ * set of strings on each one, and `tokenize` normalizes to NFC, which is not
+ * cheap. Callers holding a phrase they will test more than once tokenize it
+ * once and come here; everyone else keeps using `phraseRun`.
+ */
+export function phraseRunTokens(words: string[], parts: string[]): boolean {
   if (parts.length === 0) return false;
 
   for (let i = 0; i + parts.length <= words.length; i++) {
