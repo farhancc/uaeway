@@ -19,7 +19,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { lintFlow, type Finding } from "@/lib/chat/flow/lint";
-import { subgraphFor } from "@/lib/chat/flow/subgraph";
+import { servicesInFlow, subgraphFor } from "@/lib/chat/flow/subgraph";
 import { arrange } from "@/lib/chat/flow/layout";
 import type { EdgeCondition, FlowDoc, FlowNode, NodeKind } from "@/lib/chat/flow/schema";
 import { publishCurrentDraft, revertToVersion, saveFlowDraft } from "./actions";
@@ -187,6 +187,32 @@ function blankNode(kind: NodeKind, id: string, serviceId: string): FlowNode {
   }
 }
 
+/**
+ * How many boxes the canvas will draw at once before it stops being worth
+ * drawing at once.
+ *
+ * React Flow mounts a component per box and per arrow, so the authored flow —
+ * 1,588 boxes and 6,408 arrows — was roughly eight thousand of them on open,
+ * laid out and then zoomed to fit, which is a canvas you wait for rather than
+ * one you use. A single service is a few hundred, which is not.
+ */
+const DRAW_EVERYTHING_UNDER = 150;
+
+/**
+ * The view the builder opens on.
+ *
+ * The whole flow when it is small enough to read — a new install, or a test
+ * fixture, where opening on one service would hide most of a graph that fits
+ * on screen anyway. Otherwise the first service that has boxes, so the canvas
+ * opens on a conversation rather than on everything at once.
+ */
+function openingTopic(doc: FlowDoc, services: { slug: string }[]): string | null {
+  if (doc.nodes.length <= DRAW_EVERYTHING_UNDER) return null;
+
+  const written = servicesInFlow(doc);
+  return services.find((s) => written.has(s.slug))?.slug ?? null;
+}
+
 interface EditorProps {
   initial: FlowDoc;
   versions: Version[];
@@ -209,7 +235,17 @@ function Editor({ initial, versions, services }: EditorProps) {
   const [doc, setDoc] = useState<FlowDoc>(initial);
   const [selection, setSelection] = useState<Selection | null>(null);
   /** The service whose conversation is being looked at, or null for all of it. */
-  const [topic, setTopic] = useState<string | null>(null);
+  const [topic, setTopic] = useState<string | null>(() => openingTopic(initial, services));
+  /**
+   * Boxes held visible regardless of the filter, because they were just made.
+   *
+   * A new box belongs to no service until you give it one, so under a filter it
+   * would be created somewhere you cannot see. This used to be handled by
+   * dropping the filter, which on the authored flow means answering "add a box"
+   * by drawing all 1,588 of them. Cleared when you change view, by which point
+   * the box has a home or it does not.
+   */
+  const [justAdded, setJustAdded] = useState<Set<string>>(() => new Set());
 
   const dragging = useRef(false);
 
@@ -304,7 +340,12 @@ function Editor({ initial, versions, services }: EditorProps) {
   // replaces it on every frame, which is what used to make this recompute —
   // and a new Set here replaced every edge component mid-drag, which is why
   // dragging a label only worked with no topic filter on.
-  const visible = useMemo(() => (topic ? subgraphFor(doc, topic) : null), [doc, topic]);
+  const visible = useMemo(() => {
+    if (!topic) return null;
+    const shown = subgraphFor(doc, topic);
+    for (const id of justAdded) shown.add(id);
+    return shown;
+  }, [doc, topic, justAdded]);
 
   /** Dragging a label nudges it and nothing else — the arrow itself does not
    *  move, because where it starts and ends is the graph rather than a choice. */
@@ -530,9 +571,9 @@ function Editor({ initial, versions, services }: EditorProps) {
     const x = Math.max(0, ...doc.nodes.map((n) => n.position.x)) + 320;
     const node = { ...blankNode(kind, id, services[0]?.slug ?? ""), position: { x, y: 80 } };
     edit({ ...doc, nodes: [...doc.nodes, node] });
-    // A new box belongs to no service yet, so leaving a topic filter on would
-    // drop it somewhere you cannot see.
-    setTopic(null);
+    // Kept visible where it was made, rather than dropping the filter and
+    // redrawing the whole flow around it.
+    setJustAdded((current) => new Set(current).add(id));
     setSelection({ kind: "node", id });
   };
 
@@ -701,11 +742,14 @@ function Editor({ initial, versions, services }: EditorProps) {
           value={topic ?? ""}
           onChange={(e) => {
             setTopic(e.target.value || null);
+            setJustAdded(new Set());
             setSelection(null);
           }}
           className="rounded-md border border-rule bg-white px-2 py-1 text-xs text-ink"
         >
-          <option value="">the whole flow</option>
+          <option value="">
+            the whole flow{doc.nodes.length > DRAW_EVERYTHING_UNDER ? ` — all ${doc.nodes.length} boxes` : ""}
+          </option>
           {services.map((service) => (
             <option key={service.slug} value={service.slug}>
               {service.name}
@@ -755,6 +799,12 @@ function Editor({ initial, versions, services }: EditorProps) {
             edges={rfEdges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            // Mount what is on screen, not what is in the document. React Flow
+            // renders a component per box and per arrow otherwise, so the cost
+            // of a view was the size of the whole view rather than the size of
+            // the window looking at it — and panning around a service is the
+            // normal way to read one.
+            onlyRenderVisibleElements
             onNodesChange={onNodesChange}
             // No `onEdgesChange`: arrows are selected and deleted through the
             // document, so there is no canvas-owned edge state to write back.

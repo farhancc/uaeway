@@ -24,14 +24,39 @@ import type { FlowDoc, FlowNode } from "./schema";
  * attestation, which links to a visa answer, returns the entire visa
  * qualification and most of the graph with it.
  */
-export function subgraphFor(doc: FlowDoc, serviceId: string): Set<string> {
-  const serviceOf = (node: FlowNode): string | null =>
-    node.kind === "say" || node.kind === "handoff"
-      ? node.serviceSlug
-      : node.kind === "qualify"
-        ? node.serviceId
-        : null;
+/**
+ * The service a box belongs to, if it names one.
+ *
+ * Three node kinds carry a service and the rest are plumbing — a branch or an
+ * end belongs to whichever conversation reached it, which is a question about
+ * paths rather than about the box.
+ */
+function serviceOf(node: FlowNode): string | null {
+  return node.kind === "say" || node.kind === "handoff"
+    ? node.serviceSlug
+    : node.kind === "qualify"
+      ? node.serviceId
+      : null;
+}
 
+/**
+ * Every service that actually has boxes in this flow.
+ *
+ * The builder opens on one service rather than on all 1,588 boxes, and this is
+ * how it picks one worth opening: a service listed in `lib/services.ts` but not
+ * yet written about would otherwise open an empty canvas on a flow that is not
+ * empty at all.
+ */
+export function servicesInFlow(doc: FlowDoc): Set<string> {
+  const found = new Set<string>();
+  for (const node of doc.nodes) {
+    const service = serviceOf(node);
+    if (service) found.add(service);
+  }
+  return found;
+}
+
+export function subgraphFor(doc: FlowDoc, serviceId: string): Set<string> {
   const byId = new Map(doc.nodes.map((n) => [n.id, n]));
   const seeds = doc.nodes.filter((n) => serviceOf(n) === serviceId).map((n) => n.id);
   const visible = new Set<string>(seeds);

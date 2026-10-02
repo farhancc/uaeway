@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { flowDoc } from "@/lib/chat/flow/schema";
-import { subgraphFor } from "@/lib/chat/flow/subgraph";
+import { servicesInFlow, subgraphFor } from "@/lib/chat/flow/subgraph";
 
 /**
  * "Show me what happens for visa processing."
@@ -81,5 +81,38 @@ describe("one service's conversation", () => {
 
   it("is smaller than the whole flow, which is the point", () => {
     expect(subgraphFor(doc, "visa").size).toBeLessThan(doc.nodes.length);
+  });
+});
+
+/**
+ * Which services the builder could open on.
+ *
+ * It opens on one rather than on all 1,588 boxes, and a service with nothing
+ * written about it yet would open an empty canvas on a flow that is not empty.
+ */
+describe("services that have boxes", () => {
+  it("finds a service however its boxes name it", () => {
+    // visa is named by a say, a qualify and a handoff; attestation by a say.
+    expect([...servicesInFlow(doc)].sort()).toEqual(["attestation", "visa"]);
+  });
+
+  it("leaves out plumbing that belongs to no service", () => {
+    // `shared`, `start` and `fallback` name none, and must not become one.
+    const found = servicesInFlow(doc);
+    expect(found.has("")).toBe(false);
+    expect(found.size).toBe(2);
+  });
+
+  it("is empty for a flow nobody has written yet", () => {
+    const starter = flowDoc.parse({
+      nodes: [
+        { kind: "start", id: "start" },
+        { kind: "model", id: "fallback", guidance: "" },
+      ],
+      edges: [{ id: "e", from: "start", to: "fallback", when: { kind: "fallback" }, position: 0 }],
+      intents: [],
+      slots: [],
+    });
+    expect(servicesInFlow(starter).size).toBe(0);
   });
 });
