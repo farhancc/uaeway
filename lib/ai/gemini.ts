@@ -161,8 +161,13 @@ const LINE_BREAK = /\r\n|\n|\r/;
 /**
  * POSTs to Gemini, trying each pooled key until one answers. Returns null when
  * every key failed or the request itself was rejected as malformed.
+ *
+ * Exported because embeddings are a different endpoint on the same service:
+ * `./embed.ts` needs the key rotation, the failure classification and the
+ * benching, and none of the chat-shaped body building around it. Writing a
+ * second HTTP client would mean a second place that learns a key is dead.
  */
-async function post(
+export async function postModel(
   path: string,
   payload: unknown,
   signal?: AbortSignal,
@@ -256,7 +261,7 @@ export async function generateJSON<T>(
   opts: GenerateOptions = {},
 ): Promise<T | null> {
   const turns = typeof prompt === "string" ? [{ role: "user" as const, text: prompt }] : prompt;
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:generateContent`,
     body(turns, opts, true),
     opts.signal,
@@ -280,7 +285,7 @@ export async function generateText(
   opts: GenerateOptions = {},
 ): Promise<string | null> {
   const turns = typeof prompt === "string" ? [{ role: "user" as const, text: prompt }] : prompt;
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:generateContent`,
     body(turns, opts, false),
     opts.signal,
@@ -297,7 +302,7 @@ export async function* streamChat(
   turns: Turn[],
   opts: GenerateOptions = {},
 ): AsyncGenerator<string> {
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:streamGenerateContent?alt=sse`,
     body(turns, opts, false),
     opts.signal,

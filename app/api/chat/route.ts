@@ -2,6 +2,11 @@ import { headers } from "next/headers";
 import { streamChat, generateJSON, type Turn } from "@/lib/ai/gemini";
 import { modelAvailable } from "@/lib/ai/pool";
 import { planReply } from "@/lib/chat/plan";
+import { flowEnabled, runFlowTurn, type FlowTurn } from "@/lib/chat/flow/serve";
+import { openingSuggestions, typingHints } from "@/lib/chat/flow/run";
+import { loadLiveFlow } from "@/lib/chat/flow/store";
+import { renderContext, retrieve } from "@/lib/chat/retrieve";
+import { pageContextFrom } from "@/lib/chat/page-context";
 import { loadAnswers } from "@/lib/chat/answers";
 import { nextChips, openerChips, type Chip } from "@/lib/chat/chips";
 import {
@@ -24,6 +29,8 @@ import {
   MAX_MESSAGE_CHARS,
   MAX_TURNS,
   RateLimited,
+  MAX_AI_TURNS,
+  saveFlowState,
   startSession,
   usedAnswerSlugs,
   type ReplySource,
@@ -55,6 +62,24 @@ async function clientIp(): Promise<string> {
  * worse than no hint at all.
  */
 export async function GET() {
+  // The flow's shape of this is the same shape: an opaque id the widget hands
+  // back on the next turn, and the keyword groups it matches while you type.
+  // Only the meaning of the id changed — a node instead of an answer slug —
+  // and the widget never looks inside it.
+  const live = flowEnabled() ? await loadLiveFlow() : null;
+  if (live) {
+    return Response.json({
+      chips: openingSuggestions(live.flow).map((s) => ({ slug: s.nodeId, question: s.label })),
+      triggers: typingHints(live.flow).map((h) => ({
+        slug: h.nodeId,
+        question: h.label,
+        groups: h.groups,
+        phrases: h.phrases,
+        any: [],
+      })),
+    });
+  }
+
   const answers = await loadAnswers();
   return Response.json({
     chips: await openerChips(),
@@ -128,6 +153,256 @@ async function maybeCaptureLead(
   }
 }
 
+/**
+ * A model reply, streamed, with the two things that must not be duplicated.
+ *
+ * An empty reply has two causes and they are not the same: the model ran and
+ * said nothing, or no key could reach a model at all. Only the first is charged
+ * to the conversation's budget, because an outage must not cap every visitor
+ * who talks through it and leave the chat degraded long after the keys return.
+ *
+ * And the prompt forbids figures the context does not support, so this checks
+ * rather than trusting the instruction — on fees, being confidently wrong is
+ * the expensive failure.
+ *
+ * Shared by the answer bank's planner and the flow's `model` node, which is the
+ * point: two copies of this would drift, and the drift would be an outage
+ * handled correctly on one path and not the other.
+ */
+async function streamModelReply(
+  send: (event: string, data: unknown) => void,
+  past: Turn[],
+  asked: string,
+  context: string,
+  viaSuggestion: boolean,
+): Promise<{ reply: string; source: ReplySource; answered: boolean }> {
+  let reply = "";
+
+  for await (const chunk of streamChat([...past, { role: "user", text: withContext(asked, context) }], {
+    system: SYSTEM_PROMPT,
+    temperature: 0.4,
+    maxOutputTokens: 600,
+  })) {
+    reply += chunk;
+    send("token", { text: chunk });
+  }
+
+  if (!reply) {
+    const reachable = modelAvailable();
+    const source: ReplySource = reachable ? "model" : "unavailable";
+    reply = viaSuggestion ? RETIRED_ANSWER_REPLY : reachable ? FALLBACK_REPLY : UNAVAILABLE_REPLY;
+    send("token", { text: reply });
+
+    if (!reachable) {
+      // Tells the widget to offer the callback form, as a capped conversation
+      // does. Canned answers still work; anything they do not cover needs a
+      // person now.
+      send("handoff", { reason: "unavailable", contact: null, serviceSlug: null });
+      console.warn("[chat] answered without a model — no key is usable");
+    }
+    return { reply, source, answered: false };
+  }
+
+  const unsupported = findUnsupportedAmounts(reply, context);
+  if (unsupported.length > 0) {
+    console.warn(`[chat] unsupported amounts in reply: ${unsupported.join(", ")}`);
+    send("caution", { text: FEE_CAUTION });
+  }
+
+  return { reply, source: "model", answered: true };
+}
+
+/** However the service chose to reach someone. Phone first: it is what the
+ *  sales team actually uses. */
+function contactFrom(
+  qualified: { fields: Record<string, string> } | null,
+): string | null {
+  return qualified?.fields.phone ?? qualified?.fields.email ?? null;
+}
+
+/**
+ * One flow turn, rendered as the events the widget already speaks.
+ *
+ * Translation, not decision: `runTurn` has already chosen what happens, and
+ * every effect it produced maps onto an existing SSE event. That correspondence
+ * is what let the conversation move to a graph without the browser learning a
+ * new vocabulary — a `say` is a token, a choice is a choice, a handoff is a
+ * handoff.
+ *
+ * The one thing decided here rather than in the walk is money. A `model` node
+ * is the only effect that can cost anything, so the per-conversation budget is
+ * checked at the moment of spending it rather than being threaded through a
+ * pure function.
+ */
+async function serveFlowTurn(args: {
+  send: (event: string, data: unknown) => void;
+  turn: FlowTurn;
+  session: Session;
+  past: Turn[];
+  asked: string;
+  message: string;
+}): Promise<{ reply: string; source: ReplySource; flowNodeId: string | null; handedOff: boolean }> {
+  const { send, turn, session, past, asked, message } = args;
+  const { step } = turn;
+
+  let reply = "";
+  let source: ReplySource = "canned";
+  let flowNodeId: string | null = null;
+
+  /** Appends to the reply and streams the new part, so several nodes speaking
+   *  in one turn read as one message rather than arriving as fragments. */
+  const say = (text: string) => {
+    const chunk = reply ? `\n\n${text}` : text;
+    reply += chunk;
+    send("token", { text: chunk });
+  };
+
+  let qualified: { nodeId: string; serviceId: string; fields: Record<string, string> } | null = null;
+  /** Whether the callback form has already been opened this turn. One is help;
+   *  two is a bug the visitor sees. */
+  let handedOff = false;
+  /**
+   * False once a model call produced nothing.
+   *
+   * It changes what happens next rather than only what is said: there is no
+   * point asking someone for their country again immediately after failing to
+   * answer their question, so this is what turns the turn into a handoff.
+   */
+  let modelAnswered = true;
+  // Held back until the reply is complete. The walk emits them in graph order,
+  // but a suggestion row appearing above an answer that is still arriving reads
+  // as the bot changing the subject before it has finished speaking.
+  const deferred: (() => void)[] = [];
+
+  for (const effect of step.effects) {
+    switch (effect.kind) {
+      case "say":
+        say(effect.text);
+        flowNodeId = effect.nodeId;
+        break;
+
+      case "ask":
+        // The flow wants to carry on asking, but the model just failed to
+        // answer what they asked us. Pressing on with the form would be the
+        // rudest possible moment to do it.
+        if (!modelAnswered) break;
+        say(effect.text);
+        flowNodeId = effect.nodeId;
+        break;
+
+      case "handoff":
+        say(effect.text);
+        flowNodeId = effect.nodeId;
+        handedOff = true;
+        send("handoff", {
+          reason: effect.reason,
+          // A completed qualification has already collected and normalised a
+          // contact; `findContact` re-reading the raw message would put the
+          // unnormalised spelling in the form instead.
+          contact: contactFrom(qualified) ?? findContact(message),
+          serviceSlug: effect.serviceSlug ?? qualified?.serviceId ?? null,
+        });
+        break;
+
+      case "choices":
+        // `answer_slug` carries a node id here. The widget treats it as opaque
+        // and hands it back untouched, so the wire format did not have to
+        // change when the thing behind the id did.
+        deferred.push(() =>
+          send("choices", {
+            choices: effect.choices.map((c) => ({ label: c.label, answer_slug: c.nodeId })),
+          }),
+        );
+        break;
+
+      case "chips":
+        deferred.push(() =>
+          send("chips", { chips: effect.chips.map((c) => ({ slug: c.nodeId, question: c.label })) }),
+        );
+        break;
+
+      case "topic":
+        send("topic", { serviceSlug: effect.serviceSlug });
+        break;
+
+      case "qualified":
+        qualified = effect;
+        break;
+
+      case "model": {
+        flowNodeId = effect.nodeId;
+
+        if (session.aiTurns >= MAX_AI_TURNS) {
+          // Past the budget the flow still answers everything it has a box for,
+          // so a capped conversation stays useful and costs nothing.
+          source = "capped";
+          say(CAPPED_REPLY);
+          handedOff = true;
+          send("handoff", { reason: "budget", contact: null, serviceSlug: null });
+          break;
+        }
+
+        // Run in place rather than after the loop, so a question answered
+        // mid-qualification is followed by the question we were asking — in
+        // that order, which is the order it makes sense in.
+        if (reply) send("token", { text: "\n\n" });
+
+        const recent = past.slice(-2).map((t) => t.text).join(" ");
+        const snippets = await retrieve(`${recent} ${message}`.trim());
+        const context = [effect.guidance, renderContext(snippets)].filter(Boolean).join("\n\n");
+        const answer = await streamModelReply(send, past, asked, context, false);
+
+        reply = reply ? `${reply}\n\n${answer.reply}` : answer.reply;
+        source = answer.source;
+        modelAnswered = answer.answered;
+        break;
+      }
+    }
+  }
+
+  if (qualified && !handedOff) {
+    // Deliberately not `captureLead` straight from here. `lib/leads/schema.ts`
+    // makes consent a `z.literal(true)` because under the PDPL we need a
+    // recorded moment of agreement to be contacted — and answering "what is
+    // your number" is not that moment, it is an answer to a question.
+    //
+    // So a completed qualification opens the callback form with everything
+    // already filled in and one box left to tick. The visitor spends a tap, and
+    // the agreement on the lead is theirs rather than something we inferred.
+    handedOff = true;
+    send("handoff", {
+      reason: "qualified",
+      contact: contactFrom(qualified) ?? findContact(message),
+      serviceSlug: qualified.serviceId,
+    });
+  }
+
+  // The last rung of the ladder: the flow had no answer, the model had no
+  // answer, so a person takes it. The form asks for a name and a number and
+  // creates the lead — which is the only thing left that helps them.
+  if (!modelAnswered && !handedOff) {
+    handedOff = true;
+    send("handoff", {
+      reason: "contact",
+      contact: findContact(message),
+      serviceSlug: qualified?.serviceId ?? null,
+    });
+  }
+
+  if (!step.matched && reply === "") {
+    // The flow had nothing for this and no fallback edge to take. An authoring
+    // fault rather than a visitor's, so they get the same reply they always did
+    // rather than silence, and `lint.ts` reports it to whoever can fix it.
+    say(FALLBACK_REPLY);
+    console.warn(`[flow] v${turn.version} had no answer and no fallback for: ${asked}`);
+  }
+
+  for (const emit of deferred) emit();
+
+  await saveFlowState(session.id, turn.versionId, step.state);
+  return { reply, source, flowNodeId, handedOff };
+}
+
 export async function POST(request: Request) {
   let body: { sessionId?: string; message?: string; answerSlug?: string; pagePath?: string };
   try {
@@ -170,12 +445,22 @@ export async function POST(request: Request) {
   }
 
   const past = await history(session.id);
-  const plan = await planReply(message, answerSlug, session, past);
+
+  // The flow answers the turn outright when it is serving, including deciding
+  // that nothing matched. Falling back to the bank per turn would mean two
+  // engines disagreeing about one conversation, which is worse than either.
+  const flowTurn = await runFlowTurn(
+    session,
+    { message, targetNodeId: answerSlug },
+    pageContextFrom(pagePath),
+  );
+  const plan = flowTurn ? null : await planReply(message, answerSlug, session, past);
 
   // A tapped chip is recorded as the question it stands for, so the transcript
-  // reads as a conversation rather than a list of slugs.
+  // reads as a conversation rather than a list of slugs. The widget already
+  // sends the chip's label as the message, so there is nothing to look up.
   const asked =
-    plan.kind === "canned" && plan.viaChip ? plan.answer.question : message || "(no question)";
+    plan?.kind === "canned" && plan.viaChip ? plan.answer.question : message || "(no question)";
   await appendMessage(session.id, "user", asked);
 
   const used = await usedAnswerSlugs(session.id);
@@ -192,9 +477,22 @@ export async function POST(request: Request) {
       let reply = "";
       let source: ReplySource = "model";
       let chips: Chip[] = [];
+      /** The flow node that produced the reply, for the nightly improver. */
+      let flowNodeId: string | null = null;
+      /** Whether the callback form has already been opened this turn. */
+      let handedOff = false;
 
       try {
-        if (plan.kind === "canned") {
+        if (flowTurn) {
+          ({ reply, source, flowNodeId, handedOff } = await serveFlowTurn({
+            send,
+            turn: flowTurn,
+            session,
+            past,
+            asked,
+            message,
+          }));
+        } else if (plan?.kind === "canned") {
           source = "canned";
           reply = plan.answer.answer_md;
           send("token", { text: reply });
@@ -204,55 +502,25 @@ export async function POST(request: Request) {
           const choices = (plan.answer.choices ?? []).filter((c) => c.label && c.answer_slug);
           if (choices.length > 0) send("choices", { choices });
           chips = await nextChips({ answered: plan.answer, text: asked, used });
-        } else if (plan.kind === "retired") {
+        } else if (plan?.kind === "retired") {
           source = "canned";
           reply = RETIRED_ANSWER_REPLY;
           send("token", { text: reply });
           chips = await nextChips({ text: "", used });
-        } else if (plan.kind === "capped") {
+        } else if (plan?.kind === "capped") {
           source = "capped";
           reply = CAPPED_REPLY;
           send("token", { text: reply });
           send("handoff", { reason: "budget", contact: null, serviceSlug: null });
           chips = await nextChips({ text: asked, used });
-        } else {
-          for await (const chunk of streamChat(
-            [...past, { role: "user", text: withContext(asked, plan.context) }],
-            { system: SYSTEM_PROMPT, temperature: 0.4, maxOutputTokens: 600 },
-          )) {
-            reply += chunk;
-            send("token", { text: chunk });
-          }
-
-          if (!reply) {
-            // The model gave us nothing. Which of the two silences this is
-            // decides both what we say and whether the conversation is charged
-            // for it — see modelAvailable().
-            const reachable = modelAvailable();
-            source = reachable ? "model" : "unavailable";
-            reply = answerSlug
-              ? RETIRED_ANSWER_REPLY
-              : reachable
-                ? FALLBACK_REPLY
-                : UNAVAILABLE_REPLY;
-            send("token", { text: reply });
-
-            if (!reachable) {
-              // Tells the widget to offer the callback form, as a capped
-              // conversation does. The bank still answers, but anything it does
-              // not cover now needs a person.
-              send("handoff", { reason: "unavailable", contact: null, serviceSlug: null });
-              console.warn("[chat] answered from the bank only — no model key is usable");
-            }
-          } else {
-            // The prompt forbids unsupported figures; this catches it when the
-            // model does it anyway, rather than trusting the instruction.
-            const unsupported = findUnsupportedAmounts(reply, plan.context);
-            if (unsupported.length > 0) {
-              console.warn(`[chat] unsupported amounts in reply: ${unsupported.join(", ")}`);
-              send("caution", { text: FEE_CAUTION });
-            }
-          }
+        } else if (plan) {
+          ({ reply, source } = await streamModelReply(
+            send,
+            past,
+            asked,
+            plan.context,
+            Boolean(answerSlug),
+          ));
 
           // The reply only helps pick follow-ups when it is a real answer. A
           // fallback message is our words, not the topic, and matching on it
@@ -263,22 +531,30 @@ export async function POST(request: Request) {
           });
         }
 
-        if (chips.length > 0) send("chips", { chips });
+        // Suggestions and topic are effects on the flow path, already sent by
+        // the walk — only the bank needs them assembled here.
+        let topic: string | null = null;
+        if (plan) {
+          if (chips.length > 0) send("chips", { chips });
 
-        // What the conversation is about, so the callback form in the widget
-        // opens on the right service instead of making the visitor find it.
-        const topic =
-          plan.kind === "canned"
-            ? plan.answer.service_slug
-            : (matchServices(`${asked} ${reply}`, 1)[0]?.slug ?? null);
-        if (topic) send("topic", { serviceSlug: topic });
+          // What the conversation is about, so the callback form in the widget
+          // opens on the right service instead of making the visitor find it.
+          topic =
+            plan.kind === "canned"
+              ? plan.answer.service_slug
+              : (matchServices(`${asked} ${reply}`, 1)[0]?.slug ?? null);
+          if (topic) send("topic", { serviceSlug: topic });
+        } else {
+          topic = matchServices(`${asked} ${reply}`, 1)[0]?.slug ?? null;
+        }
 
         await appendMessage(
           sessionId,
           "model",
           reply,
           source,
-          plan.kind === "canned" ? plan.answer.slug : null,
+          plan?.kind === "canned" ? plan.answer.slug : null,
+          flowNodeId,
         );
         // "unavailable" is not charged: a conversation must not spend its
         // eight model replies on calls that never reached a model, or an outage
@@ -300,7 +576,7 @@ export async function POST(request: Request) {
 
         if (captured) {
           send("lead", { serviceSlug: captured });
-        } else if (contactShaped) {
+        } else if (contactShaped && !handedOff) {
           // They gave us a way to reach them and nothing came of it — either the
           // model could not run, or it ran and found no agreement to be
           // contacted. Both are the same thing to the visitor: they have said
@@ -309,6 +585,10 @@ export async function POST(request: Request) {
           //
           // This is the one turn where losing someone costs an actual customer,
           // and it used to be the turn most likely to end in silence.
+          //
+          // Skipped when the flow already opened the form: a completed
+          // qualification ends on a phone number, so this would fire every time
+          // and open it twice.
           send("handoff", {
             reason: "contact",
             contact: findContact(message),

@@ -108,8 +108,18 @@ export function contentWords(text: string): string[] {
   return tokenize(text).filter((w) => !NOISE.has(w));
 }
 
-/** A keyword hit is worth more than words merely shared with the question. */
-export function score(answer: Answer, words: string[]): { total: number; keywordHits: number } {
+/**
+ * A keyword hit is worth more than words merely shared with the question.
+ *
+ * Takes the two fields it reads rather than a whole `Answer`, so the flow's
+ * intents — which carry the same pair under different names — are scored by
+ * this function instead of a second copy of it. An `Answer` still satisfies it
+ * structurally, so nothing in the answer bank changed.
+ */
+export function score(
+  answer: { keywords: string[]; question: string },
+  words: string[],
+): { total: number; keywordHits: number } {
   let total = 0;
   let keywordHits = 0;
 

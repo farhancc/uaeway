@@ -6,6 +6,7 @@ import {
   type MessageSource,
 } from "../mongo/chat-db";
 import type { Turn } from "../ai/gemini";
+import { emptyState, type FlowState } from "./flow/run";
 
 /** Conversation limits. These bound our AI spend and stop a script from using
  *  the site as a free Gemini proxy. */
@@ -33,6 +34,11 @@ export interface Session {
   turnCount: number;
   /** Model calls already spent in this conversation. */
   aiTurns: number;
+  /** The flow version this conversation is pinned to, once it has taken a flow
+   *  turn. Null while the answer bank is still serving it. */
+  flowVersionId: string | null;
+  /** Where the flow left off, and what it has collected. */
+  flowState: FlowState;
 }
 
 export async function startSession(
@@ -71,7 +77,7 @@ export async function startSession(
     updated_at: now,
   });
 
-  return { id, turnCount: 0, aiTurns: 0 };
+  return { id, turnCount: 0, aiTurns: 0, flowVersionId: null, flowState: emptyState() };
 }
 
 /** Loads a session, confirming it belongs to this visitor so a leaked id cannot
@@ -79,11 +85,66 @@ export async function startSession(
 export async function loadSession(id: string, ipHash: string): Promise<Session | null> {
   const doc = await (await sessionsCollection()).findOne(
     { _id: id },
-    { projection: { turn_count: 1, ai_turns: 1, ip_hash: 1 } },
+    {
+      projection: {
+        turn_count: 1,
+        ai_turns: 1,
+        ip_hash: 1,
+        flow_version_id: 1,
+        flow_node_id: 1,
+        flow_slots: 1,
+        flow_visited: 1,
+        flow_pending: 1,
+      },
+    },
   );
 
   if (!doc || doc.ip_hash !== ipHash) return null;
-  return { id: doc._id, turnCount: doc.turn_count ?? 0, aiTurns: doc.ai_turns ?? 0 };
+  return {
+    id: doc._id,
+    turnCount: doc.turn_count ?? 0,
+    aiTurns: doc.ai_turns ?? 0,
+    flowVersionId: doc.flow_version_id ?? null,
+    flowState: {
+      nodeId: doc.flow_node_id ?? null,
+      slots: doc.flow_slots ?? {},
+      visited: doc.flow_visited ?? [],
+      pending: doc.flow_pending ?? null,
+    },
+  };
+}
+
+/**
+ * Stores the cursor for the next turn.
+ *
+ * Written separately from `countTurn` — and tolerant of failing — because
+ * losing the cursor costs the visitor a restarted thread, while failing the
+ * turn over it costs them the answer they asked for.
+ */
+export async function saveFlowState(
+  sessionId: string,
+  versionId: string,
+  state: FlowState,
+): Promise<void> {
+  try {
+    await (await sessionsCollection()).updateOne(
+      { _id: sessionId },
+      {
+        $set: {
+          flow_version_id: versionId,
+          flow_node_id: state.nodeId,
+          flow_slots: state.slots,
+          // Bounded: a long conversation should not grow a document without
+          // limit, and only the recent nodes affect which chips are offered.
+          flow_visited: state.visited.slice(-60),
+          flow_pending: state.pending,
+          updated_at: new Date(),
+        },
+      },
+    );
+  } catch (err) {
+    console.warn(`[chat] could not store flow cursor: ${(err as Error).message}`);
+  }
 }
 
 export async function history(sessionId: string): Promise<Turn[]> {
@@ -122,6 +183,8 @@ export async function appendMessage(
   source?: ReplySource,
   /** The canned answer served, when one was. */
   answerSlug?: string | null,
+  /** The flow node that produced it, when the flow is serving. */
+  flowNodeId?: string | null,
 ): Promise<void> {
   try {
     const messages = await messagesCollection();
@@ -131,6 +194,7 @@ export async function appendMessage(
       content,
       source: source ?? null,
       answer_slug: answerSlug ?? null,
+      flow_node_id: flowNodeId ?? null,
       created_at: new Date(),
     } as ChatMessageDoc);
   } catch (err) {
