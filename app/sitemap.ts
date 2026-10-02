@@ -1,60 +1,61 @@
 import type { MetadataRoute } from "next";
 import { listArticles, listJobs } from "@/lib/content/queries";
 import { articlePath, SECTION_LIST } from "@/lib/content/sections";
-import { href, LOCALES } from "@/lib/i18n";
+import { LOCALES } from "@/lib/i18n";
+import { absoluteUrl, languagesFor } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
-import { SITE } from "@/lib/site";
 
 /** Only approved content reaches the sitemap: listJobs and listArticles filter
- *  on status, so an unreviewed draft is never advertised to Google. */
+ *  on status, so an unreviewed draft is never advertised to Google.
+ *
+ *  Paths are declared once and then emitted per locale, each entry carrying the
+ *  hreflang alternates for the same page in every other locale — the sitemap
+ *  and the pages' own <link rel="alternate"> now come from one helper, so they
+ *  cannot disagree about where a page lives. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [jobs, articles] = await Promise.all([listJobs({ limit: 1000 }), listArticles(undefined, 1000)]);
 
-  const entries: MetadataRoute.Sitemap = [];
+  type Entry = Omit<MetadataRoute.Sitemap[number], "url" | "alternates"> & { path: string };
 
-  for (const locale of LOCALES) {
-    entries.push(
-      { url: `${SITE.url}${href(locale)}`, changeFrequency: "daily", priority: 1 },
-      { url: `${SITE.url}${href(locale, "/jobs")}`, changeFrequency: "daily", priority: 0.9 },
-      { url: `${SITE.url}${href(locale, "/services")}`, changeFrequency: "monthly", priority: 0.8 },
-      { url: `${SITE.url}${href(locale, "/about")}`, changeFrequency: "yearly", priority: 0.4 },
-      { url: `${SITE.url}${href(locale, "/contact")}`, changeFrequency: "yearly", priority: 0.5 },
-    );
+  const paths: Entry[] = [
+    { path: "/", changeFrequency: "daily", priority: 1 },
+    { path: "/jobs", changeFrequency: "daily", priority: 0.9 },
+    { path: "/services", changeFrequency: "monthly", priority: 0.8 },
+    { path: "/about", changeFrequency: "yearly", priority: 0.4 },
+    { path: "/contact", changeFrequency: "yearly", priority: 0.5 },
 
-    for (const section of SECTION_LIST) {
-      entries.push({
-        url: `${SITE.url}${href(locale, `/${section.slug}`)}`,
-        changeFrequency: "weekly",
-        priority: 0.7,
-      });
-    }
+    ...SECTION_LIST.map((section): Entry => ({
+      path: `/${section.slug}`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    })),
 
-    for (const service of SERVICES) {
-      entries.push({
-        url: `${SITE.url}${href(locale, `/services/${service.slug}`)}`,
-        changeFrequency: "monthly",
-        priority: 0.9,
-      });
-    }
+    ...SERVICES.map((service): Entry => ({
+      path: `/services/${service.slug}`,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    })),
 
-    for (const job of jobs) {
-      entries.push({
-        url: `${SITE.url}${href(locale, `/jobs/${job.slug}`)}`,
-        lastModified: new Date(job.posted_at),
-        changeFrequency: "weekly",
-        priority: 0.6,
-      });
-    }
+    ...jobs.map((job): Entry => ({
+      path: `/jobs/${job.slug}`,
+      lastModified: new Date(job.posted_at),
+      changeFrequency: "weekly",
+      priority: 0.6,
+    })),
 
-    for (const article of articles) {
-      entries.push({
-        url: `${SITE.url}${href(locale, articlePath(article.kind, article.slug))}`,
-        lastModified: article.published_at ? new Date(article.published_at) : undefined,
-        changeFrequency: "monthly",
-        priority: 0.7,
-      });
-    }
-  }
+    ...articles.map((article): Entry => ({
+      path: articlePath(article.kind, article.slug),
+      lastModified: article.published_at ? new Date(article.published_at) : undefined,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    })),
+  ];
 
-  return entries;
+  return LOCALES.flatMap((locale) =>
+    paths.map(({ path, ...rest }) => ({
+      ...rest,
+      url: absoluteUrl(locale, path),
+      alternates: { languages: languagesFor(path) },
+    })),
+  );
 }

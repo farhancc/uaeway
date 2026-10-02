@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { href } from "@/lib/i18n";
 import { SERVICES } from "@/lib/services";
+import { pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: `Contact ${SITE.name}, ${SITE.area}.`,
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/contact">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/contact",
+    title: "Contact",
+    description: `Ask ${SITE.name} about attestation, certified legal translation, UAE visas, notary documents or company setup. The assistant is on every page, or leave your details.`,
+  });
+}
 
 /**
  * There is one way in: the assistant, which is on every page including this

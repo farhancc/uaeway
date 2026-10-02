@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description: "What we collect, why, and how to have it deleted.",
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/privacy">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/privacy",
+    title: "Privacy",
+    description:
+      "What we collect, why we collect it, how long we keep it, and how to have your data removed — written to follow UAE Federal Decree-Law No. 45 of 2021.",
+    robots: { index: false, follow: true },
+  });
+}
 
 export default function PrivacyPage() {
   return (

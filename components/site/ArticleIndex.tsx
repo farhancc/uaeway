@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { breadcrumbs, itemList, JsonLd } from "./JsonLd";
 import { articlePath, type Section } from "@/lib/content/sections";
 import { listArticles } from "@/lib/content/queries";
 import { href } from "@/lib/i18n";
+import { absoluteUrl } from "@/lib/seo";
+import { SITE } from "@/lib/site";
 
 /**
  * The listing for guides, news and blog posts.
@@ -62,6 +65,33 @@ export async function ArticleIndex({ section, locale }: { section: Section; loca
           {section.empty}
         </p>
       )}
+
+      {/* A category page's substance is the list, so that is what the markup
+          describes. Omitted while the section is empty rather than emitting an
+          ItemList of nothing. */}
+      {articles.length > 0 && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: section.title,
+            description: section.description,
+            url: absoluteUrl(locale, `/${section.slug}`),
+            inLanguage: locale,
+            isPartOf: { "@id": `${SITE.url}/#website` },
+            mainEntity: itemList(
+              SITE.url,
+              articles.map((article) => ({
+                name: article.title,
+                path: href(locale, articlePath(article.kind, article.slug)),
+              })),
+            ),
+          }}
+        />
+      )}
+      <JsonLd
+        data={breadcrumbs(SITE.url, [{ name: section.label, path: href(locale, `/${section.slug}`) }])}
+      />
     </div>
   );
 }

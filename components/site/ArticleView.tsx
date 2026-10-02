@@ -4,6 +4,7 @@ import { breadcrumbs, JsonLd } from "./JsonLd";
 import { ServiceCTA } from "./ServiceCTA";
 import { articlePath, sectionFor } from "@/lib/content/sections";
 import { href } from "@/lib/i18n";
+import { absoluteUrl } from "@/lib/seo";
 import { getService, matchServices } from "@/lib/services";
 import { SITE } from "@/lib/site";
 import type { ArticleRow } from "@/lib/supabase/types";
@@ -96,7 +97,7 @@ export function ArticleView({ article, locale }: { article: ArticleRow; locale: 
           dateModified: article.updated_at,
           inLanguage: article.locale,
           publisher: { "@type": "Organization", name: SITE.name },
-          mainEntityOfPage: `${SITE.url}${href(locale, articlePath(article.kind, article.slug))}`,
+          mainEntityOfPage: absoluteUrl(locale, articlePath(article.kind, article.slug)),
         }}
       />
       <JsonLd

@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Terms",
-  description: "The terms for using this site.",
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/terms">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/terms",
+    title: "Terms",
+    description:
+      "The terms for using this site: what it publishes, what it does not do, and the limits of the introductions we make to third-party licensed providers.",
+    robots: { index: false, follow: true },
+  });
+}
 
 export default function TermsPage() {
   return (

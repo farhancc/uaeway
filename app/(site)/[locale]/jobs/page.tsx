@@ -2,14 +2,28 @@ import type { Metadata } from "next";
 import { JobFilters, type ActiveFilters } from "@/components/site/JobFilters";
 import { JobRow } from "@/components/site/JobRow";
 import { isJobSort, jobFacets, listJobs } from "@/lib/content/queries";
+import { breadcrumbs, itemList, JsonLd } from "@/components/site/JsonLd";
+import { href } from "@/lib/i18n";
+import { absoluteUrl, pageMetadata } from "@/lib/seo";
+import { SITE } from "@/lib/site";
 
 export const revalidate = 1800;
 
-export const metadata: Metadata = {
-  title: "Jobs in the UAE",
-  description:
-    "Current job openings across Dubai, Abu Dhabi and the other emirates, with the documents each role typically needs translated or attested.",
-};
+/* The filters put the state in the query string (?emirate=dubai&sort=...), so
+   without a canonical every combination is a separate indexable near-duplicate
+   of this page. The canonical is deliberately the bare /jobs. */
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/jobs">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/jobs",
+    title: "Jobs in the UAE — Dubai, Abu Dhabi & Sharjah Vacancies",
+    description:
+      "Current job openings across Dubai, Abu Dhabi and the other emirates, with the documents each role typically needs translated or attested.",
+  });
+}
 
 export default async function JobsPage({ params, searchParams }: PageProps<"/[locale]/jobs">) {
   const { locale } = await params;
@@ -103,6 +117,28 @@ export default async function JobsPage({ params, searchParams }: PageProps<"/[lo
           </p>
         )}
       </div>
+
+      {/* Unfiltered only: the filtered views all canonicalise to this URL, so
+          emitting a different list for each would describe this page with a
+          subset of itself. Individual listings carry no JobPosting markup, by
+          the same reasoning as the job page itself. */}
+      {jobs.length > 0 && !filtered && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: "Jobs in the UAE",
+            url: absoluteUrl(locale, "/jobs"),
+            inLanguage: locale,
+            isPartOf: { "@id": `${SITE.url}/#website` },
+            mainEntity: itemList(
+              SITE.url,
+              jobs.map((job) => ({ name: job.title, path: href(locale, `/jobs/${job.slug}`) })),
+            ),
+          }}
+        />
+      )}
+      <JsonLd data={breadcrumbs(SITE.url, [{ name: "Jobs", path: href(locale, "/jobs") }])} />
     </div>
   );
 }

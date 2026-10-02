@@ -1,10 +1,21 @@
 import type { Metadata } from "next";
+import { metaDescription, pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: `${SITE.name} is an independent UAE jobs and guidance site, based in ${SITE.area}.`,
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/about">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/about",
+    title: "About",
+    description: metaDescription(
+      `${SITE.name} is an independent UAE jobs and guidance site based in ${SITE.area}.`,
+      "We publish openings and plain-English guides, and introduce people to licensed providers.",
+    ),
+  });
+}
 
 export default function AboutPage() {
   return (

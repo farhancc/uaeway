@@ -7,6 +7,7 @@ import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { LeadForm } from "@/components/site/LeadForm";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { href, LOCALES } from "@/lib/i18n";
+import { absoluteUrl, metaDescription, pageMetadata } from "@/lib/seo";
 import { getService, SERVICES } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
@@ -25,11 +26,20 @@ export async function generateMetadata({
   const service = getService(slug);
   if (!service) return { title: "Service not found" };
 
-  return {
-    title: service.name,
-    description: service.tagline,
-    alternates: { canonical: `${SITE.url}${href(locale, `/services/${service.slug}`)}` },
-  };
+  // Several service names already say "UAE" ("UAE Visa Processing", "Business
+  // Setup in the UAE"); appending it unconditionally produced titles like
+  // "Business Setup in the UAE in the UAE".
+  const title = /\buae\b/i.test(service.name) ? service.name : `${service.name} in the UAE`;
+
+  return pageMetadata({
+    locale,
+    path: `/services/${service.slug}`,
+    title,
+    // The tagline alone ran to about 60 characters and left half the snippet
+    // unused, so the summary continues it up to the length Google will show.
+    description: metaDescription(service.tagline, service.summary),
+    openGraph: { type: "article" },
+  });
 }
 
 export default async function ServicePage({ params }: PageProps<"/[locale]/services/[slug]">) {
@@ -164,6 +174,28 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
         </div>
       </div>
 
+      {/* Service, describing what this page is actually about.
+
+          `provider` is set only for the two lines we carry out ourselves. On a
+          referred service naming ourselves as the provider would assert in
+          machine-readable form the exact thing the page above is at pains to
+          deny — that we perform regulated work — so it is omitted rather than
+          fudged. No `offers`: there is no agreed price to state. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          name: service.name,
+          alternateName: service.nameAr,
+          serviceType: service.name,
+          description: service.summary,
+          url: absoluteUrl(locale, `/services/${service.slug}`),
+          areaServed: { "@type": "Country", name: "United Arab Emirates" },
+          ...(service.delivery === "in-house"
+            ? { provider: { "@id": `${SITE.url}/#organization` } }
+            : {}),
+        }}
+      />
       <JsonLd
         data={breadcrumbs(SITE.url, [
           { name: "Services", path: href(locale, "/services") },

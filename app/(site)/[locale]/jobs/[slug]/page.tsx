@@ -7,6 +7,7 @@ import { getJob } from "@/lib/content/queries";
 import { deadlineLabel, experienceLabel } from "@/lib/salary";
 import { isEmailLink } from "@/lib/jobs";
 import { href } from "@/lib/i18n";
+import { metaDescription, pageMetadata } from "@/lib/seo";
 import { getService, matchServices } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
@@ -20,11 +21,18 @@ export async function generateMetadata({
   if (!job) return { title: "Job not found" };
 
   const where = job.emirate ?? "the UAE";
-  return {
+  return pageMetadata({
+    locale,
+    path: `/jobs/${job.slug}`,
     title: `${job.title}${job.company ? ` at ${job.company}` : ""} — ${where}`,
-    description: job.summary ?? `${job.title} in ${where}.`,
-    alternates: { canonical: `${SITE.url}${href(locale, `/jobs/${job.slug}`)}` },
-  };
+    // An ingested listing may carry no summary at all, so the fallback still
+    // has to say where the role is and what it leads to rather than be empty.
+    description: metaDescription(
+      job.summary ?? `${job.title} in ${where}.`,
+      job.summary ? undefined : "Requirements, the documents it needs attested or translated, and how to apply.",
+    ),
+    openGraph: { type: "article" },
+  });
 }
 
 export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slug]">) {

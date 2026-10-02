@@ -6,6 +6,7 @@ import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
+import { OG_DEFAULTS } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import "../../globals.css";
 
@@ -39,12 +40,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE.name}`,
   },
   description: SITE.description,
-  openGraph: {
-    siteName: SITE.name,
-    type: "website",
-    locale: "en_AE",
-    images: [{ url: "/logo.png", width: 1536, height: 1024, alt: SITE.name }],
-  },
+  openGraph: { ...OG_DEFAULTS, type: "website" },
   twitter: { card: "summary_large_image", images: ["/logo.png"] },
   robots: { index: true, follow: true },
 };
@@ -78,15 +74,49 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
         <ChatWidget />
         {/* Organization, not LocalBusiness: this site is not a storefront with
             an address and opening hours, it is a place people research from and
-            get introduced to providers. Kept to facts we can stand behind. */}
+            get introduced to providers. Kept to facts we can stand behind.
+            
+            Emitted as one @graph with the WebSite so the two carry stable @ids
+            and can reference each other, which is what lets a search engine
+            attribute a page to a publisher rather than guessing. There is no
+            sameAs: we have no verified social profiles, and inventing them is
+            exactly the thing this site says it does not do. */}
         <JsonLd
           data={{
             "@context": "https://schema.org",
-            "@type": "Organization",
-            name: SITE.name,
-            url: SITE.url,
-            description: SITE.description,
-            areaServed: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah", "Fujairah", "Umm Al Quwain"],
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": `${SITE.url}/#organization`,
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+                logo: {
+                  "@type": "ImageObject",
+                  url: `${SITE.url}/logo.png`,
+                  width: 1536,
+                  height: 1024,
+                },
+                areaServed: [
+                  "Dubai",
+                  "Abu Dhabi",
+                  "Sharjah",
+                  "Ajman",
+                  "Ras Al Khaimah",
+                  "Fujairah",
+                  "Umm Al Quwain",
+                ],
+              },
+              {
+                "@type": "WebSite",
+                "@id": `${SITE.url}/#website`,
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+                inLanguage: locale,
+                publisher: { "@id": `${SITE.url}/#organization` },
+              },
+            ],
           }}
         />
       </body>

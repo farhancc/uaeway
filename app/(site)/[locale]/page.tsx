@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleStrip } from "@/components/site/ArticleStrip";
 import { JobRow } from "@/components/site/JobRow";
@@ -6,10 +7,29 @@ import { SectionHeading } from "@/components/site/SectionHeading";
 import { listArticles, listJobs } from "@/lib/content/queries";
 import { SECTIONS } from "@/lib/content/sections";
 import { href } from "@/lib/i18n";
+import { pageMetadata } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
 export const revalidate = 3600;
+
+/* The home page previously exported no metadata at all, so it inherited the
+   layout default and shipped with no canonical — the one page most likely to
+   be linked to with tracking parameters on the end. */
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/",
+    // Absolute so the home page is not titled "... | UAEvia" by the layout's
+    // own template, which would repeat the brand twice.
+    title: { absolute: `UAE Jobs, Attestation & Visa Help — ${SITE.name}` },
+    description: SITE.description,
+    openGraph: { type: "website" },
+  });
+}
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;

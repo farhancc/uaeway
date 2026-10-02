@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { href } from "@/lib/i18n";
+import { breadcrumbs, itemList, JsonLd } from "@/components/site/JsonLd";
+import { absoluteUrl, pageMetadata } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
+import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Services",
-  description:
-    "Attestation, certified legal translation, visa processing, notary, business setup, higher studies, CV writing and websites — what each involves and what we need from you.",
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/services">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/services",
+    title: "UAE Attestation, Translation & Visa Services",
+    description:
+      "Attestation, certified legal translation, visa processing, notary, business setup, higher studies, CV writing and websites — what each involves, start to finish.",
+  });
+}
 
 export default async function ServicesPage({ params }: PageProps<"/[locale]/services"> ) {
   const { locale } = await params;
@@ -37,6 +47,25 @@ export default async function ServicesPage({ params }: PageProps<"/[locale]/serv
           </article>
         ))}
       </div>
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Services",
+          url: absoluteUrl(locale, "/services"),
+          inLanguage: locale,
+          isPartOf: { "@id": `${SITE.url}/#website` },
+          mainEntity: itemList(
+            SITE.url,
+            SERVICES.map((service) => ({
+              name: service.name,
+              path: href(locale, `/services/${service.slug}`),
+            })),
+          ),
+        }}
+      />
+      <JsonLd data={breadcrumbs(SITE.url, [{ name: "Services", path: href(locale, "/services") }])} />
     </div>
   );
 }

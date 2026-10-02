@@ -37,7 +37,7 @@ export const SECTIONS: Record<ArticleKind, Section> = {
     title: "Guides",
     titleAr: "أدلة إرشادية",
     description:
-      "Plain-English guides to visas, attestation, translation and starting a business in the UAE.",
+      "Plain-English guides to UAE visas, certificate attestation, legal translation and company setup — what each process involves and what it needs from you.",
     intro:
       "How the paperwork actually works, written for people doing it for the first time. Every guide lists its sources, and a person reads it before it goes up.",
     empty:
@@ -50,7 +50,7 @@ export const SECTIONS: Record<ArticleKind, Section> = {
     title: "UAE business news",
     titleAr: "أخبار الأعمال",
     description:
-      "Business and regulatory news for people working, hiring or running a company in the UAE.",
+      "Business and regulatory news for people working, hiring or running a company in the UAE. What actually changed, when it takes effect, and the source it came from.",
     intro:
       "What changed for people working, hiring or running a company here. Each item cites its source and is checked before it goes up.",
     empty:
