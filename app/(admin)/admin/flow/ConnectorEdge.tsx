@@ -80,7 +80,7 @@ export function ConnectorEdge({
 }: EdgeProps) {
   const edge = data as unknown as ConnectorEdgeData;
   const zoom = useStore((s) => s.transform[2]);
-  const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
+  const drag = useRef<{ fromX: number; fromY: number; x: number; y: number } | null>(null);
 
   /**
    * How far this tag has been dragged, before anyone else is told.
@@ -98,15 +98,20 @@ export function ConnectorEdge({
 
   /**
    * A tag is both draggable and clickable, so a press has to be read as one or
-   * the other. Under a few pixels of travel it was a click — which is the slop
-   * a hand resting on a trackpad needs.
+   * the other. Under a few pixels it was a click — the slop a hand resting on
+   * a trackpad needs.
+   *
+   * Measured from where the press started, not added up along the way. The
+   * total-travel version counted a wobble that returned to its starting point
+   * as movement, so holding still for a moment on a trackpad spent the budget
+   * a pixel at a time and the tag stopped answering clicks at all.
    */
-  const CLICK_SLOP = 4;
+  const CLICK_SLOP = 5;
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
-    drag.current = { x: event.clientX, y: event.clientY, moved: 0 };
+    drag.current = { fromX: event.clientX, fromY: event.clientY, x: event.clientX, y: event.clientY };
   }, []);
 
   const onPointerMove = useCallback(
@@ -115,11 +120,7 @@ export function ConnectorEdge({
 
       const dx = event.clientX - drag.current.x;
       const dy = event.clientY - drag.current.y;
-      drag.current = {
-        x: event.clientX,
-        y: event.clientY,
-        moved: drag.current.moved + Math.abs(dx) + Math.abs(dy),
-      };
+      drag.current = { ...drag.current, x: event.clientX, y: event.clientY };
 
       // Screen pixels into canvas units, or a label would drift faster than the
       // cursor at any zoom but 100%.
@@ -132,17 +133,25 @@ export function ConnectorEdge({
 
   const release = useCallback(
     (onClick: () => void) => (event: React.PointerEvent<HTMLDivElement>) => {
-      const travelled = drag.current?.moved ?? 0;
+      const press = drag.current;
       const moved = nudging.current;
       drag.current = null;
       nudging.current = null;
       setNudge(null);
 
-      if (moved) edge.onMoveLabel(id, moved.x, moved.y, moved.which);
+      const travelled = press
+        ? Math.abs(press.x - press.fromX) + Math.abs(press.y - press.fromY)
+        : 0;
+
+      // One or the other, never both. Committing the nudge from a press that
+      // was a click shifted the tag by the pixel the hand wobbled and marked
+      // the draft unsaved for a change nobody made.
       if (travelled < CLICK_SLOP) {
         event.stopPropagation();
         onClick();
+        return;
       }
+      if (moved) edge.onMoveLabel(id, moved.x, moved.y, moved.which);
     },
     [edge, id],
   );
