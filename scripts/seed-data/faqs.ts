@@ -129,7 +129,7 @@ export const SEED_FAQS: { slug: string; faqs: SeedFaq[] }[] = [
       },
       {
         "q": "Will it rank on Google?",
-        "a": "We build the technical foundation that makes ranking possible — speed, structure, metadata, schema. Ranking itself depends on competition and ongoing content, and anyone promising a position is guessing."
+        "a": "Nobody can promise that, and anyone who does is guessing. What you get is a site with no technical reason not to rank — fast, properly structured, with the metadata and schema in place. Where it lands after that depends on your competition and the content you keep adding."
       }
     ]
   }

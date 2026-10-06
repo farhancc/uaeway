@@ -2567,7 +2567,7 @@ export const VISA_FLOWS: AuthoredFlow[] = [
     id: "visa-document-safety",
     question: "What happens to my documents and my data?",
     answer:
-      "We tell you which documents actually need to leave your hands and which do not, and anything handed to a provider should come with a receipt. Personal data is handled under UAE data protection rules, and we do not pass your details to anyone without telling you who and why. If you are uneasy about handing over an original, say so — there is often another way.",
+      "Only some of them need to leave your hands, and which ones depends on the route — anything you do hand over should come back with a receipt. Your personal data is handled under UAE data protection rules, and nothing about you reaches a provider without you being told who and why. If you are uneasy about parting with an original, say so: there is often another way.",
     service: SERVICE,
     phrases: [
       "how do you look after my passport and certificates",

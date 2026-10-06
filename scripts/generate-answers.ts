@@ -21,7 +21,7 @@ import { randomUUID } from "crypto";
 import { generateJSON as claudeJSON } from "../lib/ai/claude";
 import { generateJSON as geminiJSON } from "../lib/ai/gemini";
 import { answersCollection, type AnswerDoc } from "../lib/mongo/chat-db";
-import { findUnsupportedAmounts } from "../lib/chat/prompt";
+import { findProviderOpening, findUnsupportedAmounts } from "../lib/chat/prompt";
 import { SERVICES, type Service } from "../lib/services";
 import { SITE } from "../lib/site";
 import { slugify } from "../lib/slug";
@@ -121,9 +121,12 @@ function grounding(service: Service): string {
     `DOCUMENTS THE CLIENT PROVIDES:\n${service.documents.map((d) => `- ${d}`).join("\n")}`,
     `TURNAROUND: ${service.turnaround}`,
     `VOCABULARY: ${service.keywords.join(", ")}`,
+    // Third person throughout, because the model copies whatever voice this
+    // block is written in and these two lines were landing verbatim, in the
+    // first person, at the top of answers to questions about the visitor.
     service.delivery === "in-house"
-      ? "DELIVERY: we do this ourselves, in-house."
-      : "DELIVERY: a licensed provider does the regulated work. We work out what is needed and introduce the client to them, then stay their point of contact.",
+      ? `DELIVERY: ${SITE.name} does this work itself, in-house.`
+      : `DELIVERY: a licensed provider does the regulated work. ${SITE.name} works out what is needed, introduces the client to them, then stays their point of contact.`,
     service.priceFrom
       ? `PRICE: from AED ${service.priceFrom.amountAed} ${service.priceFrom.unit}.`
       : "PRICE: not published. There is no agreed price for this service yet.",
@@ -145,12 +148,17 @@ Write only what the SERVICE BLOCK supports. The hard rules:
    TURNAROUND line says and nothing more precise.
 3. NEVER promise an outcome, approval, or that anything is guaranteed.
 4. If DELIVERY says a licensed provider does the work, never write "we do", "we handle",
-   "we process", "we issue" or "we submit" about the regulated work itself. We work out what is
-   needed, introduce the client, and follow it up.
+   "we process", "we issue" or "we submit" about the regulated work itself. Working out what is
+   needed, introducing the client and following it up is the part that is ours.
 5. Do not name specific government portals, ministries, forms or authorities unless the SERVICE
    BLOCK names them.
 6. For anything a government authority decides, say plainly that the authority's own current
    guidance is what counts.
+7. Answer from the reader's side of the desk. Unless the question is about us, the first
+   sentence says what is true for them or what they have to do — never what we do about it.
+   "We map the chain for your country" tells someone who asked which authority stamps their
+   degree nothing they can act on. Offer the help afterwards, in a sentence of its own, or not
+   at all.
 
 Style: answer in 2 to 4 sentences of plain British English. No greeting, no sign-off, no bullet
 lists, no headings. Write the way a knowledgeable colleague replies in a chat. The question must
@@ -196,6 +204,9 @@ function reject(row: Generated, service: Service, context: string): string | nul
     return `claims we do the work ourselves (${row.answer_md.match(CLAIMS_DELIVERY)?.[0]})`;
   }
   if (/\bguarantee|\bguaranteed\b/i.test(row.answer_md)) return "promises an outcome";
+
+  const opening = findProviderOpening(row.question, row.answer_md);
+  if (opening) return `leads with what we do ("${opening}")`;
   return null;
 }
 

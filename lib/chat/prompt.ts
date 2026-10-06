@@ -110,6 +110,48 @@ export function findUnsupportedAmounts(reply: string, context: string): string[]
   return [...unsupported];
 }
 
+/**
+ * An answer that opens on our side of the desk instead of the visitor's.
+ *
+ * SYSTEM_PROMPT already says to answer the question that was actually asked
+ * before mentioning a service, and that one rule is most of what separates a
+ * useful reply from a brochure: someone who asks which authority stamps their
+ * degree learns nothing from "We map the chain for your country." Stating the
+ * rule is not the same as it holding — the answer bank is composed in bulk and
+ * lands in Mongo before a person reads a word of it — so this checks the half
+ * of it that is unambiguous.
+ *
+ * Only the opening sentence is judged. An answer that says what is true for
+ * the visitor and then offers help is doing exactly what the prompt asks, so
+ * the "we" in its second sentence is not a fault and must not be treated as
+ * one; the gate is about what the answer leads with.
+ *
+ * A question that asks about us is exempt. "Do you write the CV from scratch?"
+ * has no honest answer that is not in the first person, and a yes or no before
+ * the "we" — "Yes, we can take several documents at once" — has already
+ * answered the visitor, so it passes too.
+ *
+ * Returns the offending sentence, or null when the answer leads with the
+ * visitor's question.
+ */
+export function findProviderOpening(question: string, answer: string): string | null {
+  // "Do you…", "What is your…", "Does UAEvia…", "What does the service include":
+  // all of these are about us, and are answered from here.
+  const aboutUs = new RegExp(
+    `\\b(?:you|your|yours|yourselves|${SITE.name}|the service|this service)\\b`,
+    "i",
+  );
+  if (aboutUs.test(question)) return null;
+
+  const plain = answer.replace(/[*_`#>]/g, "").replace(/^\s*[-\u2013\u2014]\s*/, "").trim();
+  const sentence = (plain.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? plain.split("\n")[0]).trim();
+
+  // Only an opening that is *grammatically* about us counts. "Yes, we can take
+  // several documents at once" has already told the visitor the thing they
+  // asked, and the sentence is theirs however the rest of it reads.
+  return /^(?:we|our|us)\b/i.test(sentence) ? sentence : null;
+}
+
 export const FEE_CAUTION =
   "Please treat any figure above as indicative only — government fees change, so confirm with our team or the relevant authority before relying on it.";
 
