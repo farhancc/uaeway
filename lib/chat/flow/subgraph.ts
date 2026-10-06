@@ -27,12 +27,12 @@ import type { FlowDoc, FlowNode } from "./schema";
 /**
  * The service a box belongs to, if it names one.
  *
- * Three node kinds carry a service and the rest are plumbing — a branch or an
+ * Four node kinds carry a service and the rest are plumbing — a branch or an
  * end belongs to whichever conversation reached it, which is a question about
  * paths rather than about the box.
  */
 function serviceOf(node: FlowNode): string | null {
-  return node.kind === "say" || node.kind === "handoff"
+  return node.kind === "say" || node.kind === "handoff" || node.kind === "jobs"
     ? node.serviceSlug
     : node.kind === "qualify"
       ? node.serviceId

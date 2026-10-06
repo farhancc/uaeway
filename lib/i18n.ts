@@ -25,6 +25,18 @@ export function dirFor(locale: string): "ltr" | "rtl" {
   return RTL_LOCALES.has(locale) ? "rtl" : "ltr";
 }
 
+/**
+ * The locale a path is already in, or the default.
+ *
+ * The chat widget sends the page it was opened on, and a reply that links to a
+ * listing has to link inside the locale the visitor is reading — sending an
+ * Arabic reader to an English URL is a reload and a lost place.
+ */
+export function localeFrom(path: string | null | undefined): Locale {
+  const first = path?.split("/").filter(Boolean)[0];
+  return first && isLocale(first) ? first : DEFAULT_LOCALE;
+}
+
 /** Prefixes a path with the locale: href("en", "/jobs") -> "/en/jobs". */
 export function href(locale: string, path = "/"): string {
   return path === "/" ? `/${locale}` : `/${locale}${path}`;

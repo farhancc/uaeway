@@ -41,7 +41,7 @@ export function arrange(doc: FlowDoc): FlowDoc {
   if (!start) return doc;
 
   const serviceOf = (node: FlowNode): string =>
-    node.kind === "say" || node.kind === "handoff"
+    node.kind === "say" || node.kind === "handoff" || node.kind === "jobs"
       ? (node.serviceSlug ?? "")
       : node.kind === "qualify"
         ? node.serviceId

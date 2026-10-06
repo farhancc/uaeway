@@ -130,6 +130,48 @@ export const flowNode = z.discriminatedUnion("kind", [
     guidance: trimmed.max(1000).default(""),
   }),
 
+  /**
+   * An answer read off the live jobs board.
+   *
+   * The one kind of question this site is asked most and the one an authored
+   * answer cannot hold: a role is whatever the visitor does for a living, the
+   * emirate is one of seven, and the listings turn over every week. Writing
+   * those down would be a node per role per city, stale the day after the
+   * ingest runs — and the flow has a node budget precisely because the whole
+   * document is loaded per turn.
+   *
+   * So this box answers from `../jobs/board.ts` instead: matching listings with
+   * their own links, or what those listings advertise as pay, or the posting
+   * the visitor is currently reading. It costs a database query and no model
+   * call, which makes it cheaper than the fallback it replaces as well as more
+   * accurate — every figure in the reply is one an employer published.
+   */
+  z.object({
+    ...nodeBase,
+    kind: z.literal("jobs"),
+    /**
+     * `listings` shows what matches. `salary` says what those listings pay, and
+     * only when enough of them state it. `posting` answers about the listing
+     * the job page is showing, falling back to `listings` when the widget was
+     * opened somewhere else.
+     */
+    answers: z.enum(["listings", "salary", "posting"]).default("listings"),
+    /** Search terms for when the message names no role — what a tapped
+     *  "Healthcare jobs" chip searches for. The visitor's own words win. */
+    query: trimmed.max(120).default(""),
+    /**
+     * What to say when the data cannot answer: an empty board, or a role whose
+     * listings do not state a salary.
+     *
+     * Authored rather than generated, because "there is nothing in Fujairah
+     * this week, here is what to do instead" is advice, and advice published
+     * under the company's name gets written by a person.
+     */
+    fallback: trimmed.min(1).max(2000),
+    /** Drives the CTA target, exactly as on a `say`. */
+    serviceSlug: trimmed.max(80).nullable().default(null),
+  }),
+
   /** Opens the callback form. `reason` reaches the widget unchanged. */
   z.object({
     ...nodeBase,
@@ -174,6 +216,7 @@ export const nodeKinds = [
   "qualify",
   "branch",
   "model",
+  "jobs",
   "handoff",
   "end",
 ] as const;

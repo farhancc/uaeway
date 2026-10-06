@@ -37,7 +37,11 @@ const nodeOf = (id: string) => `n-${id}`;
 /** Where a cold visitor's first message lands, through the whole engine. */
 const landOn = (message: string): string | undefined => {
   const step = runTurn(indexFlow(doc), emptyState(), { message }, { match: keywordMatcher });
-  return step.effects.find((e) => e.kind === "say" || e.kind === "ask")?.nodeId;
+  // A `jobs` box speaks too: `job-pay-market-rate` answers what a role pays
+  // from the live board and keeps the prose here as its fallback, so a landing
+  // is a say, an ask or a board answer.
+  return step.effects.find((e) => e.kind === "say" || e.kind === "ask" || e.kind === "jobs")
+    ?.nodeId;
 };
 
 describe("the job search set", () => {
@@ -428,7 +432,8 @@ describe("in the merged draft", () => {
   const landMerged = async (message: string): Promise<string | undefined> => {
     const { flow } = await merged;
     const step = runTurn(flow, emptyState(), { message }, { match: keywordMatcher });
-    return step.effects.find((e) => e.kind === "say" || e.kind === "ask")?.nodeId;
+    return step.effects.find((e) => e.kind === "say" || e.kind === "ask" || e.kind === "jobs")
+      ?.nodeId;
   };
 
   it("collides with no other pack's ids", async () => {

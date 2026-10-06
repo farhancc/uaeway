@@ -56,6 +56,7 @@ const STYLES: Record<NodeKind, { ring: string; chip: string; tint: string; dot: 
   qualify: { ring: "border-indigo-600", chip: "bg-indigo-600", tint: "bg-indigo-50", dot: "#4f46e5" },
   branch: { ring: "border-slate-500", chip: "bg-slate-500", tint: "bg-slate-50", dot: "#64748b" },
   model: { ring: "border-violet-600", chip: "bg-violet-600", tint: "bg-violet-50", dot: "#7c3aed" },
+  jobs: { ring: "border-cyan-700", chip: "bg-cyan-700", tint: "bg-cyan-50", dot: "#0e7490" },
   handoff: { ring: "border-rose-600", chip: "bg-rose-600", tint: "bg-rose-50", dot: "#e11d48" },
   end: { ring: "border-slate-400", chip: "bg-slate-400", tint: "bg-slate-50", dot: "#94a3b8" },
 };
@@ -126,6 +127,12 @@ function preview(node: FlowNode): string {
       return `Ask for everything ${node.serviceId} needs`;
     case "model":
       return node.guidance || "Answer from published content";
+    case "jobs":
+      return node.answers === "salary"
+        ? `What the board's listings pay${node.query ? ` for ${node.query}` : ""}`
+        : node.answers === "posting"
+          ? "About the listing they are reading"
+          : `Matching listings${node.query ? ` for ${node.query}` : ""}`;
     case "start":
       return "Every conversation begins here";
     case "branch":
@@ -180,6 +187,17 @@ function blankNode(kind: NodeKind, id: string, serviceId: string): FlowNode {
       return { kind, id, position, serviceId };
     case "model":
       return { kind, id, position, guidance: "" };
+    case "jobs":
+      return {
+        kind,
+        id,
+        position,
+        answers: "listings",
+        query: "",
+        fallback:
+          "Nothing is listed for that at the moment. New vacancies arrive through the week, so it is worth looking again in a few days.",
+        serviceSlug: null,
+      };
     case "handoff":
       return { kind, id, position, text: "Shall we have someone call you?", reason: "requested", serviceSlug: null };
     default:

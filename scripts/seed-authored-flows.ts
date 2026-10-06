@@ -57,6 +57,10 @@ const OPTIONAL: { path: string; exportName: string; label: string }[] = [
   { path: "./seed-data/translation-flows", exportName: "TRANSLATION_FLOWS", label: "legal translation" },
   { path: "./seed-data/job-search-flows", exportName: "JOB_SEARCH_FLOWS", label: "job search" },
   { path: "./seed-data/relocation-flows", exportName: "RELOCATION_FLOWS", label: "relocation" },
+  // After job search, deliberately: its entries point into that pack's `next`,
+  // and the duplicate-id check is only a cross-module check because everything
+  // is concatenated before it is built.
+  { path: "./seed-data/job-board-flows", exportName: "JOB_BOARD_FLOWS", label: "jobs board" },
 ];
 
 async function collect(): Promise<AuthoredFlow[]> {

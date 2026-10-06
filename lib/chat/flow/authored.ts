@@ -19,7 +19,7 @@
  */
 
 import { getService } from "../../services";
-import { SERVICE_SLOT } from "../page-context";
+import { JOB_SLOT, SERVICE_SLOT } from "../page-context";
 import { flowDoc, type FlowDoc, type FlowEdge, type FlowNode, type Intent } from "./schema";
 
 /** One question, as a person writes it down. */
@@ -54,6 +54,24 @@ export interface AuthoredFlow {
   opener?: boolean;
   /** Set false to keep it in the chat but off the service page's FAQ block. */
   faq?: boolean;
+  /**
+   * Answered from the live jobs board instead of from the `answer` above.
+   *
+   * The entry is still written the same way — a question and the ways people
+   * ask it — but the reply is composed from matching listings, with the
+   * employer's own figures and a link to each one. `answer` becomes the
+   * fallback: what to say when the board has nothing, or when too few of the
+   * listings state a salary to quote a range.
+   *
+   * It exists because the alternative is a node per role per emirate, which
+   * would be stale the day after the ingest runs and would spend a node budget
+   * that is nearly gone. One box answers every role.
+   */
+  board?: {
+    answers: "listings" | "salary" | "posting";
+    /** Searched when the message names no role — what a tapped chip finds. */
+    query?: string;
+  };
   /**
    * A question about money.
    *
@@ -127,6 +145,12 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
     if (flow.quote && !flow.service) {
       throw new AuthoringError(`"${flow.id}" asks for a quote but names no service`);
     }
+    // A quote walks into the qualification and a board answer is a reply. An
+    // entry asking for both would show listings and then start a form, which is
+    // neither of the two things it was trying to be.
+    if (flow.quote && flow.board) {
+      throw new AuthoringError(`"${flow.id}" cannot both quote and answer from the board`);
+    }
     if (flow.service && !getService(flow.service)) {
       throw new AuthoringError(`"${flow.id}" names unknown service "${flow.service}"`);
     }
@@ -135,14 +159,26 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
       throw new AuthoringError(`"${flow.id}" has no phrases and no keywords, so it can never match`);
     }
 
-    nodes.push({
-      kind: "say",
-      id: nodeId(flow.id),
-      position: place(),
-      text: flow.answer,
-      serviceSlug: flow.service,
-      faqQuestion: flow.faq === false ? null : flow.question,
-    });
+    nodes.push(
+      flow.board
+        ? {
+            kind: "jobs",
+            id: nodeId(flow.id),
+            position: place(),
+            answers: flow.board.answers,
+            query: flow.board.query ?? "",
+            fallback: flow.answer,
+            serviceSlug: flow.service,
+          }
+        : {
+            kind: "say",
+            id: nodeId(flow.id),
+            position: place(),
+            text: flow.answer,
+            serviceSlug: flow.service,
+            faqQuestion: flow.faq === false ? null : flow.question,
+          },
+    );
 
     intents.push({
       id: intentId(flow.id),
@@ -274,7 +310,14 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
     nodes,
     edges,
     intents,
-    slots: [{ key: SERVICE_SLOT, label: "Service from the page", kind: "text", options: [] }],
+    slots: [
+      { key: SERVICE_SLOT, label: "Service from the page", kind: "text", options: [] },
+      // Written by the runtime from the page the widget is on, like the service
+      // above, and read by a `jobs` box answering about "this one". Declared so
+      // the builder shows it rather than leaving it an undocumented key that
+      // only appears in a session.
+      { key: JOB_SLOT, label: "Listing from the page", kind: "text", options: [] },
+    ],
   });
 }
 

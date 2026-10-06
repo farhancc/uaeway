@@ -42,11 +42,44 @@ const ALIASES: Record<string, Emirate> = {
   uaq: "Umm Al Quwain",
 };
 
+/**
+ * A location field, as one of the seven.
+ *
+ * Substring matching is deliberate and right for the thing this was written
+ * for: a feed's location is "Jebel Ali Free Zone, Dubai, UAE" and nothing else,
+ * so finding an alias anywhere in it is finding the emirate. It is the wrong
+ * rule for free prose — see `emirateInText` below.
+ */
 export function normalizeEmirate(input: string | null | undefined): Emirate | null {
   if (!input) return null;
   const text = input.toLowerCase();
   for (const [alias, emirate] of Object.entries(ALIASES)) {
     if (text.includes(alias)) return emirate;
+  }
+  return null;
+}
+
+/**
+ * The emirate a sentence names, on whole words only.
+ *
+ * The chat needs this and `normalizeEmirate` is unsafe for it: `bur` is an
+ * alias — Bur Dubai, which really does turn up in job feeds — and a substring
+ * test for it against a visitor's sentence finds it inside "burger" and
+ * "bartender". One wrong word turns "any burger chef jobs" into a search
+ * filtered to Dubai, and nothing about the reply would show it.
+ *
+ * So the aliases are matched against the message's own words, longest first,
+ * because three of the seven are spelled with two or three of them.
+ */
+export function emirateInText(text: string): Emirate | null {
+  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+  for (const width of [3, 2, 1]) {
+    for (let i = 0; i + width <= words.length; i++) {
+      const window = words.slice(i, i + width).join(" ");
+      const found = ALIASES[window];
+      if (found) return found;
+    }
   }
   return null;
 }

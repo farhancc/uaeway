@@ -1,10 +1,12 @@
 import { headers } from "next/headers";
+import { localeFrom } from "@/lib/i18n";
 import { streamChat, generateJSON, type Turn } from "@/lib/ai/gemini";
 import { modelAvailable } from "@/lib/ai/pool";
 import { planReply } from "@/lib/chat/plan";
 import { flowEnabled, runFlowTurn, type FlowTurn } from "@/lib/chat/flow/serve";
 import { openingSuggestions, typingHints } from "@/lib/chat/flow/run";
 import { loadLiveFlow } from "@/lib/chat/flow/store";
+import { answerFromBoard } from "@/lib/chat/jobs/board";
 import { renderContext, retrieve } from "@/lib/chat/retrieve";
 import { pageContextFrom } from "@/lib/chat/page-context";
 import { loadAnswers } from "@/lib/chat/answers";
@@ -241,8 +243,10 @@ async function serveFlowTurn(args: {
   past: Turn[];
   asked: string;
   message: string;
+  /** For the links a board answer writes, which are paths on this site. */
+  locale: string;
 }): Promise<{ reply: string; source: ReplySource; flowNodeId: string | null; handedOff: boolean }> {
-  const { send, turn, session, past, asked, message } = args;
+  const { send, turn, session, past, asked, message, locale } = args;
   const { step } = turn;
 
   let reply = "";
@@ -328,6 +332,25 @@ async function serveFlowTurn(args: {
       case "qualified":
         qualified = effect;
         break;
+
+      case "jobs": {
+        // The one answer that is composed rather than written, and still not a
+        // model call: the figures are the employers' own and the sentences
+        // around them are `lib/chat/jobs/answer.ts`. So it is charged to no
+        // budget and a capped conversation still gets it.
+        flowNodeId = effect.nodeId;
+        say(
+          await answerFromBoard({
+            mode: effect.answers,
+            preset: effect.query,
+            fallback: effect.fallback,
+            message,
+            slots: step.state.slots,
+            locale,
+          }),
+        );
+        break;
+      }
 
       case "model": {
         flowNodeId = effect.nodeId;
@@ -491,6 +514,7 @@ export async function POST(request: Request) {
             past,
             asked,
             message,
+            locale: localeFrom(pagePath),
           }));
         } else if (plan?.kind === "canned") {
           source = "canned";

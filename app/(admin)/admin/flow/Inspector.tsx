@@ -223,6 +223,68 @@ function NodeFields({
         </div>
       );
 
+    case "jobs":
+      return (
+        <>
+          <div>
+            <label className={label} htmlFor="answers">
+              Answers with
+            </label>
+            <select
+              id="answers"
+              className={input}
+              value={node.answers}
+              onChange={(e) => onPatch({ answers: e.target.value } as Partial<FlowNode>)}
+            >
+              <option value="listings">Matching listings</option>
+              <option value="salary">What those listings pay</option>
+              <option value="posting">The listing they are reading</option>
+            </select>
+            <p className="mt-1 text-xs text-ink-faint">
+              Read off the live jobs board, with the employer&apos;s own figures and a link to each
+              listing. Costs a query and no model call, so it answers in a capped conversation too.
+            </p>
+          </div>
+          <div>
+            <label className={label} htmlFor="query">
+              Search terms
+            </label>
+            <input
+              id="query"
+              className={input}
+              value={node.query}
+              onChange={(e) => onPatch({ query: e.target.value } as Partial<FlowNode>)}
+              placeholder="nurse"
+            />
+            <p className="mt-1 text-xs text-ink-faint">
+              Used only when the message names no role — what a tapped chip searches for. Whatever
+              the visitor typed wins.
+            </p>
+          </div>
+          <div>
+            <label className={label} htmlFor="fallback">
+              When the board cannot answer
+            </label>
+            <textarea
+              id="fallback"
+              rows={4}
+              className={input}
+              value={node.fallback}
+              onChange={(e) => onPatch({ fallback: e.target.value } as Partial<FlowNode>)}
+            />
+            <p className="mt-1 text-xs text-ink-faint">
+              Said when nothing matches, or when too few listings state a salary to quote a range.
+              This is the half that is advice rather than data, so it is written here.
+            </p>
+          </div>
+          <ServicePicker
+            value={node.serviceSlug}
+            services={services}
+            onChange={(v) => onPatch({ serviceSlug: v } as Partial<FlowNode>)}
+          />
+        </>
+      );
+
     case "handoff":
       return (
         <>

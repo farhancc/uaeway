@@ -72,6 +72,16 @@ export type Effect =
   | { kind: "chips"; chips: Suggestion[] }
   | { kind: "handoff"; nodeId: string; text: string; reason: string; serviceSlug: string | null }
   | { kind: "model"; nodeId: string; guidance: string }
+  /** Answer this from the live jobs board. The route does the reading; the walk
+   *  only decides that it happens, so this module stays pure. */
+  | {
+      kind: "jobs";
+      nodeId: string;
+      answers: "listings" | "salary" | "posting";
+      query: string;
+      fallback: string;
+      serviceSlug: string | null;
+    }
   | { kind: "topic"; serviceSlug: string }
   /** Everything a service requires has been collected. The route turns this
    *  into a lead. */
@@ -561,6 +571,23 @@ export function runTurn(
       if (!next) break;
       cursor = next;
       continue;
+    }
+
+    if (cursor.kind === "jobs") {
+      // Deliberately terminal, like a `say` with no onward edge: the reply is
+      // a handful of listings and a link, and walking straight on from it would
+      // put a question underneath an answer someone is still reading. What to
+      // do next is offered as chips, which they can ignore.
+      effects.push({
+        kind: "jobs",
+        nodeId: cursor.id,
+        answers: cursor.answers,
+        query: cursor.query,
+        fallback: cursor.fallback,
+        serviceSlug: cursor.serviceSlug,
+      });
+      if (cursor.serviceSlug) effects.push({ kind: "topic", serviceSlug: cursor.serviceSlug });
+      break;
     }
 
     if (cursor.kind === "model") {

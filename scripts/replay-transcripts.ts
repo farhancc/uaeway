@@ -48,7 +48,9 @@ interface Result {
 /** Where a turn lands, or "" when nothing matched. */
 function land(flow: FlowIndex, question: string, match: MatchIntent): string {
   const step = runTurn(flow, emptyState(), { message: question }, { match });
-  const said = step.effects.find((e) => e.kind === "say" || e.kind === "model" || e.kind === "handoff");
+  const said = step.effects.find(
+    (e) => e.kind === "say" || e.kind === "model" || e.kind === "handoff" || e.kind === "jobs",
+  );
   return said && "nodeId" in said ? said.nodeId : "";
 }
 

@@ -2554,14 +2554,33 @@ export const JOB_SEARCH_FLOWS: AuthoredFlow[] = [
   {
     id: "job-pay-market-rate",
     question: "How do I find out what my role actually pays here?",
+    // Now the *fallback* behind a board answer rather than the whole reply, and
+    // unchanged for it: this is exactly what to say when the listings cannot
+    // support a figure, which — with 17 of 258 stating a salary — is most roles
+    // most weeks. `lib/chat/jobs/answer.ts` needs three stating listings before
+    // it will quote a range, and prints this underneath when it has fewer.
     answer:
-      "Use several sources rather than one: advertised ranges for the same title on the portals, published salary guides from the large recruitment firms, and people in your field here if you can reach them. We deliberately do not publish a figure, because pay in this market varies by sector, employer size, nationality of the parent company and the size of the package around the basic — and a number we invented would be used in your negotiation.",
+      "Use several sources rather than one: advertised ranges for the same title on the portals, published salary guides from the large recruitment firms, and people in your field here if you can reach them. We deliberately do not publish a figure of our own, because pay in this market varies by sector, employer size, nationality of the parent company and the size of the package around the basic — and a number we invented would be used in your negotiation.",
     service: CV,
+    // Answered from the board: what the matching listings advertise, how many
+    // of them say anything at all, and the prose above when that is too few.
+    // Deliberately this entry rather than a new one in ./job-board-flows.ts —
+    // it already owns these phrasings in the merged graph, and a second entry
+    // competing for them is the cross-pack theft that pack's tests exist to
+    // catch.
+    board: { answers: "salary" },
     phrases: [
       "how do i find out what my role actually pays here",
       "what is the market rate for my job in dubai",
       "how do i research salaries in the uae",
       "what do people earn in my profession in dubai",
+      "what does a nurse earn in dubai",
+      "what is the salary for an accountant in dubai",
+      "how much do drivers get paid in sharjah",
+      "average salary for an engineer in abu dhabi",
+      "what do your listings pay",
+      "what salary do these jobs pay",
+      "what is the going rate for a receptionist in dubai",
     ],
     keywords: [["market", "rate", "role"], ["research", "salaries", "uae"], ["people", "earn", "profession"]],
     next: ["job-pay-what-to-ask-for", "job-interview-salary-question", "job-pay-basic-vs-allowance"],

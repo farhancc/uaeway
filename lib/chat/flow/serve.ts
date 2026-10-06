@@ -19,7 +19,7 @@ import { extractFields } from "../qualify/extract";
 import { getDefinition } from "../qualify/store";
 import { missingRequired } from "../qualify/engine";
 import { MAX_AI_TURNS } from "../session";
-import { SERVICE_SLOT, type PageContext } from "../page-context";
+import { JOB_SLOT, SERVICE_SLOT, type PageContext } from "../page-context";
 import { runTurn, type FlowState, type Step, type TurnInput } from "./run";
 import { loadFlowVersion, loadLiveFlow, type LoadedFlow } from "./store";
 import type { Session } from "../session";
@@ -77,6 +77,12 @@ export async function runFlowTurn(
   if (context.serviceId && !state.slots[SERVICE_SLOT]) {
     state.slots[SERVICE_SLOT] = context.serviceId;
   }
+  // The listing, by contrast, is overwritten every turn: someone reading three
+  // vacancies in one conversation means "this one" to be the page they are on
+  // now, where the service they are being qualified for is a thing they decided
+  // once. Same mechanism, opposite rule, and the difference is the question
+  // each one answers.
+  if (context.jobSlug) state.slots[JOB_SLOT] = context.jobSlug;
 
   return {
     step: runTurn(loaded.flow, { ...state }, { ...input, extracted: await extractFor(state, input, session) }, {
