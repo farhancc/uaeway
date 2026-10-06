@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AnswerChoice } from "@/lib/chat/answers";
-import { triggersMatch } from "@/lib/chat/answers";
+// From ./matching, not ./answers: this runs in the browser, and answers.ts
+// opens the Mongo connection.
+import { anyKeywordMatches, triggersMatch, type AnswerChoice } from "@/lib/chat/matching";
+import { phraseHit } from "@/lib/chat/flow/lookup";
 import { charsVisible } from "@/lib/chat/typing";
 import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";
@@ -29,6 +31,9 @@ interface Trigger {
   slug: string;
   question: string;
   groups: string[][];
+  /** The ways an author wrote this question down. */
+  phrases: string[];
+  any: string[];
 }
 
 const GREETING =
@@ -49,6 +54,8 @@ export function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  /** Set by a `handoff`, which opens the callback form. */
+  const [prompt, setPrompt] = useState<{ contact: string | null } | null>(null);
   /** What the conversation is about, for the callback form's service picker. */
   const [topic, setTopic] = useState<string | null>(null);
   /** Mirrors the ref so the callback form re-renders once a session exists. */
@@ -70,7 +77,19 @@ export function ChatWidget() {
     if (busy || triggers.length === 0) return null;
     const words = tokenize(input);
     if (words.length === 0) return null;
-    return triggers.find((t) => triggersMatch(t.groups, words)) ?? null;
+
+    // The same passes the server runs, in the same order, or the hint shown
+    // while typing would not be the answer that arrives on send.
+    //
+    // The phrases come first and matter most: if someone is typing a question
+    // an author already wrote down, we know the answer before they finish, and
+    // the whole exchange costs nothing.
+    return (
+      triggers.find((t) => phraseHit(input, t.phrases ?? [])) ??
+      triggers.find((t) => triggersMatch(t.groups, words)) ??
+      triggers.find((t) => anyKeywordMatches(t.any ?? [], words)) ??
+      null
+    );
   }, [input, triggers, busy]);
 
   const sessionId = useRef<string | null>(null);
@@ -229,6 +248,13 @@ export function ChatWidget() {
               setTopic(data.serviceSlug);
             } else if (event === "lead") {
               setLeadCaptured(true);
+            } else if (event === "handoff") {
+              // The conversation has reached the edge of what the assistant can
+              // do — out of budget, out of model, or the visitor has just told
+              // us how to reach them. All three mean the same thing: stop
+              // suggesting and start asking.
+              if (data.serviceSlug) setTopic(data.serviceSlug);
+              setPrompt({ contact: data.contact ?? null });
             }
           }
         }
@@ -423,7 +449,10 @@ export function ChatWidget() {
           <div className="flex flex-wrap gap-1.5 pt-1">
             {choices.map((choice) => (
               <button
-                key={choice.answer_slug}
+                // Keyed by label, not by the target: the options of one
+                // question all lead back to the box that asked it, so several
+                // buttons legitimately share a target.
+                key={choice.label}
                 type="button"
                 onClick={() => void send(choice.label, choice.answer_slug)}
                 className="rounded-md border border-brass bg-brass/10 px-2.5 py-1.5 text-left text-xs font-medium leading-snug text-brass-deep transition-colors hover:bg-brass/20"
@@ -459,6 +488,7 @@ export function ChatWidget() {
             <LeadCapture
               sessionId={sessionKnown}
               serviceSlug={topic}
+              prompt={prompt}
               onCaptured={() => setLeadCaptured(true)}
             />
           </div>

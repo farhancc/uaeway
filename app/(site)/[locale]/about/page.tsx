@@ -1,15 +1,27 @@
 import type { Metadata } from "next";
+import { PageHead } from "@/components/site/PageHead";
+import { metaDescription, pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: `${SITE.name} is an independent UAE jobs and guidance site, based in ${SITE.area}.`,
-};
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/about">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/about",
+    title: "About",
+    description: metaDescription(
+      `${SITE.name} is an independent UAE jobs and guidance site based in ${SITE.area}.`,
+      "We publish openings and plain-English guides, and introduce people to licensed providers.",
+    ),
+  });
+}
 
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="sign text-3xl tracking-tight text-ink">About {SITE.name}</h1>
+      <PageHead title={`About ${SITE.name}`} arabic="من نحن" />
 
       <div className="prose-doc mt-8">
         <p>

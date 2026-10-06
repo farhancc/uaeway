@@ -12,7 +12,14 @@ import {
   type RowError,
 } from "@/lib/admin/import";
 import { requireAdmin } from "@/lib/admin/auth";
-import { clearAnswerCache } from "@/lib/chat/answers";
+import {
+  answerSlugs,
+  clearAnswerCache,
+  insertAnswer,
+  patchAnswer,
+  SlugTaken,
+  type AnswerFields,
+} from "@/lib/chat/answers";
 import { jobExpiry, normalizeApplyLink } from "@/lib/jobs";
 import { parseSalary } from "@/lib/salary";
 import { uniqueSlug } from "@/lib/slug";
@@ -440,7 +447,7 @@ function lines(form: FormData, field: string, limit: number): string[] {
     .slice(0, limit);
 }
 
-async function answerFields(form: FormData) {
+async function answerFields(form: FormData): Promise<AnswerFields> {
   const question = String(form.get("question") ?? "").trim();
   const answer_md = String(form.get("answer_md") ?? "").trim();
   if (!question) throw new Error("A question is required.");
@@ -448,9 +455,7 @@ async function answerFields(form: FormData) {
 
   // Choices are checked against what exists, so a typo becomes a missing
   // option rather than a button that answers nothing.
-  const db = await supabaseServer();
-  const { data } = await db.from("answers").select("slug");
-  const knownSlugs = new Set((data ?? []).map((r) => (r as { slug: string }).slug));
+  const knownSlugs = new Set(await answerSlugs());
 
   return {
     question,
@@ -458,6 +463,10 @@ async function answerFields(form: FormData) {
     service_slug: String(form.get("service_slug") ?? "").trim() || null,
     keywords: lines(form, "keywords", 12),
     trigger_groups: triggerGroups(form, "trigger_groups"),
+    // One per line, and a line may be a phrase. Commas are NOT separators
+    // here: the whole point of this box is that each line stands alone, and
+    // splitting on commas would silently turn one phrase into two keywords.
+    any_keywords: lines(form, "any_keywords", 40).map((k) => k.toLowerCase()),
     choices: choices(form, "choices", knownSlugs),
     follow_up_slugs: form.getAll("follow_up_slugs").map(String).filter(Boolean).slice(0, 6),
     is_opener: form.get("is_opener") === "on",
@@ -475,11 +484,11 @@ export async function createAnswer(form: FormData): Promise<{ slug: string }> {
   // creation and never edited: changing it would break chips already on screen.
   const slug = await uniqueSlug("answers", String(form.get("slug") ?? "") || fields.question);
 
-  const db = await supabaseServer();
-  const { error } = await db.from("answers").insert({ slug, ...fields });
-  if (error) {
-    if (error.code === "23505") throw new Error("That slug is already taken.");
-    throw new Error(error.message);
+  try {
+    await insertAnswer(slug, fields);
+  } catch (err) {
+    if (err instanceof SlugTaken) throw new Error("That slug is already taken.");
+    throw err;
   }
 
   clearAnswerCache();
@@ -490,9 +499,7 @@ export async function createAnswer(form: FormData): Promise<{ slug: string }> {
 export async function updateAnswer(id: string, form: FormData): Promise<void> {
   await requireAdmin();
 
-  const db = await supabaseServer();
-  const { error } = await db.from("answers").update(await answerFields(form)).eq("id", id);
-  if (error) throw new Error(error.message);
+  await patchAnswer(id, await answerFields(form));
 
   clearAnswerCache();
   revalidatePath("/admin/answers");
@@ -503,9 +510,7 @@ export async function updateAnswer(id: string, form: FormData): Promise<void> {
 export async function setAnswerActive(id: string, active: boolean): Promise<void> {
   await requireAdmin();
 
-  const db = await supabaseServer();
-  const { error } = await db.from("answers").update({ active }).eq("id", id);
-  if (error) throw new Error(error.message);
+  await patchAnswer(id, { active });
 
   clearAnswerCache();
   revalidatePath("/admin/answers");
@@ -514,9 +519,7 @@ export async function setAnswerActive(id: string, active: boolean): Promise<void
 export async function setAnswerOpener(id: string, isOpener: boolean): Promise<void> {
   await requireAdmin();
 
-  const db = await supabaseServer();
-  const { error } = await db.from("answers").update({ is_opener: isOpener }).eq("id", id);
-  if (error) throw new Error(error.message);
+  await patchAnswer(id, { is_opener: isOpener });
 
   clearAnswerCache();
   revalidatePath("/admin/answers");

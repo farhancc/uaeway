@@ -14,15 +14,16 @@ const SITE_LINKS = [
   { path: "/terms", label: "Terms" },
 ];
 
-/** Navy, to bookend the masthead: the ivory content sits between two dark
- *  bands rather than trailing off. */
+/** The dark band that bookends the masthead: the paper sits between two of
+ *  them rather than trailing off. Column heads are set bilingually, as the
+ *  masthead's are. */
 export function Footer({ locale }: { locale: string }) {
   return (
     <footer className="mt-24 bg-ink">
       <div className="mx-auto max-w-5xl px-5 py-16">
         <div className="grid gap-12 sm:grid-cols-3">
           <div>
-            <p className="sign text-xl leading-none">
+            <p className="sign text-2xl leading-none">
               <span className="text-paper">UAE</span>
               <span className="text-brass">via</span>
             </p>
@@ -32,7 +33,10 @@ export function Footer({ locale }: { locale: string }) {
           </div>
 
           <nav aria-label="Services">
-            <p className="sign text-[0.9375rem] text-brass">Services</p>
+            <p dir="rtl" className="arabic text-left text-[0.75rem] leading-tight text-onink/55" aria-hidden="true">
+              الخدمات
+            </p>
+            <p className="sign text-[1.0625rem] text-brass">Services</p>
             <ul className="mt-4 space-y-2 text-sm">
               {SERVICES.map((s) => (
                 <li key={s.slug}>
@@ -48,7 +52,10 @@ export function Footer({ locale }: { locale: string }) {
           </nav>
 
           <nav aria-label="Site">
-            <p className="sign text-[0.9375rem] text-brass">Site</p>
+            <p dir="rtl" className="arabic text-left text-[0.75rem] leading-tight text-onink/55" aria-hidden="true">
+              الموقع
+            </p>
+            <p className="sign text-[1.0625rem] text-brass">Site</p>
             <ul className="mt-4 space-y-2 text-sm">
               {SITE_LINKS.map((l) => (
                 <li key={l.path}>

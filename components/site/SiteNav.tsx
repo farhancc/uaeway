@@ -4,12 +4,22 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { href } from "@/lib/i18n";
 
+/**
+ * Arabic above Latin, as every UAE road sign sets it.
+ *
+ * It is the bilingual layer doing structural work rather than decorating a
+ * heading: a resident reads the line they read on the way in, and everyone
+ * else reads the line below it. Hidden from screen readers because it repeats
+ * the English rather than adding to it.
+ *
+ * Have a native speaker check these strings before launch.
+ */
 const NAV = [
-  { path: "/jobs", label: "Jobs" },
-  { path: "/services", label: "Services" },
-  { path: "/guides", label: "Guides" },
-  { path: "/blog", label: "Blog" },
-  { path: "/about", label: "About" },
+  { path: "/jobs", label: "Jobs", ar: "الوظائف" },
+  { path: "/services", label: "Services", ar: "الخدمات" },
+  { path: "/guides", label: "Guides", ar: "الأدلة" },
+  { path: "/blog", label: "Blog", ar: "المدونة" },
+  { path: "/about", label: "About", ar: "من نحن" },
 ];
 
 /** Ignore sub-pixel jitter so a resting finger does not flap the row. */
@@ -51,9 +61,9 @@ export function SiteNav({ locale }: { locale: string }) {
       // focus reopens it.
       onFocus={() => setFolded(false)}
       className={[
-        "order-3 flex w-full flex-wrap items-center gap-x-5 gap-y-1 overflow-hidden",
-        "text-[0.9375rem] transition-all duration-200 ease-out",
-        folded ? "max-h-0 pb-0 opacity-0" : "max-h-16 pb-1 opacity-100",
+        "order-3 flex w-full flex-wrap items-end gap-x-6 gap-y-1 overflow-hidden",
+        "transition-all duration-200 ease-out",
+        folded ? "max-h-0 pb-0 opacity-0" : "max-h-20 pb-1.5 opacity-100",
         // From sm up the row is inline and permanently open.
         "sm:order-2 sm:ml-auto sm:max-h-none sm:w-auto sm:flex-nowrap sm:pb-0 sm:opacity-100",
       ].join(" ")}
@@ -62,9 +72,18 @@ export function SiteNav({ locale }: { locale: string }) {
         <Link
           key={item.path}
           href={href(locale, item.path)}
-          className="whitespace-nowrap text-ink-soft underline-offset-8 transition-colors hover:text-teal-deep hover:underline hover:decoration-brass"
+          className="group block whitespace-nowrap"
         >
-          {item.label}
+          <span
+            aria-hidden="true"
+            dir="rtl"
+            className="arabic block text-left text-[0.6875rem] leading-tight text-onink/60 transition-colors group-hover:text-brass"
+          >
+            {item.ar}
+          </span>
+          <span className="sign block text-[1.0625rem] text-paper decoration-brass decoration-2 underline-offset-[6px] group-hover:underline">
+            {item.label}
+          </span>
         </Link>
       ))}
     </nav>

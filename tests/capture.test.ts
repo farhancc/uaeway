@@ -1,3 +1,4 @@
+import { findContact, looksContactable } from "@/lib/leads/schema";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -89,5 +90,44 @@ describe("captureLead", () => {
   it("refuses to store anything without consent", async () => {
     await expect(captureLead({ ...enquiry, consent: false })).rejects.toThrow();
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("finding a contact in what someone typed", () => {
+  /**
+   * Only ever used to prefill the callback form, never to create a lead: the
+   * visitor still sees the value, can correct it, and still ticks the consent
+   * box. So a wrong answer here costs a retyped field, and a false positive on
+   * a document count or a year would be the annoying one.
+   */
+  it("finds a number however it was written", () => {
+    expect(findContact("call me on 0501234567")).toBe("0501234567");
+    expect(findContact("my number is +971 50 123 4567")).toBe("+971 50 123 4567");
+    expect(findContact("050-123-4567 please")).toBe("050-123-4567");
+  });
+
+  it("finds an email, including the awkward ones", () => {
+    expect(findContact("reach me at a.b+x@mail.co.uk")).toBe("a.b+x@mail.co.uk");
+  });
+
+  it("prefers the email when both are present", () => {
+    // The one they are more likely to have typed deliberately.
+    expect(findContact("0501234567 or me@example.com")).toBe("me@example.com");
+  });
+
+  it("finds nothing in ordinary sentences", () => {
+    expect(findContact("call me tomorrow")).toBeNull();
+    expect(findContact("I need 5 documents attested")).toBeNull();
+    expect(findContact("what will it cost in 2026")).toBeNull();
+    expect(findContact("")).toBeNull();
+  });
+
+  it("never returns something the form would then reject", () => {
+    // Everything it does return must pass the same gate as a submitted form.
+    for (const text of ["call me on 0501234567", "mail me at x@y.com", "+971 4 123 4567"]) {
+      const found = findContact(text);
+      expect(found).not.toBeNull();
+      expect(looksContactable(found!)).toBe(true);
+    }
   });
 });

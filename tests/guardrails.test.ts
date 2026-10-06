@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { findUnsupportedAmounts, SYSTEM_PROMPT, withContext } from "@/lib/chat/prompt";
+import {
+  findProviderOpening,
+  findUnsupportedAmounts,
+  SYSTEM_PROMPT,
+  withContext,
+} from "@/lib/chat/prompt";
 import { matchServices } from "@/lib/services";
 import { normalizeEmirate } from "@/lib/uae";
 
@@ -22,6 +27,62 @@ describe("chatbot fee guardrail", () => {
 
   it("says nothing about a reply with no figures", () => {
     expect(findUnsupportedAmounts("It depends on the issuing country.", "")).toEqual([]);
+  });
+});
+
+describe("answering from the visitor's side", () => {
+  it("flags an answer that leads with what we do", () => {
+    expect(
+      findProviderOpening(
+        "How do I know which authorities need to stamp my document?",
+        "We map the required chain of stamps based on the issuing country. You then send us the original.",
+      ),
+    ).toBe("We map the required chain of stamps based on the issuing country.");
+  });
+
+  it("allows the offer of help once the question has been answered", () => {
+    expect(
+      findProviderOpening(
+        "How do I know which authorities need to stamp my document?",
+        "The issuing body, then that country's foreign ministry, then the UAE embassy there. We can confirm the order for your country.",
+      ),
+    ).toBeNull();
+  });
+
+  it("lets a question about us be answered in the first person", () => {
+    expect(
+      findProviderOpening(
+        "Do you write the CV from scratch?",
+        "We rewrite rather than invent. Everything on it has to be true.",
+      ),
+    ).toBeNull();
+  });
+
+  it("treats a yes or no before the we as the answer it is", () => {
+    expect(
+      findProviderOpening(
+        "Can I have several documents attested at once?",
+        "Yes, we can take several documents in one case.",
+      ),
+    ).toBeNull();
+  });
+
+  it("sees through markdown emphasis on the opening sentence", () => {
+    expect(
+      findProviderOpening(
+        "What happens if my visa application is rejected?",
+        "**We review the rejection notice** and work out the reason.",
+      ),
+    ).toBe("We review the rejection notice and work out the reason.");
+  });
+
+  it("catches the possessive opening too", () => {
+    expect(
+      findProviderOpening(
+        "What if my document is in a language other than English?",
+        "Our service focuses on Arabic and English.",
+      ),
+    ).toBe("Our service focuses on Arabic and English.");
   });
 });
 

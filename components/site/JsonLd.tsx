@@ -24,3 +24,24 @@ export function breadcrumbs(
     })),
   };
 }
+
+/**
+ * An ordered list of internal pages, for index pages that were previously
+ * emitting no structured data at all — the listing is the substance of a
+ * category page, so it is what the markup should describe.
+ */
+export function itemList(
+  siteUrl: string,
+  items: { name: string; path: string }[],
+): Record<string, unknown> {
+  return {
+    "@type": "ItemList",
+    numberOfItems: items.length,
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      url: `${siteUrl}${item.path}`,
+    })),
+  };
+}

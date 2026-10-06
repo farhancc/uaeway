@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { PageHead } from "./PageHead";
+import { breadcrumbs, itemList, JsonLd } from "./JsonLd";
 import { articlePath, type Section } from "@/lib/content/sections";
 import { listArticles } from "@/lib/content/queries";
 import { href } from "@/lib/i18n";
+import { absoluteUrl } from "@/lib/seo";
+import { SITE } from "@/lib/site";
 
 /**
  * The listing for guides, news and blog posts.
@@ -15,23 +19,18 @@ export async function ArticleIndex({ section, locale }: { section: Section; loca
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="sign text-3xl text-ink sm:text-4xl">{section.title}</h1>
-        <span aria-hidden="true" className="arabic text-lg text-ink-faint">
-          {section.titleAr}
-        </span>
-      </div>
-
-      <p className="mt-3 max-w-[62ch] leading-relaxed text-ink-soft">{section.intro}</p>
+      <PageHead title={section.title} arabic={section.titleAr}>
+        {section.intro}
+      </PageHead>
 
       {articles.length > 0 ? (
-        <ul className="mt-10 border-t border-rule">
+        <ul className="mt-8">
           {articles.map((article) => (
             <li key={article.slug} className="border-b border-rule py-5">
               <h2 className="sign text-[1.0625rem] leading-snug">
                 <Link
                   href={href(locale, articlePath(article.kind, article.slug))}
-                  className="text-ink hover:text-brass-deep"
+                  className="text-ink transition-colors hover:text-sign"
                 >
                   {article.title}
                 </Link>
@@ -62,6 +61,33 @@ export async function ArticleIndex({ section, locale }: { section: Section; loca
           {section.empty}
         </p>
       )}
+
+      {/* A category page's substance is the list, so that is what the markup
+          describes. Omitted while the section is empty rather than emitting an
+          ItemList of nothing. */}
+      {articles.length > 0 && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: section.title,
+            description: section.description,
+            url: absoluteUrl(locale, `/${section.slug}`),
+            inLanguage: locale,
+            isPartOf: { "@id": `${SITE.url}/#website` },
+            mainEntity: itemList(
+              SITE.url,
+              articles.map((article) => ({
+                name: article.title,
+                path: href(locale, articlePath(article.kind, article.slug)),
+              })),
+            ),
+          }}
+        />
+      )}
+      <JsonLd
+        data={breadcrumbs(SITE.url, [{ name: section.label, path: href(locale, `/${section.slug}`) }])}
+      />
     </div>
   );
 }

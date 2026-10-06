@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleStrip } from "@/components/site/ArticleStrip";
 import { JobRow } from "@/components/site/JobRow";
@@ -6,10 +7,29 @@ import { SectionHeading } from "@/components/site/SectionHeading";
 import { listArticles, listJobs } from "@/lib/content/queries";
 import { SECTIONS } from "@/lib/content/sections";
 import { href } from "@/lib/i18n";
+import { pageMetadata } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
 export const revalidate = 3600;
+
+/* The home page previously exported no metadata at all, so it inherited the
+   layout default and shipped with no canonical — the one page most likely to
+   be linked to with tracking parameters on the end. */
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]">): Promise<Metadata> {
+  const { locale } = await params;
+  return pageMetadata({
+    locale,
+    path: "/",
+    // Absolute so the home page is not titled "... | UAEvia" by the layout's
+    // own template, which would repeat the brand twice.
+    title: { absolute: `UAE Jobs, Attestation & Visa Help — ${SITE.name}` },
+    description: SITE.description,
+    openGraph: { type: "website" },
+  });
+}
 
 export default async function HomePage({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
@@ -51,7 +71,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
                   href={href(locale, `/services/${service.slug}`)}
                   className="group block py-5"
                 >
-                  <span className="sign block text-[1.0625rem] text-ink transition-colors group-hover:text-teal-deep">
+                  <span className="sign block text-[1.0625rem] text-ink transition-colors group-hover:text-sign-deep">
                     {service.name}
                   </span>
                   <span className="mt-1.5 block text-sm leading-relaxed text-ink-faint">
@@ -65,7 +85,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
                       aria-hidden="true"
                       className={
                         service.delivery === "in-house"
-                          ? "inline-block h-2 w-2 shrink-0 rounded-full bg-teal-deep"
+                          ? "inline-block h-2 w-2 shrink-0 rounded-full bg-sign-deep"
                           : "inline-block h-2 w-2 shrink-0 rounded-full border-[1.5px] border-ink-faint"
                       }
                     />

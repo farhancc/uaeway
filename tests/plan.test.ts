@@ -35,7 +35,15 @@ vi.mock("@/lib/chat/retrieve", () => ({
 const { planReply } = await import("@/lib/chat/plan");
 const { MAX_AI_TURNS } = await import("@/lib/chat/session");
 
-const session = (aiTurns: number): Session => ({ id: "s1", turnCount: 1, aiTurns });
+const session = (aiTurns: number): Session => ({
+  id: "s1",
+  turnCount: 1,
+  aiTurns,
+  // The bank's planner does not read the flow cursor; it is here because a
+  // session carries one from the turn the flow takes over.
+  flowVersionId: null,
+  flowState: { nodeId: null, slots: {}, visited: [], pending: null },
+});
 
 describe("planning a reply", () => {
   it("answers a tapped suggestion from the bank", async () => {

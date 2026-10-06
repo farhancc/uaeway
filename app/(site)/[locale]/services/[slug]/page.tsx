@@ -6,7 +6,10 @@ import { answersForService } from "@/lib/chat/answers";
 import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { LeadForm } from "@/components/site/LeadForm";
 import { SectionHeading } from "@/components/site/SectionHeading";
+import { Gantry } from "@/components/site/Gantry";
 import { href, LOCALES } from "@/lib/i18n";
+import { stagesFor } from "@/lib/paths";
+import { absoluteUrl, metaDescription, pageMetadata } from "@/lib/seo";
 import { getService, SERVICES } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
@@ -25,11 +28,20 @@ export async function generateMetadata({
   const service = getService(slug);
   if (!service) return { title: "Service not found" };
 
-  return {
-    title: service.name,
-    description: service.tagline,
-    alternates: { canonical: `${SITE.url}${href(locale, `/services/${service.slug}`)}` },
-  };
+  // Several service names already say "UAE" ("UAE Visa Processing", "Business
+  // Setup in the UAE"); appending it unconditionally produced titles like
+  // "Business Setup in the UAE in the UAE".
+  const title = /\buae\b/i.test(service.name) ? service.name : `${service.name} in the UAE`;
+
+  return pageMetadata({
+    locale,
+    path: `/services/${service.slug}`,
+    title,
+    // The tagline alone ran to about 60 characters and left half the snippet
+    // unused, so the summary continues it up to the length Google will show.
+    description: metaDescription(service.tagline, service.summary),
+    openGraph: { type: "article" },
+  });
 }
 
 export default async function ServicePage({ params }: PageProps<"/[locale]/services/[slug]">) {
@@ -38,6 +50,10 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   if (!service) notFound();
 
   const related = service.related.map(getService).filter((s) => s !== undefined);
+  // Which journeys this is a step of. Most services are a step of one; a few —
+  // attestation, translation — are a step of all four, and showing every one
+  // would bury the page in strips, so the first is the one drawn.
+  const stage = stagesFor(service.slug)[0];
   const faqs = await answersForService(service.slug);
 
   return (
@@ -50,15 +66,30 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
 
       <div className="mt-4 grid gap-10 lg:grid-cols-[1fr_20rem]">
         <div>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h1 className="sign max-w-[18ch] text-3xl text-ink sm:text-4xl">{service.name}</h1>
-            <span aria-hidden="true" className="arabic text-lg text-ink-faint">
+          <div>
+            <span
+              dir="rtl"
+              aria-hidden="true"
+              className="arabic block text-left text-sm leading-tight text-ink-faint"
+            >
               {service.nameAr}
             </span>
+            <h1 className="sign mt-1 max-w-[18ch] text-[2.25rem] text-ink sm:text-[2.75rem]">
+              {service.name}
+            </h1>
           </div>
           <p className="mt-3 max-w-[58ch] text-lg leading-relaxed text-ink-soft">
             {service.tagline}
           </p>
+
+          {/* Before anything about the service itself: where it sits. Someone
+              who has just been told they need attestation does not yet know
+              whether it comes before or after the medical. */}
+          {stage && (
+            <div className="mt-7 max-w-[40rem]">
+              <Gantry stage={stage} locale={locale} />
+            </div>
+          )}
           <p className="mt-6 max-w-[64ch] leading-relaxed text-ink-soft">{service.summary}</p>
 
           {/* Who actually does the work, said plainly before anyone hands over
@@ -164,6 +195,28 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
         </div>
       </div>
 
+      {/* Service, describing what this page is actually about.
+
+          `provider` is set only for the two lines we carry out ourselves. On a
+          referred service naming ourselves as the provider would assert in
+          machine-readable form the exact thing the page above is at pains to
+          deny — that we perform regulated work — so it is omitted rather than
+          fudged. No `offers`: there is no agreed price to state. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          name: service.name,
+          alternateName: service.nameAr,
+          serviceType: service.name,
+          description: service.summary,
+          url: absoluteUrl(locale, `/services/${service.slug}`),
+          areaServed: { "@type": "Country", name: "United Arab Emirates" },
+          ...(service.delivery === "in-house"
+            ? { provider: { "@id": `${SITE.url}/#organization` } }
+            : {}),
+        }}
+      />
       <JsonLd
         data={breadcrumbs(SITE.url, [
           { name: "Services", path: href(locale, "/services") },

@@ -7,6 +7,7 @@ import { getJob } from "@/lib/content/queries";
 import { deadlineLabel, experienceLabel } from "@/lib/salary";
 import { isEmailLink } from "@/lib/jobs";
 import { href } from "@/lib/i18n";
+import { metaDescription, pageMetadata } from "@/lib/seo";
 import { getService, matchServices } from "@/lib/services";
 import { SITE } from "@/lib/site";
 
@@ -20,11 +21,18 @@ export async function generateMetadata({
   if (!job) return { title: "Job not found" };
 
   const where = job.emirate ?? "the UAE";
-  return {
+  return pageMetadata({
+    locale,
+    path: `/jobs/${job.slug}`,
     title: `${job.title}${job.company ? ` at ${job.company}` : ""} — ${where}`,
-    description: job.summary ?? `${job.title} in ${where}.`,
-    alternates: { canonical: `${SITE.url}${href(locale, `/jobs/${job.slug}`)}` },
-  };
+    // An ingested listing may carry no summary at all, so the fallback still
+    // has to say where the role is and what it leads to rather than be empty.
+    description: metaDescription(
+      job.summary ?? `${job.title} in ${where}.`,
+      job.summary ? undefined : "Requirements, the documents it needs attested or translated, and how to apply.",
+    ),
+    openGraph: { type: "article" },
+  });
 }
 
 export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slug]">) {
@@ -118,15 +126,48 @@ export default async function JobPage({ params }: PageProps<"/[locale]/jobs/[slu
             {...(byEmail ? {} : { target: "_blank" })}
             // nofollow: outbound links on listings we did not write and do not vouch for.
             rel="nofollow noopener noreferrer"
-            className="mt-4 inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+            className="mt-4 inline-flex items-center gap-2.5 rounded-md bg-sign px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sign-deep"
           >
             {byEmail
               ? `Email your application to ${applyLink.slice(7)}`
               : employer
                 ? `View and apply at ${employer}`
-                : "View the original posting"}
+                : // Not "View the original posting". Where we do not know the
+                  // employer's name there is nothing to name, but the button
+                  // still has to say what it is for — the old wording never
+                  // used the word apply at all, which on an aggregated listing
+                  // is the only instruction a visitor actually needs.
+                  "Open the posting and apply"}
+            <span aria-hidden="true" className="chev" />
           </a>
         )}
+
+        {/* The steps themselves, because the link alone is not instructions.
+            Three, in the order they bite: where the application goes, what it
+            is read against, and the document chain — which is the slow one and
+            the only part of it we can take off them. */}
+        <h2 className="sign mt-6 text-base text-ink">How to apply</h2>
+        <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-ink-soft">
+          <li>
+            {byEmail
+              ? "Email your CV to the address above. It reaches whoever posted the role — applications do not come to us, and we cannot put you forward."
+              : applyLink
+                ? "Apply through the link above. It goes to whoever posted the role — applications do not come to us, and we cannot put you forward."
+                : "Find this role on the employer's own careers page and apply there. Applications do not come to us, and we cannot put you forward."}{" "}
+            Applying is free, here and there.
+          </li>
+          <li>
+            Send a CV written for this title rather than a general one. Recruiters here decide on
+            the first half of the first page, so your most recent role and the experience this
+            advert asks for belong at the top.
+          </li>
+          <li>
+            Start the document side now rather than after an offer. Whatever you are asked for
+            below has to be attested in the country that issued it, and usually translated into
+            Arabic, before a work permit can be issued — it is the part that delays a start date,
+            and it does not depend on this particular employer.
+          </li>
+        </ol>
       </div>
 
       {job.documents_needed.length > 0 && (

@@ -70,7 +70,7 @@ function parseDelay(value: string | undefined): number | undefined {
  * credit answers 429 exactly like one that is briefly rate-limited, and putting
  * the exhausted one back into rotation a minute later just fails again.
  */
-function classify(
+export function classify(
   status: number,
   body: string,
 ): { kind: FailureKind | null; retryAfterMs?: number; detail: string } {
@@ -97,6 +97,13 @@ function classify(
   if (status === 403) return { kind: "invalid", detail };
   if (status === 400) return { kind: null, detail };
   if (status === 404) return { kind: null, detail };
+
+  // A key whose prepaid credit has run out answers 402, not 429. That fell
+  // through to the unfamiliar-4xx case below and abandoned the whole request,
+  // so one depleted key took every working key down with it — the same failure
+  // the 400 line above was written for, on a different status code. It is a
+  // fact about this key and nothing else: bench it and let the next one try.
+  if (status === 402) return { kind: "exhausted", detail };
 
   if (status === 429) {
     // A daily or lifetime quota will not clear in a minute.
@@ -154,8 +161,13 @@ const LINE_BREAK = /\r\n|\n|\r/;
 /**
  * POSTs to Gemini, trying each pooled key until one answers. Returns null when
  * every key failed or the request itself was rejected as malformed.
+ *
+ * Exported because embeddings are a different endpoint on the same service:
+ * `./embed.ts` needs the key rotation, the failure classification and the
+ * benching, and none of the chat-shaped body building around it. Writing a
+ * second HTTP client would mean a second place that learns a key is dead.
  */
-async function post(
+export async function postModel(
   path: string,
   payload: unknown,
   signal?: AbortSignal,
@@ -249,7 +261,7 @@ export async function generateJSON<T>(
   opts: GenerateOptions = {},
 ): Promise<T | null> {
   const turns = typeof prompt === "string" ? [{ role: "user" as const, text: prompt }] : prompt;
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:generateContent`,
     body(turns, opts, true),
     opts.signal,
@@ -273,7 +285,7 @@ export async function generateText(
   opts: GenerateOptions = {},
 ): Promise<string | null> {
   const turns = typeof prompt === "string" ? [{ role: "user" as const, text: prompt }] : prompt;
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:generateContent`,
     body(turns, opts, false),
     opts.signal,
@@ -290,7 +302,7 @@ export async function* streamChat(
   turns: Turn[],
   opts: GenerateOptions = {},
 ): AsyncGenerator<string> {
-  const res = await post(
+  const res = await postModel(
     `${opts.model || FLASH}:streamGenerateContent?alt=sse`,
     body(turns, opts, false),
     opts.signal,

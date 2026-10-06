@@ -110,6 +110,48 @@ export function findUnsupportedAmounts(reply: string, context: string): string[]
   return [...unsupported];
 }
 
+/**
+ * An answer that opens on our side of the desk instead of the visitor's.
+ *
+ * SYSTEM_PROMPT already says to answer the question that was actually asked
+ * before mentioning a service, and that one rule is most of what separates a
+ * useful reply from a brochure: someone who asks which authority stamps their
+ * degree learns nothing from "We map the chain for your country." Stating the
+ * rule is not the same as it holding — the answer bank is composed in bulk and
+ * lands in Mongo before a person reads a word of it — so this checks the half
+ * of it that is unambiguous.
+ *
+ * Only the opening sentence is judged. An answer that says what is true for
+ * the visitor and then offers help is doing exactly what the prompt asks, so
+ * the "we" in its second sentence is not a fault and must not be treated as
+ * one; the gate is about what the answer leads with.
+ *
+ * A question that asks about us is exempt. "Do you write the CV from scratch?"
+ * has no honest answer that is not in the first person, and a yes or no before
+ * the "we" — "Yes, we can take several documents at once" — has already
+ * answered the visitor, so it passes too.
+ *
+ * Returns the offending sentence, or null when the answer leads with the
+ * visitor's question.
+ */
+export function findProviderOpening(question: string, answer: string): string | null {
+  // "Do you…", "What is your…", "Does UAEvia…", "What does the service include":
+  // all of these are about us, and are answered from here.
+  const aboutUs = new RegExp(
+    `\\b(?:you|your|yours|yourselves|${SITE.name}|the service|this service)\\b`,
+    "i",
+  );
+  if (aboutUs.test(question)) return null;
+
+  const plain = answer.replace(/[*_`#>]/g, "").replace(/^\s*[-\u2013\u2014]\s*/, "").trim();
+  const sentence = (plain.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? plain.split("\n")[0]).trim();
+
+  // Only an opening that is *grammatically* about us counts. "Yes, we can take
+  // several documents at once" has already told the visitor the thing they
+  // asked, and the sentence is theirs however the rest of it reads.
+  return /^(?:we|our|us)\b/i.test(sentence) ? sentence : null;
+}
+
 export const FEE_CAUTION =
   "Please treat any figure above as indicative only — government fees change, so confirm with our team or the relevant authority before relying on it.";
 
@@ -121,6 +163,19 @@ export const CAPPED_REPLY =
 
 export const RETIRED_ANSWER_REPLY =
   "That question has moved. Pick one below, or type what you need.";
+
+/**
+ * Said when the assistant cannot reach its model at all.
+ *
+ * Deliberately not "try again in a moment": an exhausted key is benched for an
+ * hour, so inviting a retry sends the visitor round a loop that cannot succeed
+ * and makes the site look broken rather than limited. What is still true is
+ * that everything in the answer bank works — it never needed the model — so
+ * this points at the suggestions underneath it, which are the things that will
+ * actually answer.
+ */
+export const UNAVAILABLE_REPLY =
+  "I can't work that one out right now, but the questions below I can answer straight away — they are the ones we are asked most. For anything else, the enquiry form on the service page that fits will reach a person.";
 
 export const FALLBACK_REPLY =
   "Sorry — something went wrong at my end just now. Try again in a moment, or leave your details on the enquiry form of the service page that fits and our team will come back to you.";

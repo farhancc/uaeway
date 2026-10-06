@@ -152,13 +152,38 @@ export function AnswerForm({
           className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-xs"
         />
         <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-ink-faint">
-          One group per line, words separated by commas.{" "}
+          One group per line, keywords separated by commas.{" "}
           <strong className="font-medium text-ink-soft">
-            Every word in a line must appear before this fires
+            Every keyword in a line must appear before this fires
           </strong>{" "}
-          — and any one line is enough, which is why there are several. Unlike the keywords above
-          nothing is weighed and nothing is compared: a match means this answer, every time, and
-          the visitor sees it offered while they are still typing.
+          — so twenty keywords that must all be present go on one line. Any one line firing is
+          enough, which is why there can be several. A keyword with a space in it is a phrase and
+          must appear as one: <code>golden visa</code> does not fire on &ldquo;is my visa golden or
+          blue&rdquo;.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="any_keywords" className="block text-sm font-medium text-ink">
+          Triggers — any one of these
+        </label>
+        <textarea
+          id="any_keywords"
+          name="any_keywords"
+          rows={4}
+          defaultValue={(answer?.any_keywords ?? []).join("\n")}
+          placeholder={"golden visa\nemirates id\nresidence permit"}
+          className="mt-1 w-full rounded-md border border-rule px-3 py-2 font-mono text-xs"
+        />
+        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-ink-faint">
+          One keyword per line.{" "}
+          <strong className="font-medium text-ink-soft">
+            Any single one of them appearing is enough to fire this answer
+          </strong>{" "}
+          — no commas here, so a line with spaces is one phrase. This is the weaker of the two and
+          is checked second: every answer&rsquo;s &ldquo;all of these&rdquo; list is tried first, so
+          a long list that matches is never beaten by an answer that shares one word. Keep these
+          specific — a word as broad as <code>visa</code> will answer questions nobody asked.
         </p>
       </div>
 

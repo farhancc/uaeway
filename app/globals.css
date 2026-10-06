@@ -1,52 +1,80 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   UAEvia — "the route"
+   UAEvia — "arrivals hall"
 
-   The logo is a ribbon-road curving through an aperture toward the skyline,
-   captioned "your way through the UAE". That is the product: people arrive in
-   the middle of a process and do not know what order it happens in. So the
-   site's organising device is a route — a line with waypoints — and the line
-   carries meaning rather than decoration:
+   The product has one job and it is wayfinding. Almost nobody arrives at UAE
+   paperwork at the beginning; what they need told is where they are, what
+   happens next, and which part of it is theirs to do. So the site is built in
+   the vernacular of the signs they are already reading on the way in — the
+   green directional panels on the Sheikh Zayed Road and the boards above an
+   arrivals hall.
 
-     filled waypoint   a step we can help with
-     hollow waypoint   a step you, or your employer, do yourselves
+   Four things carry over from real signage, and each is information rather
+   than decoration:
 
-   Palette sampled from the logo: the ribbon's teal and gold, and the ocean
-   blue of the aperture, which the dark bands are drawn from. The logo itself
-   carries transparency and was drawn for a light ground, so it lives on the
-   sand-coloured masthead rather than in the dark bands.
+     the panel     a green field with a white keyline set in from its edge.
+                   It appears where a page states a position. It is not a card
+                   and must never be used to box ordinary content.
+     Arabic above  UAE signs set Arabic over Latin. The bilingual layer is
+                   therefore structure here, not ornament — which is also why
+                   it is `aria-hidden`: it repeats the English for a reader who
+                   wants it, it does not add anything for a screen reader.
+     the chevron   direction, and only inside a panel. Never glued to a word:
+                   "Read more →" is a tell, a chevron on a sign is a fact.
+     the marker    gold, meaning "you are here" and nothing else. Spending it
+                   on emphasis is what would make it stop meaning that.
 
-   One rule governs light and dark: dark surfaces are for orienting (masthead,
-   hero, the route itself), light surfaces are for reading (guides, listings,
-   service detail). Long-form text on a phone in Gulf daylight wants ink on
-   paper, not glow on black.
+   One rule governs the two grounds: panels orient, paper is for reading. Long
+   text on a phone in Gulf daylight wants ink on paper, so the signage lives in
+   the furniture and never behind a paragraph.
+
+   The palette is the green of UAE directional signage, the gold of the logo's
+   own ribbon, and a cool paper — deliberately not the warm cream this site
+   wore before, which is both the commonest ground on the web and the one that
+   killed the logo.
    ────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --color-paper: #f7f4ed;
+  --color-paper: #f1f3f0;
   --color-field: #ffffff;
-  --color-ink: #04161f;
-  --color-deep: #013452;
-  --color-ink-soft: #3d4f58;
-  --color-ink-faint: #5d7078;
-  --color-teal: #12aba6;
-  /* Teal fails contrast as text on sand; this passes AA. */
-  --color-teal-deep: #0a6167;
-  --color-brass: #d9a441;
-  /* Gold likewise. */
-  --color-brass-deep: #8a6220;
-  --color-glow: #fedd7a;
-  --color-seal: #9b2c2c;
-  --color-go: #0a6167;
-  --color-go-dark: #07484d;
-  --color-rule: #e2ddd2;
-  --color-onink: #c6d8dd;
-  --color-onink-rule: #103040;
+  /* Green-black: mixed down from the panel rather than a tinted stand-in for
+     black, so dark type and the sign belong to one family. */
+  --color-ink: #0a1f16;
+  --color-ink-soft: #3c4f45;
+  --color-ink-faint: #61736a;
+  --color-deep: #044529;
 
-  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-arabic: var(--font-naskh), var(--font-inter), sans-serif;
+  /* The panel. One colour carries the whole system's voice. */
+  --color-sign: #06603a;
+  --color-sign-deep: #044529;
+  --color-sign-bright: #0a7a4a;
+
+  /* The logo's ribbon. Marker only. */
+  --color-brass: #d9a441;
+  /* Gold on paper fails contrast as text; this is the same hue at AA. */
+  --color-brass-deep: #866017;
+  --color-glow: #f3d183;
+
+  /* Warnings, and nothing else: an unpaid salary, a recruitment fee. */
+  --color-seal: #9b2c2c;
+
+  --color-go: #06603a;
+  --color-go-dark: #044529;
+  --color-rule: #d9e0d9;
+  /* Type and hairlines on a green or ink ground. */
+  --color-onink: #cfe0d5;
+  --color-onink-rule: #1d5f43;
+
+  /* Barlow was drawn from the lettering on American highway signs, and its
+     semi-condensed width is what a directional panel is set in — the family
+     does display and reading both, so the site runs on one voice at two
+     widths rather than two faces pretending to agree. */
+  --font-display: var(--font-barlow-condensed), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  /* Kufi rather than naskh: sign Arabic is drawn geometrically, to be read at
+     a distance and at an angle. */
+  --font-arabic: var(--font-kufi), var(--font-barlow), sans-serif;
 }
 
 :root {
@@ -76,13 +104,14 @@ body {
   }
 }
 
-/* Display type. Fraunces held at a restrained weight and tight tracking — the
-   personality comes from the face, not from stretching it. */
+/* Panel lettering. Mixed case, because that is how a destination is set on a
+   real sign — the tracked-out capitals people reach for are an American
+   highway's regulatory plates, not a direction. */
 .sign {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.08;
+  letter-spacing: -0.005em;
+  line-height: 1.06;
 }
 
 .arabic {
@@ -90,6 +119,7 @@ body {
   direction: rtl;
   unicode-bidi: isolate;
   font-weight: 400;
+  letter-spacing: 0;
 }
 
 :focus-visible {
@@ -98,52 +128,206 @@ body {
   border-radius: 3px;
 }
 
+/* ── The panel ─────────────────────────────────────────────────────────────
+   A sign. The white keyline set in from the edge is the whole device: it is
+   what every UAE directional board has and what nothing else on the web does,
+   so one rule carries the identity and the rest of the page can stay plain. */
+.panel {
+  position: relative;
+  background: var(--color-sign);
+  color: #fff;
+  border-radius: 0.625rem;
+  padding: 1.5rem 1.625rem;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0.4375rem;
+  border: 1.5px solid rgb(255 255 255 / 0.8);
+  border-radius: 0.3125rem;
+  pointer-events: none;
+}
+
+/* Tight enough for a row or a masthead, where the keyline would otherwise
+   crowd the type. */
+.panel-tight {
+  padding: 0.875rem 1rem;
+}
+.panel-tight::before {
+  inset: 0.3125rem;
+  border-radius: 0.25rem;
+}
+
+/* ── The chevron ───────────────────────────────────────────────────────────
+   Direction, as a shape rather than as a character appended to a sentence.
+   Inherits colour, so it works on a panel and on paper. */
+.chev {
+  display: inline-block;
+  width: 0.45em;
+  height: 0.45em;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+  vertical-align: 0.08em;
+}
+.chev-down {
+  transform: rotate(135deg);
+  vertical-align: 0.22em;
+}
+
+/* ── The marker ────────────────────────────────────────────────────────────
+   "You are here". Gold, and used nowhere else.
+
+   The lettering is `--color-glow` rather than `--color-brass`: measured on the
+   panel, the brass reads at 3.41 against the green, which is a pass only for
+   large type and this is 15px. The lighter gold is the same hue at 5.20. The
+   dot below keeps the brass — a 10px disc with a halo is not text and does not
+   have text's job. */
+.here {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-glow);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+}
+.here::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-brass);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brass) 28%, transparent);
+}
+
 /* ── Surface ───────────────────────────────────────────────────────────────
    The one raised thing on a page — a form, a callout. Not a card kit: most
-   content sits directly on the ivory with whitespace doing the separating. */
+   content sits directly on the paper with whitespace doing the separating,
+   and this is the only shadow in the system. */
 .field {
   background: var(--color-field);
   border: 1px solid var(--color-rule);
   border-radius: 8px;
-  box-shadow: 0 1px 2px rgb(14 27 51 / 0.04), 0 8px 24px -16px rgb(14 27 51 / 0.18);
+  box-shadow: 0 1px 2px rgb(10 31 22 / 0.04), 0 8px 24px -16px rgb(10 31 22 / 0.2);
 }
 
 /* ── Document tag ──────────────────────────────────────────────────────────
-   A document the applicant has to produce. Outlined in brass because it is a
-   thing to be obtained, not a status. Always a document, never decoration. */
+   A document the applicant has to produce — the thing they will be asked for
+   at a counter. Squared off, because it is a paper, not a status pill. */
 .stamp {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid color-mix(in oklab, var(--color-brass) 55%, transparent);
-  border-radius: 999px;
-  color: var(--color-brass-deep);
+  padding: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in oklab, var(--color-sign) 35%, transparent);
+  border-radius: 3px;
+  color: var(--color-sign-deep);
   font-size: 0.8125rem;
-  line-height: 1.3;
-  background: color-mix(in oklab, var(--color-brass) 6%, white);
+  line-height: 1.35;
+  background: color-mix(in oklab, var(--color-sign) 5%, white);
 }
 
-/* On navy, the same tag in brass on a dark ground. */
+/* The same tag on a panel. */
 .stamp-dark {
-  border-color: color-mix(in oklab, var(--color-brass) 65%, transparent);
-  background: transparent;
-  color: var(--color-brass);
+  border-color: rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
 }
 
-/* Brass numerals for a genuine sequence. The figure is the ornament, so
-   nothing else in the row needs one. */
+/* ── Filter chip ───────────────────────────────────────────────────────────
+   A filter, shaped like the thing it filters.
+
+   The document tag above is the squared-off outline a listing wears to say
+   "bring this paper"; the chip that filters by that paper is the same shape,
+   so the control and the content read as one idea rather than as a pill kit
+   bolted on top. It wraps a real checkbox or radio — the form still works with
+   no JavaScript, and multi-select still means what it says.
+
+   The count is part of the control, not a decoration beside it: a filter that
+   does not say how many listings are behind it is a guess. */
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  background: var(--color-field);
+  color: var(--color-ink-soft);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: color-mix(in oklab, var(--color-sign) 45%, transparent);
+  color: var(--color-ink);
+}
+
+.chip-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--color-ink-faint);
+}
+
+input:checked + .chip {
+  background: var(--color-sign);
+  border-color: var(--color-sign);
+  color: #fff;
+}
+
+input:checked + .chip .chip-count {
+  color: rgb(255 255 255 / 0.75);
+}
+
+/* The checkbox itself is visually hidden, so the ring has to be drawn on the
+   thing a sighted keyboard user is actually looking at. */
+input:focus-visible + .chip {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+/* On a panel, where the ground is already green. */
+.chip-dark {
+  border-color: rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.chip-dark:hover {
+  border-color: #fff;
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+.chip-dark .chip-count {
+  color: rgb(255 255 255 / 0.7);
+}
+input:checked + .chip-dark {
+  background: #fff;
+  border-color: #fff;
+  color: var(--color-sign-deep);
+}
+input:checked + .chip-dark .chip-count {
+  color: color-mix(in oklab, var(--color-sign-deep) 70%, white);
+}
+
+/* Numerals for a genuine sequence — an exit number, a stage. */
 .numeral {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-/* ── The route ─────────────────────────────────────────────────────────────
-   A line with waypoints. The line runs teal into gold, the way the logo's
-   ribbon does, and the waypoint tells you who does that step: filled means we
-   can help, hollow means it is yours or your employer's to do. Both states
-   are labelled in words too — colour and fill alone is not a legend anyone
-   should have to learn.                                                     */
+/* ── The route, running down ───────────────────────────────────────────────
+   A line with waypoints, for the steps of one journey. The waypoint says who
+   does that step: filled where we can help, hollow where it is yours or your
+   employer's. Both are labelled in words as well — colour and fill alone is
+   not a legend anyone should have to learn. */
 .route {
   position: relative;
   padding-left: 1.75rem;
@@ -154,9 +338,9 @@ body {
   left: 0.3125rem;
   top: 0.55rem;
   bottom: 0.55rem;
-  width: 1.5px;
-  background: linear-gradient(to bottom, var(--color-teal), var(--color-brass));
-  opacity: 0.55;
+  width: 2px;
+  background: currentColor;
+  opacity: 0.25;
 }
 .waypoint {
   position: absolute;
@@ -167,12 +351,68 @@ body {
   width: 0.6875rem;
   height: 0.6875rem;
   border-radius: 999px;
-  border: 1.5px solid var(--color-teal);
-  background: var(--color-teal);
+  border: 2px solid var(--color-brass);
+  background: var(--color-brass);
 }
 .waypoint-theirs {
-  background: var(--color-ink);
-  border-color: var(--color-onink-rule);
+  background: transparent;
+  border-color: currentColor;
+  opacity: 0.55;
+}
+
+/* ── The route, running across ─────────────────────────────────────────────
+   The same journey as a strip along the top of a page: five stops, one of them
+   lit. This is the thing the old design had no way to say — "you are at stage
+   three of five" — and it is the whole reason a visitor is on the site. */
+.gantry {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+}
+.stop {
+  position: relative;
+  padding-top: 1.375rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-onink);
+}
+/* The rail, drawn per stop so it stops at both ends of the strip rather than
+   running off into the margin. */
+.stop::before {
+  content: "";
+  position: absolute;
+  top: 0.3125rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-onink-rule);
+}
+.stop:first-child::before { left: 0.3125rem; }
+.stop:last-child::before { right: calc(100% - 0.625rem); }
+.stop::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--color-onink-rule);
+}
+.stop-done::after {
+  background: var(--color-onink);
+}
+.stop-here {
+  /* Same measurement as `.here`: the lighter gold is what passes on the
+     panel at this size. */
+  color: var(--color-glow);
+  font-weight: 600;
+}
+.stop-here::after {
+  background: var(--color-brass);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-brass) 25%, transparent);
 }
 
 /* The only motion on the site: the steps reveal when a path is chosen, which
@@ -197,26 +437,29 @@ body {
 .steps > li:nth-child(4) { animation-delay: 0.17s; }
 .steps > li:nth-child(5) { animation-delay: 0.22s; }
 
-/* Long-form article body. */
+/* Long-form article body. Barlow is compact, so it is set a notch larger than
+   the interface and measured well under 80 characters. */
 .prose-doc {
-  max-width: 68ch;
+  max-width: 66ch;
+  font-size: 1.0625rem;
 }
 .prose-doc h2 {
   font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 1.5rem;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-  margin: 2.5rem 0 0.75rem;
+  font-weight: 600;
+  font-size: 1.625rem;
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+  color: var(--color-ink);
+  margin: 2.75rem 0 0.75rem;
 }
 .prose-doc h3 {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin: 1.75rem 0 0.5rem;
+  margin: 1.875rem 0 0.5rem;
 }
 .prose-doc p,
 .prose-doc li {
-  line-height: 1.75;
+  line-height: 1.7;
   color: var(--color-ink-soft);
   margin-bottom: 1rem;
 }
@@ -228,16 +471,18 @@ body {
 .prose-doc ul { list-style: disc; }
 .prose-doc ol { list-style: decimal; }
 .prose-doc a {
-  color: var(--color-brass-deep);
+  color: var(--color-sign);
   text-decoration: underline;
   text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 .prose-doc strong {
   color: var(--color-ink);
   font-weight: 600;
 }
 
-/* Disclosure rows on the service pages. */
+/* Disclosure rows on the service pages. The marker is the chevron the rest of
+   the site uses for direction, turned to point down when it is closed. */
 .qa > summary {
   display: flex;
   align-items: baseline;
@@ -249,15 +494,19 @@ body {
   display: none;
 }
 .qa > summary::after {
-  content: "+";
+  content: "";
   margin-left: auto;
-  font-size: 1.125rem;
-  line-height: 1;
-  color: var(--color-brass);
+  flex: none;
+  align-self: center;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-top: 2px solid var(--color-sign);
+  border-right: 2px solid var(--color-sign);
+  transform: rotate(135deg);
   transition: transform 0.18s ease;
 }
 .qa[open] > summary::after {
-  content: "−";
+  transform: rotate(-45deg);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

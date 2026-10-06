@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { getArticle } from "./queries";
 import { articlePath, type Section } from "./sections";
-import { href } from "../i18n";
-import { SITE } from "../site";
+import { metaDescription, pageMetadata } from "../seo";
 import type { ArticleRow } from "../supabase/types";
 
 /**
@@ -31,12 +30,15 @@ export async function articleMetadata(
   const article = await loadArticleFor(section, slug, locale);
   if (!article) return { title: "Not found" };
 
-  return {
+  return pageMetadata({
+    locale,
+    path: articlePath(article.kind, article.slug),
     title: article.title,
-    description: article.excerpt ?? undefined,
-    alternates: {
-      canonical: `${SITE.url}${href(locale, articlePath(article.kind, article.slug))}`,
+    description: metaDescription(article.excerpt ?? section.description),
+    openGraph: {
+      type: "article",
+      publishedTime: article.published_at ?? undefined,
+      modifiedTime: article.updated_at,
     },
-    openGraph: { type: "article", publishedTime: article.published_at ?? undefined },
-  };
+  });
 }

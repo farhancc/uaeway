@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { candidates, poolSize, reportFailure, reportSuccess, resetPool } from "@/lib/ai/pool";
+import { classify } from "@/lib/ai/gemini";
 
 describe("Gemini key pool", () => {
   beforeEach(() => {
@@ -47,5 +48,28 @@ describe("Gemini key pool", () => {
     process.env.GEMINI_API_KEY = "";
     resetPool();
     expect(candidates()).toEqual([]);
+  });
+});
+
+describe("a key that has run out of credit", () => {
+  /**
+   * 402 is what Gemini answers when prepaid credit is gone. It used to fall
+   * through to "unfamiliar 4xx — probably our request", which abandoned the
+   * whole call, so one depleted key silently took every working key with it and
+   * the chatbot fell back on roughly the share of turns that happened to start
+   * on that key.
+   */
+  it("is benched rather than abandoning the request", () => {
+    const { kind } = classify(402, JSON.stringify({
+      error: { status: "RESOURCE_EXHAUSTED", message: "Your prepayment credits are depleted." },
+    }));
+    expect(kind).toBe("exhausted");
+    // The one thing that must not happen: kind null stops the other keys.
+    expect(kind).not.toBeNull();
+  });
+
+  it("still abandons the request for a genuinely bad one", () => {
+    expect(classify(400, "{}").kind).toBeNull();
+    expect(classify(404, "{}").kind).toBeNull();
   });
 });

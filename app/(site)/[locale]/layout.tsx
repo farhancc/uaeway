@@ -1,32 +1,39 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Inter, Noto_Naskh_Arabic, Outfit } from "next/font/google";
+import { Barlow, Barlow_Semi_Condensed, Noto_Kufi_Arabic } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { dirFor, isLocale, LOCALES } from "@/lib/i18n";
+import { OG_DEFAULTS } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import "../../globals.css";
 
-/* Outfit for display: geometric, signage-like, and close to the lettering in
-   the logo's own wordmark — this is a wayfinding brand, not a heritage one.
-   Inter for anything read at length, because the audience reads carefully in a
-   second or third language. Noto Naskh Arabic for the bilingual layer. */
-const outfit = Outfit({
-  variable: "--font-outfit",
+/* One family at two widths rather than two faces pretending to agree.
+   Barlow was drawn from the lettering on highway signage, which is the
+   vernacular this site is built in; its semi-condensed cut is what a
+   directional panel is set in, and the normal width reads at length for an
+   audience doing it in a second or third language.
+
+   Noto Kufi for the bilingual layer, not naskh: sign Arabic is drawn
+   geometrically, to be read at a distance and at an angle. */
+const barlow = Barlow({
+  variable: "--font-barlow",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const barlowCondensed = Barlow_Semi_Condensed({
+  variable: "--font-barlow-condensed",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
-const naskh = Noto_Naskh_Arabic({
-  variable: "--font-naskh",
+const kufi = Noto_Kufi_Arabic({
+  variable: "--font-kufi",
   subsets: ["arabic"],
   weight: ["400", "600"],
   display: "swap",
@@ -39,12 +46,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE.name}`,
   },
   description: SITE.description,
-  openGraph: {
-    siteName: SITE.name,
-    type: "website",
-    locale: "en_AE",
-    images: [{ url: "/logo.png", width: 1536, height: 1024, alt: SITE.name }],
-  },
+  openGraph: { ...OG_DEFAULTS, type: "website" },
   twitter: { card: "summary_large_image", images: ["/logo.png"] },
   robots: { index: true, follow: true },
 };
@@ -61,7 +63,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
     <html
       lang={locale}
       dir={dirFor(locale)}
-      className={`${outfit.variable} ${inter.variable} ${naskh.variable} h-full`}
+      className={`${barlow.variable} ${barlowCondensed.variable} ${kufi.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <a
@@ -78,15 +80,49 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
         <ChatWidget />
         {/* Organization, not LocalBusiness: this site is not a storefront with
             an address and opening hours, it is a place people research from and
-            get introduced to providers. Kept to facts we can stand behind. */}
+            get introduced to providers. Kept to facts we can stand behind.
+            
+            Emitted as one @graph with the WebSite so the two carry stable @ids
+            and can reference each other, which is what lets a search engine
+            attribute a page to a publisher rather than guessing. There is no
+            sameAs: we have no verified social profiles, and inventing them is
+            exactly the thing this site says it does not do. */}
         <JsonLd
           data={{
             "@context": "https://schema.org",
-            "@type": "Organization",
-            name: SITE.name,
-            url: SITE.url,
-            description: SITE.description,
-            areaServed: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Ras Al Khaimah", "Fujairah", "Umm Al Quwain"],
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": `${SITE.url}/#organization`,
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+                logo: {
+                  "@type": "ImageObject",
+                  url: `${SITE.url}/logo.png`,
+                  width: 1536,
+                  height: 1024,
+                },
+                areaServed: [
+                  "Dubai",
+                  "Abu Dhabi",
+                  "Sharjah",
+                  "Ajman",
+                  "Ras Al Khaimah",
+                  "Fujairah",
+                  "Umm Al Quwain",
+                ],
+              },
+              {
+                "@type": "WebSite",
+                "@id": `${SITE.url}/#website`,
+                name: SITE.name,
+                url: SITE.url,
+                description: SITE.description,
+                inLanguage: locale,
+                publisher: { "@id": `${SITE.url}/#organization` },
+              },
+            ],
           }}
         />
       </body>

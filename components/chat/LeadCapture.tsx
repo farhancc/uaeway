@@ -19,14 +19,32 @@ import { SERVICES } from "@/lib/services";
 export function LeadCapture({
   sessionId,
   serviceSlug,
+  prompt,
   onCaptured,
 }: {
   sessionId: string | null;
   /** What the conversation has been about, so the picker starts in the right place. */
   serviceSlug: string | null;
+  /**
+   * Set when the server decided this visitor should be asked now — they typed
+   * something that reaches them, or the conversation has run out of assistant.
+   * `contact` is what they typed, so they are not made to type it again.
+   *
+   * A new object each time means asking twice in one conversation opens the
+   * form again after they closed it, which is the intent: they said it twice.
+   */
+  prompt: { contact: string | null } | null;
   onCaptured: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
+  /** The prompt "Not now" was pressed on, so it does not reopen on every render. */
+  const [declined, setDeclined] = useState<typeof prompt>(null);
+
+  // Derived rather than synced into state by an effect. A prompt opens the
+  // form; "Not now" closes that one prompt and no other, so a visitor who
+  // gives their number a second time is asked a second time — they have said
+  // it twice, and ignoring them then would be worse than asking again.
+  const open = opened || (prompt !== null && prompt !== declined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +52,7 @@ export function LeadCapture({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpened(true)}
         className="rounded-md border border-brass bg-brass/10 px-3 py-2 text-xs font-medium text-brass-deep transition-colors hover:bg-brass/20"
       >
         Have someone call you back
@@ -69,7 +87,7 @@ export function LeadCapture({
             });
             const data = (await res.json()) as { error?: string };
             if (!res.ok) throw new Error(data.error ?? "That did not go through.");
-            setOpen(false);
+            setOpened(false);
             onCaptured();
           } catch (err) {
             setError((err as Error).message);
@@ -81,7 +99,9 @@ export function LeadCapture({
       className="space-y-2 rounded-md border border-brass/40 bg-brass/5 p-3"
     >
       <p className="text-xs font-medium text-brass-deep">
-        Tell us where to reach you and someone will come back to you.
+        {prompt?.contact
+          ? "Is this the best way to reach you? Tick below and someone will come back to you."
+          : "Tell us where to reach you and someone will come back to you."}
       </p>
 
       <div>
@@ -106,6 +126,10 @@ export function LeadCapture({
           name="contact"
           required
           autoComplete="tel"
+          // Keyed so a later prompt with a different number replaces a stale
+          // default rather than being ignored by the uncontrolled input.
+          key={prompt?.contact ?? "blank"}
+          defaultValue={prompt?.contact ?? ""}
           placeholder="Phone number or email"
           className="w-full rounded-md border border-rule bg-field px-2.5 py-1.5 text-xs"
         />
@@ -164,7 +188,10 @@ export function LeadCapture({
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpened(false);
+            setDeclined(prompt);
+          }}
           className="rounded-md px-2 py-1.5 text-xs text-ink-faint hover:text-ink"
         >
           Not now

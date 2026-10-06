@@ -1,17 +1,19 @@
 /**
  * Fills the answer bank from the FAQs and paths already written in code.
  *
- * Run once after applying 0004_answers.sql:  npm run seed:answers
+ * Run once against an empty answer bank:  npm run seed:answers
  *
  * Idempotent and non-destructive: existing slugs are skipped, so re-running it
  * never overwrites an answer someone has since edited in the admin.
  */
 
+import { randomUUID } from "crypto";
+
 import { getService } from "../lib/services";
 import { PATHS } from "../lib/paths";
 import { SEED_FAQS } from "./seed-data/faqs";
 import { slugify } from "../lib/slug";
-import { supabaseAdmin } from "../lib/supabase/admin";
+import { answersCollection } from "../lib/mongo/chat-db";
 
 /** Services whose questions are worth offering before anyone has typed. */
 const OPENER_SERVICES = new Set(["attestation", "legal-translation", "visa-processing"]);
@@ -126,11 +128,8 @@ async function main() {
   const rows = [...fromPaths(), ...fromServiceFaqs()];
   console.log(`Prepared ${rows.length} answers.`);
 
-  const db = supabaseAdmin();
-  const { data: existing, error: readError } = await db.from("answers").select("slug");
-  if (readError) throw new Error(readError.message);
-
-  const held = new Set((existing ?? []).map((r) => (r as { slug: string }).slug));
+  const answers = await answersCollection();
+  const held = new Set(await answers.distinct("slug"));
   const fresh = rows.filter((r) => !held.has(r.slug));
 
   if (fresh.length === 0) {
@@ -138,14 +137,31 @@ async function main() {
     return;
   }
 
-  const { data, error } = await db.from("answers").insert(fresh).select("slug");
-  if (error) throw new Error(error.message);
+  const now = new Date();
+  const { insertedCount } = await answers.insertMany(
+    fresh.map((row) => ({
+      _id: randomUUID(),
+      ...row,
+      // The seed only sets what it knows about; the rest are the defaults the
+      // table used to supply.
+      trigger_groups: [],
+      any_keywords: [],
+      choices: [],
+      active: true,
+      created_at: now,
+      updated_at: now,
+    })),
+  );
 
-  console.log(`Inserted ${data?.length ?? 0} answers (${held.size} left untouched).`);
+  console.log(`Inserted ${insertedCount} answers (${held.size} left untouched).`);
   console.log(`Openers: ${fresh.filter((r) => r.is_opener).length}`);
 }
 
-main().catch((err) => {
-  console.error(err.message);
-  process.exit(1);
-});
+
+// The driver holds the process open once it has a pool.
+main()
+  .catch((err) => {
+    console.error(err.message);
+    process.exitCode = 1;
+  })
+  .finally(() => process.exit());
