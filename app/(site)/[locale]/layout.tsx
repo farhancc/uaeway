@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Inter, Noto_Naskh_Arabic, Outfit } from "next/font/google";
+import { Barlow, Barlow_Semi_Condensed, Noto_Kufi_Arabic } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -10,24 +10,30 @@ import { OG_DEFAULTS } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import "../../globals.css";
 
-/* Outfit for display: geometric, signage-like, and close to the lettering in
-   the logo's own wordmark — this is a wayfinding brand, not a heritage one.
-   Inter for anything read at length, because the audience reads carefully in a
-   second or third language. Noto Naskh Arabic for the bilingual layer. */
-const outfit = Outfit({
-  variable: "--font-outfit",
+/* One family at two widths rather than two faces pretending to agree.
+   Barlow was drawn from the lettering on highway signage, which is the
+   vernacular this site is built in; its semi-condensed cut is what a
+   directional panel is set in, and the normal width reads at length for an
+   audience doing it in a second or third language.
+
+   Noto Kufi for the bilingual layer, not naskh: sign Arabic is drawn
+   geometrically, to be read at a distance and at an angle. */
+const barlow = Barlow({
+  variable: "--font-barlow",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const barlowCondensed = Barlow_Semi_Condensed({
+  variable: "--font-barlow-condensed",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
-const naskh = Noto_Naskh_Arabic({
-  variable: "--font-naskh",
+const kufi = Noto_Kufi_Arabic({
+  variable: "--font-kufi",
   subsets: ["arabic"],
   weight: ["400", "600"],
   display: "swap",
@@ -57,7 +63,7 @@ export default async function SiteLayout({ children, params }: LayoutProps<"/[lo
     <html
       lang={locale}
       dir={dirFor(locale)}
-      className={`${outfit.variable} ${inter.variable} ${naskh.variable} h-full`}
+      className={`${barlow.variable} ${barlowCondensed.variable} ${kufi.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <a

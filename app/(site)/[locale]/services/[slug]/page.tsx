@@ -6,7 +6,9 @@ import { answersForService } from "@/lib/chat/answers";
 import { breadcrumbs, JsonLd } from "@/components/site/JsonLd";
 import { LeadForm } from "@/components/site/LeadForm";
 import { SectionHeading } from "@/components/site/SectionHeading";
+import { Gantry } from "@/components/site/Gantry";
 import { href, LOCALES } from "@/lib/i18n";
+import { stagesFor } from "@/lib/paths";
 import { absoluteUrl, metaDescription, pageMetadata } from "@/lib/seo";
 import { getService, SERVICES } from "@/lib/services";
 import { SITE } from "@/lib/site";
@@ -48,6 +50,10 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
   if (!service) notFound();
 
   const related = service.related.map(getService).filter((s) => s !== undefined);
+  // Which journeys this is a step of. Most services are a step of one; a few —
+  // attestation, translation — are a step of all four, and showing every one
+  // would bury the page in strips, so the first is the one drawn.
+  const stage = stagesFor(service.slug)[0];
   const faqs = await answersForService(service.slug);
 
   return (
@@ -60,15 +66,30 @@ export default async function ServicePage({ params }: PageProps<"/[locale]/servi
 
       <div className="mt-4 grid gap-10 lg:grid-cols-[1fr_20rem]">
         <div>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h1 className="sign max-w-[18ch] text-3xl text-ink sm:text-4xl">{service.name}</h1>
-            <span aria-hidden="true" className="arabic text-lg text-ink-faint">
+          <div>
+            <span
+              dir="rtl"
+              aria-hidden="true"
+              className="arabic block text-left text-sm leading-tight text-ink-faint"
+            >
               {service.nameAr}
             </span>
+            <h1 className="sign mt-1 max-w-[18ch] text-[2.25rem] text-ink sm:text-[2.75rem]">
+              {service.name}
+            </h1>
           </div>
           <p className="mt-3 max-w-[58ch] text-lg leading-relaxed text-ink-soft">
             {service.tagline}
           </p>
+
+          {/* Before anything about the service itself: where it sits. Someone
+              who has just been told they need attestation does not yet know
+              whether it comes before or after the medical. */}
+          {stage && (
+            <div className="mt-7 max-w-[40rem]">
+              <Gantry stage={stage} locale={locale} />
+            </div>
+          )}
           <p className="mt-6 max-w-[64ch] leading-relaxed text-ink-soft">{service.summary}</p>
 
           {/* Who actually does the work, said plainly before anyone hands over

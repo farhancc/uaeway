@@ -28,6 +28,30 @@ export interface Path {
   steps: PathStep[];
 }
 
+/** One journey a service appears in, and where along it. */
+export interface Stage {
+  path: Path;
+  /** 0-based index of the first step this service does. */
+  index: number;
+}
+
+/**
+ * The journeys this service is a step of.
+ *
+ * The site's whole premise is that nobody arrives at the beginning, so a
+ * service page that says only what the service is leaves the most useful thing
+ * unsaid: which stage of what you are at, and what happens either side of it.
+ * That is already written down in `PATHS` — this just reads it back out.
+ */
+export function stagesFor(serviceSlug: string): Stage[] {
+  const found: Stage[] = [];
+  for (const path of PATHS) {
+    const index = path.steps.findIndex((step) => step.service === serviceSlug);
+    if (index !== -1) found.push({ path, index });
+  }
+  return found;
+}
+
 export const PATHS: Path[] = [
   {
     id: "job-offer",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHead } from "@/components/site/PageHead";
 import { pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
@@ -19,7 +20,7 @@ export async function generateMetadata({
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="sign text-3xl tracking-tight text-ink">Privacy</h1>
+      <PageHead title="Privacy" arabic="الخصوصية" />
 
       <div className="prose-doc mt-8">
         <p>

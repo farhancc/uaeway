@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHead } from "@/components/site/PageHead";
 import { metaDescription, pageMetadata } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 
@@ -20,7 +21,7 @@ export async function generateMetadata({
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="sign text-3xl tracking-tight text-ink">About {SITE.name}</h1>
+      <PageHead title={`About ${SITE.name}`} arabic="من نحن" />
 
       <div className="prose-doc mt-8">
         <p>

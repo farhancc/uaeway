@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHead } from "@/components/site/PageHead";
 import { href } from "@/lib/i18n";
 import { SERVICES } from "@/lib/services";
 import { pageMetadata } from "@/lib/seo";
@@ -28,12 +29,11 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="sign text-3xl tracking-tight text-ink">Contact</h1>
-      <p className="mt-3 max-w-[62ch] leading-relaxed text-ink-soft">
+      <PageHead title="Contact" arabic="اتصل بنا">
         Ask the assistant. It is the button in the corner of every page, and it answers most
         questions about documents and paperwork straight away. When it cannot, it takes your
         details and a person picks it up.
-      </p>
+      </PageHead>
 
       <div className="mt-8 rounded-md border border-rule bg-field p-5">
         <h2 className="sign text-lg text-ink">Rather write it down?</h2>
@@ -46,7 +46,7 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
             <li key={service.slug} className="border-b border-rule last:border-b-0 sm:last:border-b">
               <Link
                 href={href(locale, `/services/${service.slug}`)}
-                className="block py-2.5 text-sm text-ink transition-colors hover:text-teal-deep"
+                className="block py-2.5 text-sm text-ink transition-colors hover:text-sign-deep"
               >
                 {service.name}
               </Link>
