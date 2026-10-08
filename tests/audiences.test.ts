@@ -4,6 +4,7 @@ import {
   getAudience,
   pathFor,
   professions,
+  relatedTo,
   servicesFor,
   situations,
   stepsFor,
@@ -22,11 +23,18 @@ import { findUnsupportedAmounts } from "@/lib/chat/prompt";
 
 /**
  * Role terms the jobs board actually returns rows for, measured against the
- * live board rather than assumed: sales 45, accountant 38, engineer 32, hr 32,
- * marketing 29, receptionist 28, nurse 27, teacher 27, driver 26. Terms that
- * look obvious and return **nothing** include technician, chef, cleaner,
- * waiter and storekeeper — an audience page built on one of those would ship
- * with an empty section, which is worse than no section.
+ * live board on 2026-10-08 rather than assumed: manager 93, sales 45,
+ * accountant 38, engineer 32, hr 32, hospitality 30, marketing 29,
+ * receptionist 28, nurse 27, teacher 27, driver 26, finance 26, customer 22,
+ * developer 13, logistics 12, hotel 10, software 7, designer 7,
+ * construction 7, consultant 7.
+ *
+ * Terms that look obvious and return **nothing**: lawyer, architect, chef,
+ * waiter, technician, warehouse, guard, salon, nanny, pilot, marine,
+ * pharmacist, laboratory, translator, social, psychologist, lecturer and
+ * content. A page built on one of those ships an empty section, which is
+ * worse than no section — so those audiences carry `jobQuery: null` and show
+ * no jobs at all. Re-measure before adding one; the ingest runs nightly.
  */
 const BOARD_TERMS = new Set([
   "",
@@ -34,17 +42,25 @@ const BOARD_TERMS = new Set([
   "accountant",
   "engineer",
   "hr",
+  "hospitality",
   "marketing",
   "receptionist",
   "nurse",
   "teacher",
   "driver",
+  "finance",
+  "customer",
+  "developer",
+  "logistics",
+  "construction",
+  "consultant",
+  "designer",
 ]);
 
 describe("the audience pages", () => {
   it("covers both axes, because a visitor does not know which they are on", () => {
-    expect(situations().length).toBeGreaterThanOrEqual(6);
-    expect(professions().length).toBeGreaterThanOrEqual(4);
+    expect(situations().length).toBeGreaterThanOrEqual(20);
+    expect(professions().length).toBeGreaterThanOrEqual(25);
     expect(situations().length + professions().length).toBe(AUDIENCES.length);
   });
 
@@ -152,6 +168,34 @@ describe("the audience pages", () => {
     expect(getAudience("leavers")?.jobQuery).toBeNull();
     expect(getAudience("landlords")?.jobQuery).toBeNull();
     expect(getAudience("job-seekers")?.jobQuery).toBe("");
+  });
+
+  /**
+   * The guardrail that keeps this from becoming a page farm. Fifty-seven
+   * pages is only worth having if each one says something the others do not,
+   * and the authority is the thing that genuinely differs — an engineer and a
+   * teacher need almost identical paperwork and entirely different regulators.
+   * A page whose authorities are a subset of another's is a page that should
+   * not exist.
+   */
+  it("gives every page an authority no other page already covers", () => {
+    const seen = new Map<string, string>();
+
+    for (const audience of AUDIENCES) {
+      const names = audience.authorities.map((a) => a.name).sort().join(" + ");
+      const twin = seen.get(names);
+      expect(twin, `${audience.slug} names exactly the same bodies as ${twin}`).toBeUndefined();
+      seen.set(names, audience.slug);
+    }
+  });
+
+  it("offers a readable number of neighbours, not all of them", () => {
+    for (const audience of AUDIENCES) {
+      const related = relatedTo(audience);
+      expect(related.length).toBeLessThanOrEqual(6);
+      expect(related.every((a) => a.kind === audience.kind)).toBe(true);
+      expect(related.some((a) => a.slug === audience.slug)).toBe(false);
+    }
   });
 
   it("reuses a path rather than restating it", () => {

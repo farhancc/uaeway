@@ -8,9 +8,10 @@ import { ServiceCTA } from "@/components/site/ServiceCTA";
 import { listJobs } from "@/lib/content/queries";
 import { href, LOCALES } from "@/lib/i18n";
 import {
-  AUDIENCES,
+  audienceSlugs,
   getAudience,
   pathFor,
+  relatedTo,
   servicesFor,
   stepsFor,
   type Audience,
@@ -39,7 +40,7 @@ import { SITE } from "@/lib/site";
 export const revalidate = 3600;
 
 export function generateStaticParams() {
-  return LOCALES.flatMap((locale) => AUDIENCES.map((a) => ({ locale, slug: a.slug })));
+  return LOCALES.flatMap((locale) => audienceSlugs().map((slug) => ({ locale, slug })));
 }
 
 export async function generateMetadata({
@@ -77,7 +78,7 @@ export default async function AudiencePage({ params }: PageProps<"/[locale]/for/
   const services = servicesFor(audience);
   const journey = pathFor(audience);
   const jobs = await jobsFor(audience);
-  const others = AUDIENCES.filter((a) => a.kind === audience.kind && a.slug !== audience.slug);
+  const others = relatedTo(audience);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
