@@ -4,6 +4,7 @@ import { SITE } from "@/lib/site";
 import { SERVICES } from "@/lib/services";
 
 const SITE_LINKS = [
+  { path: "/for", label: "Who we help" },
   { path: "/jobs", label: "Jobs" },
   { path: "/guides", label: "Guides" },
   { path: "/blog", label: "Blog" },

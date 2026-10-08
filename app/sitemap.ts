@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { listArticles, listJobs } from "@/lib/content/queries";
 import { articlePath, SECTION_LIST } from "@/lib/content/sections";
+import { AUDIENCES } from "@/lib/audiences";
 import { LOCALES } from "@/lib/i18n";
 import { absoluteUrl, languagesFor } from "@/lib/seo";
 import { SERVICES } from "@/lib/services";
@@ -21,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/", changeFrequency: "daily", priority: 1 },
     { path: "/jobs", changeFrequency: "daily", priority: 0.9 },
     { path: "/services", changeFrequency: "monthly", priority: 0.8 },
+    { path: "/for", changeFrequency: "monthly", priority: 0.8 },
     { path: "/about", changeFrequency: "yearly", priority: 0.4 },
     { path: "/contact", changeFrequency: "yearly", priority: 0.5 },
 
@@ -32,6 +34,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     ...SERVICES.map((service): Entry => ({
       path: `/services/${service.slug}`,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    })),
+
+    // Same priority as a service page: these are the other half of the site's
+    // entry points, and for a profession they are the only page that answers
+    // the query at all.
+    ...AUDIENCES.map((audience): Entry => ({
+      path: `/for/${audience.slug}`,
       changeFrequency: "monthly",
       priority: 0.9,
     })),

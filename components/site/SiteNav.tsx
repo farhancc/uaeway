@@ -17,6 +17,7 @@ import { href } from "@/lib/i18n";
 const NAV = [
   { path: "/jobs", label: "Jobs", ar: "الوظائف" },
   { path: "/services", label: "Services", ar: "الخدمات" },
+  { path: "/for", label: "Who we help", ar: "لمن نساعد" },
   { path: "/guides", label: "Guides", ar: "الأدلة" },
   { path: "/blog", label: "Blog", ar: "المدونة" },
   { path: "/about", label: "About", ar: "من نحن" },
