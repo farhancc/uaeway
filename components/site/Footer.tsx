@@ -24,8 +24,8 @@ export function Footer({ locale }: { locale: string }) {
         <div className="grid gap-12 sm:grid-cols-3">
           <div>
             <p className="sign text-2xl leading-none">
-              <span className="text-paper">UAE</span>
-              <span className="text-brass">via</span>
+              <span className="text-paper">Gulf</span>
+              <span className="text-brass">izz</span>
             </p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-onink">
               Independent. Based in {SITE.area}.

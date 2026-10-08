@@ -11,7 +11,16 @@
  * cheaply later.
  */
 
-/** The tenant every read and write is scoped to. */
+/**
+ * The tenant every read and write is scoped to.
+ *
+ * Still "uaevia" after the rename to Gulfizz, deliberately: this is the value
+ * written into the `tenant_id` of every service definition and flow proposal
+ * already in Mongo, and `TENANT_ID` is not set. Changing the string here does
+ * not rename that data — it scopes every query to a tenant that owns none of
+ * it, so the admin goes silently empty. Renaming it means a migration that
+ * rewrites the column first.
+ */
 export function currentTenant(): string {
   return process.env.TENANT_ID || "uaevia";
 }

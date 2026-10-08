@@ -10,6 +10,7 @@
  */
 
 import { alertChannels } from "../lib/leads/alerts";
+import { SITE } from "../lib/site";
 
 async function telegram(): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,7 +25,7 @@ async function telegram(): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chat,
-      text: "UAEvia test alert — if you can read this, new leads will reach you here.",
+      text: `${SITE.name} test alert — if you can read this, new leads will reach you here.`,
       disable_web_page_preview: true,
     }),
   });
@@ -58,7 +59,7 @@ async function email(): Promise<void> {
     body: JSON.stringify({
       from,
       to: [to],
-      subject: "UAEvia test alert",
+      subject: `${SITE.name} test alert`,
       text: "If you can read this, new leads will reach you here.",
     }),
   });

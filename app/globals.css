@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   UAEvia — "arrivals hall"
+   Gulfizz — "arrivals hall"
 
    The product has one job and it is wayfinding. Almost nobody arrives at UAE
    paperwork at the beginning; what they need told is where they are, what
@@ -520,7 +520,7 @@ input:checked + .chip-dark .chip-count {
    Borrowed, not impersonated: no third party's logo, name or wordmark, and the
    doodles are our own drawings of passports, planes, stamps and certificates —
    the things this site is actually about — rather than a copy of anyone's
-   artwork. The panel is headed UAEvia.
+   artwork. The panel is headed with the site's name.
 
    Colours are measured, not eyeballed. On the beige ground #ECE5DD the deep
    teal #075E54 reads at 6.14 and carries anything that must be read; the
@@ -596,6 +596,22 @@ input:checked + .chip-dark .chip-count {
 .chat-out::before {
   right: -0.5rem;
   border-left: 0.5rem solid var(--chat-out);
+}
+
+/* A page named inside a reply.
+ *
+ * The deep teal reads at 6.14 on the beige ground and higher still on the
+ * white bubble, so it carries on its own; the underline is there because a
+ * reply is prose and colour alone does not say "this is the bit to touch".
+ * Sized for a thumb rather than a cursor: the padding is what makes a path in
+ * the middle of a sentence a target you can actually hit. */
+.chat-link {
+  color: var(--chat-bar);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0.15rem 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 /* Three dots while a reply is being composed.

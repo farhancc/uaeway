@@ -23,7 +23,7 @@ export async function generateMetadata({
   return pageMetadata({
     locale,
     path: "/",
-    // Absolute so the home page is not titled "... | UAEvia" by the layout's
+    // Absolute so the home page is not titled "... | Gulfizz" by the layout's
     // own template, which would repeat the brand twice.
     title: { absolute: `UAE Jobs, Attestation & Visa Help — ${SITE.name}` },
     description: SITE.description,

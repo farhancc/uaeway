@@ -1,4 +1,4 @@
-# UAEvia
+# Gulfizz
 
 An automated UAE content portal — job openings, guides and news — that turns
 organic search traffic into leads for UAE service providers: attestation,

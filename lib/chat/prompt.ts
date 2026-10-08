@@ -135,7 +135,7 @@ export function findUnsupportedAmounts(reply: string, context: string): string[]
  * visitor's question.
  */
 export function findProviderOpening(question: string, answer: string): string | null {
-  // "Do you…", "What is your…", "Does UAEvia…", "What does the service include":
+  // "Do you…", "What is your…", "Does Gulfizz…", "What does the service include":
   // all of these are about us, and are answered from here.
   const aboutUs = new RegExp(
     `\\b(?:you|your|yours|yourselves|${SITE.name}|the service|this service)\\b`,

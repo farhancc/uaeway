@@ -9,10 +9,22 @@
  * attestation, legal translation, visa filing — which it does not.
  */
 export const SITE = {
-  name: "UAEvia",
+  name: "Gulfizz",
   tagline: "Jobs, guides and paperwork help for life and business in the UAE",
+  /**
+   * Leads with the name, deliberately.
+   *
+   * This string is the meta description of the home page and the `description`
+   * of both the Organization and the WebSite node, and it used to open "UAE
+   * job openings…" — so nothing a search engine read about the site contained
+   * its name at all. That is survivable for a descriptive name and not for a
+   * coined one: there is no other word in the sentence that could lead a
+   * search engine to associate the two.
+   *
+   * 154 characters, inside the ~160 Google will render.
+   */
   description:
-    "UAE job openings, practical guides, and help with the paperwork behind them — attestation, certified legal translation, visas, notary and company setup.",
+    "Gulfizz publishes UAE job openings and plain-English guides, and helps with the paperwork behind them — attestation, translation, visas and company setup.",
   area: "Dubai, United Arab Emirates",
   url: siteUrl(),
 } as const;

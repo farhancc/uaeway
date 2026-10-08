@@ -70,5 +70,15 @@ async function refreshSupabaseSession(request: NextRequest): Promise<NextRespons
 export const config = {
   // /admin is now included, so its session can be refreshed. API routes, Next
   // internals and any file with an extension stay excluded either way.
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  //
+  // The named routes are Next's generated metadata files. They have no
+  // extension — `app/icon.tsx` is served at `/icon`, not `/icon.png` — so the
+  // `.*\..*` clause does not catch them and rule (1) above was redirecting
+  // them to `/en/icon`, which does not exist. The symptom is a 404 favicon and
+  // an empty share card on every page, with nothing in any log to connect it
+  // to a redirect rule. `robots.txt` and `sitemap.xml` were never affected,
+  // because those do have an extension.
+  matcher: [
+    "/((?!api|_next|icon$|apple-icon$|opengraph-image$|twitter-image$|manifest$|.*\\..*).*)",
+  ],
 };

@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // From ./matching, not ./answers: this runs in the browser, and answers.ts
 // opens the Mongo connection.
 import { anyKeywordMatches, triggersMatch, type AnswerChoice } from "@/lib/chat/matching";
 import { phraseHit } from "@/lib/chat/flow/lookup";
+import { splitReply } from "@/lib/chat/links";
 import { charsVisible } from "@/lib/chat/typing";
 import { tokenize } from "@/lib/text";
 import type { Chip } from "@/lib/chat/chips";
 import { LeadCapture } from "./LeadCapture";
+import { href } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
 
 /**
@@ -36,10 +39,18 @@ interface Trigger {
   any: string[];
 }
 
+/** The site's initials, derived rather than typed: the previous "UV" was a
+ *  literal and survived a rename of everything around it. */
+const MONOGRAM = SITE.name
+  .split(/\s+/)
+  .map((word) => word[0])
+  .join("")
+  .toUpperCase();
+
 const GREETING =
   "Ask me anything about working, living or setting up a business in the UAE — or about the paperwork behind it.";
 
-export function ChatWidget() {
+export function ChatWidget({ locale }: { locale: string }) {
   const [open, setOpen] = useState(false);
   /** Full screen. Kept here rather than in a route so nothing is lost — the
    *  conversation, the buffer and the session all carry straight over. */
@@ -366,7 +377,7 @@ export function ChatWidget() {
           aria-hidden="true"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold"
         >
-          UV
+          {MONOGRAM}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{SITE.name}</span>
@@ -423,16 +434,21 @@ export function ChatWidget() {
                   : "chat-in max-w-[88%] whitespace-pre-wrap text-sm leading-relaxed"
               }
             >
-              {m.text ||
-                (busy && i === messages.length - 1 ? (
-                  <span className="chat-typing" role="status" aria-label="Typing">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
+              {m.text ? (
+                m.role === "model" ? (
+                  <ReplyBody text={m.text} locale={locale} />
                 ) : (
-                  ""
-                ))}
+                  m.text
+                )
+              ) : busy && i === messages.length - 1 ? (
+                <span className="chat-typing" role="status" aria-label="Typing">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              ) : (
+                ""
+              )}
             </div>
             {m.caution && (
               <p className="mt-1.5 max-w-[92%] border-l-2 border-seal pl-2 text-xs leading-relaxed text-ink-faint">
@@ -578,5 +594,29 @@ export function ChatWidget() {
         </button>
       </form>
     </div>
+  );
+}
+
+/**
+ * A reply, with the pages it names made tappable.
+ *
+ * `next/link` rather than an anchor: the widget is mounted by the site layout,
+ * which survives a client-side navigation, so following a link keeps the
+ * conversation open. A full page load would throw it away — nothing here is
+ * stored in the browser.
+ */
+function ReplyBody({ text, locale }: { text: string; locale: string }) {
+  return (
+    <>
+      {splitReply(text).map((segment, i) =>
+        segment.path ? (
+          <Link key={i} href={href(locale, segment.path)} className="chat-link">
+            {segment.text}
+          </Link>
+        ) : (
+          <span key={i}>{segment.text}</span>
+        ),
+      )}
+    </>
   );
 }

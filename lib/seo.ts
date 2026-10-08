@@ -48,7 +48,17 @@ export function languagesFor(path = "/"): Record<string, string> {
 export const OG_DEFAULTS: NonNullable<Metadata["openGraph"]> = {
   siteName: SITE.name,
   locale: "en_AE",
-  images: [{ url: "/logo.png", width: 1536, height: 1024, alt: SITE.name }],
+  // `app/opengraph-image.tsx` generates this from `SITE.name`, so it can never
+  // be the previous brand's wordmark the way `/logo.png` was.
+  //
+  // Named here rather than left to Next's file convention, for the reason
+  // directly above: every page spreads this object and that *replaces* the
+  // layout's `openGraph`, and the image Next injects from the file goes with
+  // it. Measured, not assumed — with the file alone, every page below the
+  // layout rendered with no `og:image` at all.
+  images: [
+    { url: "/opengraph-image", width: 1200, height: 630, alt: `${SITE.name} — ${SITE.tagline}` },
+  ],
 };
 
 /**
