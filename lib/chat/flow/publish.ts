@@ -9,10 +9,18 @@
  * live before its phrases are embedded matches on keywords for as long as the
  * embedding takes — which is the moment an author is watching to see whether
  * their change worked.
+ *
+ * **The subject packs are embedded here too, and they are most of the work.**
+ * The main document is the nine doors and the eight merged packs; behind those
+ * doors sit several hundred more entries in their own documents, and a pack
+ * published without vectors matches on its authors' keyword groups alone. That
+ * is a silent degradation rather than a failure — the pack still answers, just
+ * worse, and only for the visitors who reach it — so it would not show up
+ * anywhere except in the quality of the replies.
  */
 
 import { embedFlow } from "./vectors";
-import { publishDraft, type FlowVersionSummary } from "./store";
+import { draftId, loadSubjectDocs, publishDraft, type FlowVersionSummary } from "./store";
 import type { FlowDoc } from "./schema";
 
 export interface Published {
@@ -27,7 +35,22 @@ export async function publishFlow(doc: FlowDoc, note: string | null): Promise<Pu
   // Never fatal. An embedding outage must not stop someone shipping a fix to
   // what the chatbot says — the flow still works, it just matches the way it
   // did before phase two.
-  const { total, embedded } = await embedFlow(doc);
+  let total = 0;
+  let embedded = 0;
+
+  // The packs first, because they are the larger half and because a partial
+  // embedding should favour the content nobody has vectors for yet. The store
+  // is content-addressed, so a re-publish of unchanged wording costs nothing.
+  // Found rather than passed in: this is about to publish "the draft", so the
+  // caller should not have to know its id to get its packs embedded.
+  const id = await draftId();
+  const packs = id ? await loadSubjectDocs(id) : [];
+  for (const pack of [...packs.map((p) => p.doc), doc]) {
+    const counted = await embedFlow(pack);
+    total += counted.total;
+    embedded += counted.embedded;
+  }
+
   if (embedded < total) {
     console.warn(`[flow] published with ${embedded}/${total} phrases embedded`);
   }

@@ -23,6 +23,7 @@ import { lintFlow, publishable } from "../lib/chat/flow/lint";
 import { arrange } from "../lib/chat/flow/layout";
 import {
   buildAuthoredFlow,
+  buildSubjectPack,
   mergeFlows,
   mergedCounts,
   type AuthoredFlow,
@@ -61,6 +62,44 @@ const OPTIONAL: { path: string; exportName: string; label: string }[] = [
   // and the duplicate-id check is only a cross-module check because everything
   // is concatenated before it is built.
   { path: "./seed-data/job-board-flows", exportName: "JOB_BOARD_FLOWS", label: "jobs board" },
+  // The doors into the subject packs below. Ordinary entries in the main flow —
+  // one box and one intent each — carrying `opens`.
+  { path: "./seed-data/own-work-doors", exportName: "OWN_WORK_DOORS", label: "own-work doors" },
+  { path: "./seed-data/uae-life-doors", exportName: "UAE_LIFE_DOORS", label: "uae-life doors" },
+  { path: "./seed-data/uae-life-doors", exportName: "TRIAGE_DOORS", label: "triage doors" },
+];
+
+/**
+ * Packs that are published as their own document rather than merged.
+ *
+ * The caps below bind on the main flow because the main flow is what every
+ * turn loads. A subject pack is loaded only by a conversation that walks into
+ * it, so its size is paid by the visitors it is for and by nobody else — which
+ * is the whole reason the tenth pack is shaped this way and the ninth was not.
+ *
+ * Each needs a door in the main flow with the same `subject`, or the pack is
+ * unreachable. `checkDoors` below refuses to seed a mismatch rather than
+ * leaving it to be discovered by a visitor.
+ */
+const SUBJECTS: { path: string; exportName: string; label: string; subject: string }[] = [
+  {
+    path: "./seed-data/own-work-flows",
+    exportName: "OWN_WORK_FLOWS",
+    label: "CVs and websites",
+    subject: "own-work",
+  },
+  {
+    path: "./seed-data/uae-life-flows",
+    exportName: "UAE_LIFE_FLOWS",
+    label: "living here",
+    subject: "uae-life",
+  },
+  {
+    path: "./seed-data/triage-flows",
+    exportName: "TRIAGE_FLOWS",
+    label: "which service",
+    subject: "triage",
+  },
 ];
 
 async function collect(): Promise<AuthoredFlow[]> {
@@ -128,9 +167,58 @@ function checkCaps(counts: { nodes: number; intents: number; edges: number }): v
   throw new Error("merged flow exceeds the schema's limits");
 }
 
+/** A subject's entries, or an empty list when the module is mid-rewrite. */
+async function collectSubjects(): Promise<Map<string, AuthoredFlow[]>> {
+  const packs = new Map<string, AuthoredFlow[]>();
+
+  for (const mod of SUBJECTS) {
+    try {
+      const loaded = (await import(mod.path)) as Record<string, unknown>;
+      const entries = loaded[mod.exportName];
+      if (!Array.isArray(entries)) {
+        console.log(`  ${mod.label.padEnd(16)}    — skipped: no ${mod.exportName} export`);
+        continue;
+      }
+      packs.set(mod.subject, entries as AuthoredFlow[]);
+      console.log(
+        `  ${mod.label.padEnd(16)} ${String(entries.length).padStart(4)} entries → own document "${mod.subject}"`,
+      );
+    } catch (err) {
+      console.log(`  ${mod.label.padEnd(16)}    — skipped: ${(err as Error).message.split("\n")[0]}`);
+    }
+  }
+
+  return packs;
+}
+
+/**
+ * Every door leads to a pack, and every pack has a door.
+ *
+ * Both halves fail silently and differently. A door with no pack answers with
+ * its own fallback sentence — which reads like a thin answer rather than like
+ * a missing two hundred. A pack with no door is simply never reached, and
+ * nothing anywhere says so.
+ */
+function checkDoors(flows: AuthoredFlow[], packs: Map<string, AuthoredFlow[]>): void {
+  const doors = new Set(flows.flatMap((f) => (f.opens ? [f.opens] : [])));
+
+  for (const subject of doors) {
+    if (!packs.has(subject)) {
+      throw new Error(`a door opens "${subject}" but no module seeds that pack`);
+    }
+  }
+  for (const subject of packs.keys()) {
+    if (!doors.has(subject)) {
+      throw new Error(`the "${subject}" pack has no door in the main flow, so nothing reaches it`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log("Content modules:");
   const flows = await collect();
+  const subjectEntries = await collectSubjects();
+  checkDoors(flows, subjectEntries);
 
   const definitions = await loadDefinitions();
   if (definitions.size === 0) {
@@ -169,7 +257,24 @@ async function main(): Promise<void> {
     `\n${flows.length} authored entries — ${quotes} of them money questions that walk into a callback.`,
   );
 
-  await saveDraft(merged);
+  // Built and linted on their own, because each is its own document — and
+  // without its own fallback, which is what lets a visitor walk back out of a
+  // subject by changing it.
+  const packs = new Map<string, FlowDoc>();
+  for (const [subject, entries] of subjectEntries) {
+    const pack = buildSubjectPack(entries);
+    const packErrors = lintFlow(pack, { requiresFallback: false }).filter(
+      (f) => f.severity === "error",
+    );
+    for (const f of packErrors) console.log(`  ✗ [${subject}] ${f.nodeId ?? f.intentId ?? ""} ${f.message}`);
+    packs.set(subject, arrange(pack));
+    console.log(
+      `  pack "${subject}": ${pack.nodes.length} nodes, ${pack.intents.length} intents, ` +
+        `${pack.edges.length} edges — loaded only by a conversation that goes there.`,
+    );
+  }
+
+  await saveDraft(merged, packs);
   console.log(
     publishable(findings)
       ? "Draft saved, no blocking findings. Publish it from /admin/flow when you have looked at it."

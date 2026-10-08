@@ -276,6 +276,7 @@ describe("qualifying through one node", () => {
       slots: { document_type: "Degree", phone: "971501234567" },
       visited: [],
       pending: null,
+      subject: null,
     };
     const done = step(state, { message: "", targetNodeId: "q-attest" });
 

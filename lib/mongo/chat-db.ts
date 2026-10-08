@@ -59,7 +59,7 @@ export interface ChatSessionDoc {
    * publish mid-conversation must not change the graph underneath someone, or
    * the bot appears to change its mind between one sentence and the next.
    *
-   * All four are absent on a session that started before the flow existed,
+   * All of them are absent on a session that started before the flow existed,
    * which is what `loadSession` defaults for.
    */
   flow_version_id?: string | null;
@@ -69,6 +69,9 @@ export interface ChatSessionDoc {
   /** The question this conversation is waiting on, and the service whose schema
    *  should validate the answer. */
   flow_pending?: { slot: string; serviceId: string | null } | null;
+  /** The subject pack `flow_node_id` belongs to, or absent for the main flow.
+   *  A node id means nothing without it. */
+  flow_subject?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -138,6 +141,31 @@ export interface FlowVersionDoc {
   published_at: Date | null;
 }
 
+/**
+ * One subject's own piece of flow, belonging to one version.
+ *
+ * A subject is a body of questions a conversation either walks into or never
+ * touches at all — CVs and websites, say — and keeping it out of the main
+ * document is what stops the cost of the tenth pack being paid by every
+ * conversation that is about the first. The main document carries a `subject`
+ * box per pack and nothing else of it; this is where the two hundred answers
+ * behind that box actually live, read only once a conversation goes there.
+ *
+ * Keyed by `<version_id>:<subject>` and written in the same publish as the
+ * version it belongs to, so a conversation pinned to a version reaches exactly
+ * the packs that version shipped with. There is no second live pointer and
+ * nothing to keep in step.
+ */
+export interface FlowSubjectDoc {
+  _id: string;
+  version_id: string;
+  /** Matches the `subject` on a `subject` node in the main document. */
+  subject: string;
+  /** A `FlowDoc`, stored and parsed exactly as `FlowVersionDoc.doc` is. */
+  doc: unknown;
+  created_at: Date;
+}
+
 /** Which version is live. One document, `_id: "live"`. A pointer rather than a
  *  status flag so switching versions is one atomic write. */
 export interface FlowStateDoc {
@@ -148,6 +176,10 @@ export interface FlowStateDoc {
 
 export async function flowVersionsCollection(): Promise<Collection<FlowVersionDoc>> {
   return (await chatDb()).collection<FlowVersionDoc>("flow_versions");
+}
+
+export async function flowSubjectsCollection(): Promise<Collection<FlowSubjectDoc>> {
+  return (await chatDb()).collection<FlowSubjectDoc>("flow_subjects");
 }
 
 export async function flowStateCollection(): Promise<Collection<FlowStateDoc>> {
@@ -251,6 +283,9 @@ async function connect(): Promise<Db> {
   if (!uri) throw new Error("MongoDB is not configured: set MONGODB_URI");
 
   const client = await new MongoClient(uri).connect();
+  // The fallback is the real database's name, not the site's. `MONGODB_DB` is
+  // set in every environment, and the database was not renamed with the site —
+  // pointing this at "gulfizz" would silently connect to an empty one.
   const db = client.db(process.env.MONGODB_DB || "uaevia");
   await ensureIndexes(db);
   return db;
@@ -318,6 +353,12 @@ async function ensureIndexes(db: Db): Promise<void> {
         partialFilterExpression: { status: "draft" },
       },
       { key: { version: -1 }, name: "flow_versions_order_idx" },
+    ]),
+    db.collection<FlowSubjectDoc>("flow_subjects").createIndexes([
+      // The only read: this version's pack for this subject. The _id already
+      // encodes both, so this exists for the delete that drops a version's
+      // packs with it.
+      { key: { version_id: 1 }, name: "flow_subjects_version_idx" },
     ]),
     db.collection<ChatMessageDoc>("chat_messages").createIndexes([
       { key: { session_id: 1, created_at: 1, _id: 1 }, name: "chat_messages_session_idx" },

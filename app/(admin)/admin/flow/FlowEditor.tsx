@@ -58,6 +58,7 @@ const STYLES: Record<NodeKind, { ring: string; chip: string; tint: string; dot: 
   model: { ring: "border-violet-600", chip: "bg-violet-600", tint: "bg-violet-50", dot: "#7c3aed" },
   jobs: { ring: "border-cyan-700", chip: "bg-cyan-700", tint: "bg-cyan-50", dot: "#0e7490" },
   handoff: { ring: "border-rose-600", chip: "bg-rose-600", tint: "bg-rose-50", dot: "#e11d48" },
+  subject: { ring: "border-teal-700", chip: "bg-teal-700", tint: "bg-teal-50", dot: "#0f766e" },
   end: { ring: "border-slate-400", chip: "bg-slate-400", tint: "bg-slate-50", dot: "#94a3b8" },
 };
 
@@ -137,6 +138,8 @@ function preview(node: FlowNode): string {
       return "Every conversation begins here";
     case "branch":
       return "Route on what we already know";
+    case "subject":
+      return `Continue in the ${node.subject} pack, loaded on demand`;
     case "end":
       return "Stop";
   }

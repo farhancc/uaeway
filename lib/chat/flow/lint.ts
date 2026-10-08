@@ -39,7 +39,19 @@ function reachable(flow: FlowIndex): Set<string> {
   return seen;
 }
 
-export function lintFlow(doc: FlowDoc): Finding[] {
+export interface LintOptions {
+  /**
+   * False for a subject pack, which deliberately has no fallback of its own.
+   *
+   * A pack that could answer anything would never report a miss, and a miss is
+   * exactly what `../flow/serve.ts` reads to walk a visitor back out of a
+   * subject they have stopped asking about. The main flow keeps the only
+   * fallback, and this check with it.
+   */
+  requiresFallback?: boolean;
+}
+
+export function lintFlow(doc: FlowDoc, options: LintOptions = {}): Finding[] {
   const flow = indexFlow(doc);
   const findings: Finding[] = [];
   const live = reachable(flow);
@@ -122,7 +134,7 @@ export function lintFlow(doc: FlowDoc): Finding[] {
   // the one an author is least likely to notice — every question they try
   // themselves is one they wrote an intent for.
   const globalFallback = (flow.out.get(flow.start.id) ?? []).some((e) => e.when.kind === "fallback");
-  if (!globalFallback) {
+  if (!globalFallback && (options.requiresFallback ?? true)) {
     findings.push({
       severity: "error",
       nodeId: flow.start.id,

@@ -31,10 +31,20 @@ export interface FlowState {
    * which is what tells the next turn to validate the answer against it.
    */
   pending: { slot: string; serviceId: string | null } | null;
+  /**
+   * The subject pack `nodeId` is a node of, or null for the main flow.
+   *
+   * A node id only means something inside the document it came from, so this
+   * and `nodeId` are a pair: without it, resuming a conversation that had
+   * walked into the CV pack would look up that node in the main document, miss,
+   * and silently start again from `start`. Set by `./serve.ts`, which is what
+   * knows about documents — the walk itself carries it through untouched.
+   */
+  subject: string | null;
 }
 
 export function emptyState(): FlowState {
-  return { nodeId: null, slots: {}, visited: [], pending: null };
+  return { nodeId: null, slots: {}, visited: [], pending: null, subject: null };
 }
 
 /** What arrived this turn. */
@@ -83,6 +93,15 @@ export type Effect =
       serviceSlug: string | null;
     }
   | { kind: "topic"; serviceSlug: string }
+  /**
+   * Continue this turn in a subject's own document.
+   *
+   * The walk says which pack and stops; `./serve.ts` loads it and runs a second
+   * turn against it, exactly as it performs a `jobs` or a `model`. Keeping it
+   * an effect is what lets one subject's two hundred answers stay out of the
+   * document every conversation loads.
+   */
+  | { kind: "subject"; nodeId: string; subject: string; fallback: string; serviceSlug: string | null }
   /** Everything a service requires has been collected. The route turns this
    *  into a lead. */
   | { kind: "qualified"; nodeId: string; serviceId: string; fields: Record<string, string> };
@@ -590,6 +609,20 @@ export function runTurn(
       break;
     }
 
+    if (cursor.kind === "subject") {
+      effects.push({
+        kind: "subject",
+        nodeId: cursor.id,
+        subject: cursor.subject,
+        fallback: cursor.fallback,
+        serviceSlug: cursor.serviceSlug,
+      });
+      // No chips and no `topic` here: whatever the subject's own walk says is
+      // the reply, and a menu composed from this document would be offering
+      // the one pack the visitor is not in.
+      return { effects, state: { ...state, slots, visited: [...visited], pending }, usedModel, matched };
+    }
+
     if (cursor.kind === "model") {
       usedModel = true;
       effects.push({ kind: "model", nodeId: cursor.id, guidance: cursor.guidance });
@@ -656,7 +689,7 @@ export function runTurn(
 
   return {
     effects,
-    state: { nodeId: stopped.id, slots, visited: [...visited], pending },
+    state: { ...state, nodeId: stopped.id, slots, visited: [...visited], pending },
     usedModel,
     matched,
   };

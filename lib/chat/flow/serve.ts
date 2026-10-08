@@ -20,8 +20,9 @@ import { getDefinition } from "../qualify/store";
 import { missingRequired } from "../qualify/engine";
 import { MAX_AI_TURNS } from "../session";
 import { JOB_SLOT, SERVICE_SLOT, type PageContext } from "../page-context";
-import { runTurn, type FlowState, type Step, type TurnInput } from "./run";
-import { loadFlowVersion, loadLiveFlow, type LoadedFlow } from "./store";
+import { FALLBACK_NODE } from "./authored";
+import { runTurn, type FlowState, type Qualifier, type Step, type TurnInput } from "./run";
+import { loadFlowVersion, loadLiveFlow, loadSubjectFlow, type LoadedFlow } from "./store";
 import type { Session } from "../session";
 
 /** On only when set explicitly. A missing variable must mean the old path. */
@@ -84,14 +85,129 @@ export async function runFlowTurn(
   // each one answers.
   if (context.jobSlug) state.slots[JOB_SLOT] = context.jobSlug;
 
+  const deps = {
+    extracted: await extractFor(state, input, session),
+    qualifier: await loadQualifier(),
+    // One disambiguation call per turn at most, however many documents the
+    // turn touches. Without the latch a question that crosses into a subject
+    // pack would pay for JEV twice — once to decide it is about CVs and again
+    // to decide which CV answer — which is two model calls to answer one
+    // message.
+    jev: { spent: false },
+    entered: new Set<string>(),
+  };
+
   return {
-    step: runTurn(loaded.flow, { ...state }, { ...input, extracted: await extractFor(state, input, session) }, {
-      match: await matcherFor(loaded, input, session),
-      qualifier: await loadQualifier(),
-    }),
+    step: await turnIn(loaded, loaded, state, input, session, deps),
     versionId: loaded.id,
     version: loaded.version,
   };
+}
+
+interface TurnDeps {
+  extracted: Record<string, string> | undefined;
+  qualifier: Qualifier;
+  jev: { spent: boolean };
+  /**
+   * Subjects this turn has already walked into, which is what stops it going
+   * round for ever.
+   *
+   * A message can match a door and then match nothing behind it — "will you
+   * write my CV for me" is a phrase on the door and deliberately not an
+   * answer in the pack. The miss used to send the turn back to the main flow,
+   * where the same message matched the same door, which loaded the same pack.
+   * The request simply never came back. Found by asking the live chat that
+   * exact question, not by any test: the tests walked the two stages by hand
+   * and so could not loop.
+   */
+  entered: Set<string>;
+}
+
+/**
+ * One turn, across however many documents it takes.
+ *
+ * A subject's answers live in their own document (`subject` nodes in
+ * ./schema.ts say why), so a question about CVs is matched twice: once in the
+ * main flow, which decides the question is about CVs at all, and once inside
+ * the pack, which decides which answer it is. Both stages run against the same
+ * embedding of the message — `embedQuery` caches it — so the second costs a
+ * load and no model call.
+ *
+ * Three paths through here and they are all one turn to the visitor:
+ *
+ *   - already inside a pack, and the pack answers → one match, in the pack;
+ *   - already inside a pack and it has nothing → the main flow is asked again
+ *     with the cursor cleared, which is how someone walks out of a subject by
+ *     changing it;
+ *   - in the main flow, which routes to a `subject` door → the pack is loaded
+ *     and asked in the same turn, so landing on an answer still takes one
+ *     message rather than two.
+ */
+async function turnIn(
+  main: LoadedFlow,
+  here: LoadedFlow,
+  state: FlowState,
+  input: TurnInput,
+  session: Session,
+  deps: TurnDeps,
+): Promise<Step> {
+  const step = runTurn(
+    here.flow,
+    { ...state },
+    { ...input, extracted: deps.extracted },
+    { match: await matcherFor(here, input, session, deps.jev), qualifier: deps.qualifier },
+  );
+
+  const door = step.effects.find((e) => e.kind === "subject");
+  if (door) {
+    if (deps.entered.has(door.subject)) {
+      // Second time through the same door this turn: the pack has already
+      // said it has nothing. Take the main flow's fallback by an exact jump
+      // rather than matching again, which would only find the door a third
+      // time.
+      return runTurn(
+        main.flow,
+        { ...state, nodeId: null, subject: null },
+        { ...input, targetNodeId: FALLBACK_NODE },
+        { match: await matcherFor(main, input, session, deps.jev), qualifier: deps.qualifier },
+      );
+    }
+    deps.entered.add(door.subject);
+
+    const pack = await loadSubjectFlow(main.id, door.subject);
+    if (!pack) {
+      // The door was published without the room. Said rather than swallowed,
+      // because the alternative is a visitor getting the generic fallback to a
+      // question we have two hundred answers to.
+      console.warn(`[flow] no "${door.subject}" pack for version ${main.id}`);
+      return {
+        ...step,
+        effects: [{ kind: "say", nodeId: door.nodeId, text: door.fallback }],
+        state: { ...step.state, subject: null },
+      };
+    }
+
+    // Entering, so the cursor starts at the pack's own start rather than at a
+    // node id that belongs to the document we just left.
+    const inside = await turnIn(
+      main,
+      pack,
+      { ...step.state, nodeId: null, subject: door.subject },
+      input,
+      session,
+      deps,
+    );
+    return { ...inside, usedModel: step.usedModel || inside.usedModel };
+  }
+
+  // Nothing in this pack answers it. Ask the main flow before giving up, or a
+  // visitor who asked about a CV and then about attestation would be answered
+  // out of the CV pack's fallback for the rest of the conversation.
+  if (!step.matched && here !== main) {
+    return turnIn(main, main, { ...state, nodeId: null, subject: null }, input, session, deps);
+  }
+
+  return step;
 }
 
 /**
@@ -106,7 +222,12 @@ export async function runFlowTurn(
  * synchronous and because the candidates worth choosing between are the topics
  * reachable from the start node, which is knowable up front.
  */
-async function matcherFor(loaded: LoadedFlow, input: TurnInput, session: Session) {
+async function matcherFor(
+  loaded: LoadedFlow,
+  input: TurnInput,
+  session: Session,
+  jev: { spent: boolean },
+) {
   if (!input.message) return keywordMatcher;
 
   const space = await vectorsForVersion(loaded.id, loaded.flow.doc);
@@ -126,9 +247,10 @@ async function matcherFor(loaded: LoadedFlow, input: TurnInput, session: Session
   // Gated on the same budget a model reply is. A conversation past its cap
   // still matches, still answers from the flow and still qualifies — it just
   // stops paying to break ties.
-  if (ambiguous.length < 2 || session.aiTurns >= MAX_AI_TURNS) {
+  if (ambiguous.length < 2 || session.aiTurns >= MAX_AI_TURNS || jev.spent) {
     return semanticMatcher({ query, phrases });
   }
+  jev.spent = true;
 
   const byId = new Map(globals.map((i) => [i.id, i]));
   const shortlist = ambiguous.flatMap((a) => {

@@ -42,7 +42,7 @@ const session = (aiTurns: number): Session => ({
   // The bank's planner does not read the flow cursor; it is here because a
   // session carries one from the turn the flow takes over.
   flowVersionId: null,
-  flowState: { nodeId: null, slots: {}, visited: [], pending: null },
+  flowState: { nodeId: null, slots: {}, visited: [], pending: null, subject: null },
 });
 
 describe("planning a reply", () => {

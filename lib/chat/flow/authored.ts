@@ -73,6 +73,20 @@ export interface AuthoredFlow {
     query?: string;
   };
   /**
+   * A door into a subject kept in its own document.
+   *
+   * The entry is written exactly like any other — a question and the ways
+   * people ask it — but it answers nothing itself: matching it loads that
+   * subject's pack and the question is matched again inside it, in the same
+   * turn. `answer` becomes what to say if the pack is missing.
+   *
+   * So the phrases and keyword groups on a door are doing a different job from
+   * every other entry's. They are not competing to be *the* answer; they are
+   * the only way several hundred answers behind them can be reached at all.
+   * Write them as the subject's whole vocabulary rather than as one question.
+   */
+  opens?: string;
+  /**
    * A question about money.
    *
    * The reply is followed, with no further prompting, by the service's
@@ -113,6 +127,33 @@ export class AuthoringError extends Error {}
 /* ── Building ────────────────────────────────────────────────────────────── */
 
 /**
+ * One subject's pack, as its own document.
+ *
+ * The same build as the main flow and deliberately so — a pack is a flow, with
+ * its own start, its own intents and its own qualifications, which is what
+ * lets a money question inside it walk into a callback without reaching back
+ * into a document it cannot see. The one difference is the missing fallback;
+ * `BuildOptions.fallback` says why.
+ */
+export function buildSubjectPack(flows: AuthoredFlow[]): FlowDoc {
+  return buildAuthoredFlow(flows, { fallback: false });
+}
+
+export interface BuildOptions {
+  origin?: { x: number; y: number };
+  /**
+   * Whether to add the model fallback and its edge from `start`.
+   *
+   * False for a subject pack, and that is what lets a conversation walk back
+   * out of one. A pack with its own fallback answers everything, including the
+   * attestation question somebody asks after their CV question — so it would
+   * never report "nothing here matched", and `./serve.ts` would never ask the
+   * main flow. The main flow keeps the only fallback there is.
+   */
+  fallback?: boolean;
+}
+
+/**
  * The authored questions as a flow that stands on its own.
  *
  * Complete rather than a fragment — start node, fallback, and a qualification
@@ -121,7 +162,9 @@ export class AuthoringError extends Error {}
  * existing flow it does so by id, which is what makes `mergeFlows` a no-op on
  * the second run.
  */
-export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }): FlowDoc {
+export function buildAuthoredFlow(flows: AuthoredFlow[], options: BuildOptions = {}): FlowDoc {
+  const origin = options.origin ?? { x: 0, y: 0 };
+  const withFallback = options.fallback ?? true;
   const known = new Set<string>();
   for (const flow of flows) {
     if (known.has(flow.id)) throw new AuthoringError(`duplicate authored id: ${flow.id}`);
@@ -151,6 +194,12 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
     if (flow.quote && flow.board) {
       throw new AuthoringError(`"${flow.id}" cannot both quote and answer from the board`);
     }
+    // A door hands the turn to another document, so anything wired after it
+    // here would never be reached — including a quote's walk into the
+    // qualification, which belongs in the pack beside the money answer itself.
+    if (flow.opens && (flow.quote || flow.board || flow.next?.length || flow.choices?.length)) {
+      throw new AuthoringError(`"${flow.id}" opens a subject, so nothing else about it is reachable`);
+    }
     if (flow.service && !getService(flow.service)) {
       throw new AuthoringError(`"${flow.id}" names unknown service "${flow.service}"`);
     }
@@ -160,7 +209,16 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
     }
 
     nodes.push(
-      flow.board
+      flow.opens
+        ? {
+            kind: "subject",
+            id: nodeId(flow.id),
+            position: place(),
+            subject: flow.opens,
+            fallback: flow.answer,
+            serviceSlug: flow.service,
+          }
+        : flow.board
         ? {
             kind: "jobs",
             id: nodeId(flow.id),
@@ -249,21 +307,23 @@ export function buildAuthoredFlow(flows: AuthoredFlow[], origin = { x: 0, y: 0 }
   }
 
   nodes.push({ kind: "start", id: START_NODE, position: { x: origin.x - COLUMN, y: origin.y } });
-  nodes.push({
-    kind: "model",
-    id: FALLBACK_NODE,
-    position: { x: origin.x - COLUMN, y: origin.y + ROW * 2 },
-    guidance: "",
-  });
-  edges.push({
-    id: FALLBACK_EDGE,
-    from: START_NODE,
-    to: FALLBACK_NODE,
-    when: { kind: "fallback" },
-    position: 9999,
-    labelOffset: NO_OFFSET,
-    tagOffset: NO_OFFSET,
-  });
+  if (withFallback) {
+    nodes.push({
+      kind: "model",
+      id: FALLBACK_NODE,
+      position: { x: origin.x - COLUMN, y: origin.y + ROW * 2 },
+      guidance: "",
+    });
+    edges.push({
+      id: FALLBACK_EDGE,
+      from: START_NODE,
+      to: FALLBACK_NODE,
+      when: { kind: "fallback" },
+      position: 9999,
+      labelOffset: NO_OFFSET,
+      tagOffset: NO_OFFSET,
+    });
+  }
 
   // One qualification and one callback per service, reached from a money
   // question and from the service page a visitor opened the widget on.

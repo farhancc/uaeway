@@ -204,6 +204,43 @@ export const flowNode = z.discriminatedUnion("kind", [
     serviceId: trimmed.min(1).max(80),
   }),
 
+  /**
+   * The door into a subject that is not kept in this document.
+   *
+   * The caps below are a budget because the whole document is loaded on every
+   * turn, and the tenth pack is where that stopped being worth paying: a
+   * conversation about a CV never walks a single box of the attestation pack,
+   * and vice versa. So a subject's two hundred answers live in their own
+   * document — `FlowSubjectDoc` — and the main flow carries only this box and
+   * the intents that reach it.
+   *
+   * Matching therefore happens twice on a turn that goes through here: once in
+   * this document to decide that the question is about CVs at all, and once
+   * inside the subject to decide which CV answer it is. Both run against the
+   * same embedding of the visitor's message, projected into each document's own
+   * space, so the second stage costs a load and no model call.
+   *
+   * The routing intents on the edges into this box are therefore load-bearing
+   * in a way an ordinary entry's are not: a question that does not reach the
+   * door cannot reach anything behind it. Write them wide.
+   */
+  z.object({
+    ...nodeBase,
+    kind: z.literal("subject"),
+    /** Matches `FlowSubjectDoc.subject`. The pack to load and continue in. */
+    subject: trimmed.min(1).max(60),
+    /**
+     * What to say when the subject's own document cannot be loaded.
+     *
+     * Not a greeting — a conversation that routes correctly never shows this.
+     * It is what a visitor sees if a publish shipped the door without the room
+     * behind it, and saying something true about the subject beats the generic
+     * fallback.
+     */
+    fallback: trimmed.min(1).max(2000),
+    serviceSlug: trimmed.max(80).nullable().default(null),
+  }),
+
   /** A deliberate end. Distinguishes "this conversation is finished" from "this
    *  node has no outgoing edge", which `lint.ts` otherwise reports as a fault. */
   z.object({ ...nodeBase, kind: z.literal("end") }),
@@ -218,6 +255,7 @@ export const nodeKinds = [
   "model",
   "jobs",
   "handoff",
+  "subject",
   "end",
 ] as const;
 

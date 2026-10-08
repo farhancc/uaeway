@@ -18,6 +18,7 @@
 import { randomUUID } from "crypto";
 import {
   flowStateCollection,
+  flowSubjectsCollection,
   flowVersionsCollection,
   isChatDbConfigured,
   type FlowVersionDoc,
@@ -102,6 +103,101 @@ export async function loadFlowVersion(id: string): Promise<LoadedFlow | null> {
   return doc ? parse(doc) : null;
 }
 
+export class NoDraft extends Error {}
+
+/* ── Subjects ────────────────────────────────────────────────────────────── */
+
+/**
+ * Held for the life of the process, keyed by version and subject.
+ *
+ * Unconditional and never invalidated, because a published version never
+ * changes — the same bargain `vectorsForVersion` makes, and for the same
+ * reason: this is the read the whole split exists to make rare. A conversation
+ * that walks into the CV pack pays one query for it and none after.
+ *
+ * Null is cached too. A `subject` box whose pack was never seeded is an
+ * authoring fault that would otherwise cost a failed query on every turn of
+ * every conversation that reaches it.
+ */
+const subjectCache = new Map<string, LoadedFlow | null>();
+
+/** Test seam, and what a re-seed needs so the next turn sees the new pack. */
+export function clearSubjectCache(): void {
+  subjectCache.clear();
+}
+
+/**
+ * One subject's pack, as it was shipped with this version.
+ *
+ * Loaded the first time a conversation walks into it and not before, which is
+ * the whole point: the main document no longer carries the answers, so a
+ * conversation about attestation never reads a byte of the CV pack.
+ */
+export async function loadSubjectFlow(
+  versionId: string,
+  subject: string,
+): Promise<LoadedFlow | null> {
+  const key = `${versionId}:${subject}`;
+  const hit = subjectCache.get(key);
+  if (hit !== undefined) return hit;
+  if (!isChatDbConfigured()) return null;
+
+  try {
+    const doc = await (await flowSubjectsCollection()).findOne({ _id: key });
+    const result = doc ? flowDoc.safeParse(doc.doc) : null;
+    if (doc && result && !result.success) {
+      console.warn(`[flow] subject ${key} does not parse: ${result.error.message}`);
+    }
+    const loaded =
+      result?.success === true
+        ? { id: key, version: 0, flow: indexFlow(result.data) }
+        : null;
+    subjectCache.set(key, loaded);
+    return loaded;
+  } catch (err) {
+    console.warn(`[flow] could not load subject ${key}: ${(err as Error).message}`);
+    // Not cached: unlike a missing pack, a connection failure is worth retrying.
+    return null;
+  }
+}
+
+/** The draft's id, for the one caller that needs to find things filed against
+ *  it before it becomes a version. */
+export async function draftId(): Promise<string | null> {
+  const draft = await (await flowVersionsCollection()).findOne(
+    { status: "draft" },
+    { projection: { _id: 1 } },
+  );
+  return draft?._id ?? null;
+}
+
+/**
+ * Every subject pack belonging to one version, as raw documents.
+ *
+ * For the publish step rather than the runtime: `loadSubjectFlow` fetches one
+ * pack when a conversation walks into it, and this fetches all of them because
+ * every phrase in every pack has to be embedded before the version goes live.
+ * Uncached for the same reason — it runs once per publish, not once per turn.
+ */
+export async function loadSubjectDocs(
+  versionId: string,
+): Promise<{ subject: string; doc: FlowDoc }[]> {
+  if (!isChatDbConfigured()) return [];
+
+  const docs = await (await flowSubjectsCollection()).find({ version_id: versionId }).toArray();
+  return docs.flatMap((doc) => {
+    const parsed = flowDoc.safeParse(doc.doc);
+    if (!parsed.success) {
+      console.warn(`[flow] subject ${doc._id} does not parse: ${parsed.error.message}`);
+      return [];
+    }
+    // The subject travels with the document. A pack contains no `subject`
+    // node — those are the doors, and they live in the main flow — so there is
+    // nothing inside a pack that says which one it is.
+    return [{ subject: doc.subject, doc: parsed.data }];
+  });
+}
+
 /* ── Authoring ───────────────────────────────────────────────────────────── */
 
 /** The next version number: one past the highest ever allocated. */
@@ -137,11 +233,15 @@ export async function loadDraft(): Promise<LoadedFlow | null> {
  * assembled from a canvas, and the one thing this module must never do is store
  * a graph the runtime cannot read.
  */
-export async function saveDraft(doc: unknown): Promise<FlowDoc> {
+export async function saveDraft(
+  doc: unknown,
+  subjects?: Map<string, FlowDoc>,
+): Promise<FlowDoc> {
   const parsed = flowDoc.parse(doc);
   const now = new Date();
 
-  await (await flowVersionsCollection()).updateOne(
+  const versions = await flowVersionsCollection();
+  await versions.updateOne(
     { status: "draft" },
     {
       $set: { doc: parsed, published_at: null },
@@ -156,10 +256,31 @@ export async function saveDraft(doc: unknown): Promise<FlowDoc> {
     { upsert: true },
   );
 
+  // Only when the caller has them. The builder saves the main document alone
+  // on every drag, and a save that wrote `subjects: undefined` as "no packs"
+  // would delete the content behind every door on the canvas.
+  if (subjects && subjects.size > 0) {
+    const draft = await versions.findOne({ status: "draft" }, { projection: { _id: 1 } });
+    if (!draft) throw new NoDraft("the draft disappeared between writing it and its subjects");
+
+    await (await flowSubjectsCollection()).bulkWrite(
+      [...subjects].map(([subject, subjectDoc]) => ({
+        updateOne: {
+          filter: { _id: `${draft._id}:${subject}` },
+          update: {
+            $set: { version_id: draft._id, subject, doc: flowDoc.parse(subjectDoc) },
+            $setOnInsert: { created_at: now },
+          },
+          upsert: true,
+        },
+      })),
+      { ordered: false },
+    );
+    clearSubjectCache();
+  }
+
   return parsed;
 }
-
-export class NoDraft extends Error {}
 
 /**
  * Publishes the draft and points the live flow at it.

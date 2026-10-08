@@ -22,6 +22,9 @@ export const MAX_AI_TURNS = 8;
 /** Visitor IPs are stored hashed: enough to rate-limit, without keeping an
  *  identifier we have no reason to hold. */
 export function hashIp(ip: string): string {
+  // Left at the old name on purpose: the salt only has to be stable, and
+  // changing it re-hashes every stored IP, so the rate limiter stops
+  // recognising anyone it has already seen.
   const salt = process.env.IP_HASH_SALT || process.env.CRON_SECRET || "uaevia";
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
 }
@@ -95,6 +98,7 @@ export async function loadSession(id: string, ipHash: string): Promise<Session |
         flow_slots: 1,
         flow_visited: 1,
         flow_pending: 1,
+        flow_subject: 1,
       },
     },
   );
@@ -110,6 +114,7 @@ export async function loadSession(id: string, ipHash: string): Promise<Session |
       slots: doc.flow_slots ?? {},
       visited: doc.flow_visited ?? [],
       pending: doc.flow_pending ?? null,
+      subject: doc.flow_subject ?? null,
     },
   };
 }
@@ -138,6 +143,7 @@ export async function saveFlowState(
           // limit, and only the recent nodes affect which chips are offered.
           flow_visited: state.visited.slice(-60),
           flow_pending: state.pending,
+          flow_subject: state.subject,
           updated_at: new Date(),
         },
       },

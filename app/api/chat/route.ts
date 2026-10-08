@@ -329,6 +329,14 @@ async function serveFlowTurn(args: {
         send("topic", { serviceSlug: effect.serviceSlug });
         break;
 
+      case "subject":
+        // Performed in `runFlowTurn`, which loads the pack and runs the rest of
+        // the turn inside it, so one never arrives here. Logged rather than
+        // ignored: if one does, a visitor got no reply and the reason is that
+        // a caller ran the walk without resolving its effects.
+        console.warn(`[flow] unresolved subject door "${effect.subject}" reached the route`);
+        break;
+
       case "qualified":
         qualified = effect;
         break;
