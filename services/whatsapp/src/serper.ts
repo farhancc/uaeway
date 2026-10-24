@@ -165,8 +165,21 @@ const TITLE_FURNITURE = new RegExp(
 /** Two passes would do for everything seen; four is cheap and cannot loop. */
 const MAX_FURNITURE_PASSES = 4;
 
+/**
+ * Labels an employer typed in front of the title instead of just writing it:
+ * "Job Title: Civil / Structural Engineer". Google indexes the lot, and it
+ * reached a WhatsApp post and a slug reading
+ * `job-title-civil-structural-engineer` before this existed.
+ *
+ * Only a label followed by a colon, so "Position Available - Driver" keeps its
+ * words and nothing that is part of a real title is touched.
+ */
+const TITLE_LABEL = /^\s*(job title|job|position|vacancy|post|role|hiring for)\s*:\s*/i;
+
+/** Exported only so it can be checked against real Google titles without
+ *  spending a Serper credit. Nothing else calls it. */
 export function cleanTitle(raw: string): string {
-  let title = raw.replace(/\s+/g, " ").trim();
+  let title = raw.replace(/\s+/g, " ").replace(TITLE_LABEL, "").trim();
 
   for (let pass = 0; pass < MAX_FURNITURE_PASSES; pass++) {
     const stripped = title.replace(TITLE_FURNITURE, "").trim();
