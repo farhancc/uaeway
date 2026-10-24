@@ -11,7 +11,11 @@ import type { Listing } from "./listing.js";
  * postings and posts them; `/api/ingest/jobs` decides what they are.
  */
 
-/** Matches `MAX_BATCH` in the site's `lib/ingest/schema.ts`, which rejects more. */
+/**
+ * The site's own cap is 200 (`MAX_BATCH` in `lib/ingest/schema.ts`), but what
+ * limits a request here is time, not size — the route runs every listing
+ * through Gemini before answering. See `config.ingestBatch`.
+ */
 const MAX_BATCH = 200;
 
 export interface PushResult {
@@ -60,8 +64,10 @@ export async function pushListings(listings: Listing[]): Promise<PushResult> {
 
   const total = { ...EMPTY };
 
-  for (let i = 0; i < listings.length; i += MAX_BATCH) {
-    const batch = listings.slice(i, i + MAX_BATCH);
+  const size = Math.min(Math.max(config.ingestBatch, 1), MAX_BATCH);
+
+  for (let i = 0; i < listings.length; i += size) {
+    const batch = listings.slice(i, i + size);
     try {
       const result = await postBatch(batch);
       total.fetched += result.fetched;
@@ -70,6 +76,8 @@ export async function pushListings(listings: Listing[]): Promise<PushResult> {
       total.enriched += result.enriched;
       total.approved += result.approved;
     } catch (err) {
+      // Logged and skipped rather than retried: Google returns the same
+      // postings on the next run, and the site skips what it already holds.
       console.error(`[push] batch of ${batch.length} failed: ${(err as Error).message}`);
     }
   }

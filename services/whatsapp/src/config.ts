@@ -66,6 +66,21 @@ export const config = {
   serperLocations: list("SERPER_LOCATIONS", ["Dubai", "Abu Dhabi"]),
   /** Results per query. 10 is one credit; asking for more costs more. */
   serperNum: Number(process.env.SERPER_NUM ?? 10),
+  /**
+   * Listings per request to the site.
+   *
+   * Small because the site enriches every one through Gemini before it answers,
+   * and that is the slow part: measured 2026-10-24, five listings took 49
+   * seconds and seven took 78 — about 40 seconds per round of five. The route
+   * allows itself 300 seconds, so fifteen (three rounds, ~120s) leaves real
+   * headroom for a slow day.
+   *
+   * The first run ignored this and posted all 145 findings in one request,
+   * which never finished and lost the lot to `fetch failed`. A run is now ten
+   * requests that each either land or lose fifteen listings Google will
+   * return again tomorrow.
+   */
+  ingestBatch: Number(process.env.INGEST_BATCH ?? 15),
 
   // --- Schedules --------------------------------------------------------------
 
