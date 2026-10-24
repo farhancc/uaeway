@@ -1,9 +1,15 @@
 /**
- * The nightly job ingest: Careerjet -> Gemini -> `jobs` as status 'pending'.
+ * The job ingest: a source -> Gemini -> a row in `jobs`.
  *
- * Nothing here publishes. Every row lands pending and waits for a human in the
- * admin queue, because an AI summary that misstates a salary or invents a
- * requirement is our problem once it is on our domain.
+ * It used to be true that nothing here publishes, and for the feeds it still
+ * is: Jooble, Careerjet and the employer boards land pending and wait for a
+ * human in the admin queue, because an AI summary that misstates a salary or
+ * invents a requirement is our problem once it is on our domain.
+ *
+ * The Google scraper added one exception, deliberately narrow, because its
+ * listings feed an hourly WhatsApp post that a daily review cycle cannot keep
+ * up with. `autoApprove` is that exception and the comment on it is the whole
+ * argument; everything else is unchanged.
  */
 
 import { generateJSON } from "../ai/gemini";
@@ -26,6 +32,8 @@ export interface IngestResult {
   inserted: number;
   skipped: number;
   enriched: number;
+  /** Of the inserted rows, how many skipped the review queue. See `autoApprove`. */
+  approved: number;
 }
 
 interface Enrichment {
@@ -121,6 +129,30 @@ async function enrich(job: RawJob): Promise<{ value: Enrichment; fromAi: boolean
   };
 }
 
+/**
+ * Whether a listing may go on the site without a person reading it first.
+ *
+ * The default is still no, and for every source that existed before this it is
+ * always no: Jooble, Careerjet and the employer boards land pending exactly as
+ * they did. This opens one narrow door, for the Google scraper, and it needs
+ * all three of these at once:
+ *
+ *  - the source established that the URL is a single posting rather than a
+ *    board's category page; a source that left the flag unset has not
+ *    established that — see the field's comment in `source.ts`;
+ *  - the model actually answered, so the row carries a real summary rather
+ *    than the "details are on the original posting" fallback;
+ *  - it placed the role in a named category. "Other" is where the model puts
+ *    listings it could not read, and about half the board sits there, so it is
+ *    the single most useful signal that nobody should trust this one yet.
+ *
+ * Anything failing one of the three waits in the queue. That is the point: the
+ * gate is meant to be narrow, not to clear the queue.
+ */
+function autoApprove(job: RawJob, category: string, fromAi: boolean): boolean {
+  return job.singleListingUrl === true && fromAi && category !== "Other";
+}
+
 /** Active searches, from the database so the team can retarget without a deploy. */
 async function activeSearches(): Promise<JobSearch[]> {
   const { data, error } = await supabaseAdmin()
@@ -165,28 +197,31 @@ async function recordBoardRuns(
   );
 }
 
-export async function ingestJobs(): Promise<IngestResult> {
+/**
+ * Enrich a batch of listings and store them, whoever found them.
+ *
+ * This is the half of the ingest that decides what a listing looks like on
+ * this site: the AI pass, the salary parse, slug allocation, the duplicate
+ * check and the review status. It was split out of `ingestJobs` when the
+ * Google scraper arrived, because that one runs on a machine outside Vercel
+ * and posts what it finds to `/api/ingest/jobs`. Re-implementing any of this
+ * over there would have meant two answers to the same question, and the one on
+ * the laptop would be the one nobody re-read.
+ *
+ * So the scheduled ingest fetches from its sources and calls this; the
+ * endpoint validates its body and calls this. Neither owns the rules.
+ */
+export async function ingestRawJobs(incoming: RawJob[]): Promise<IngestResult> {
   const db = supabaseAdmin();
-  const [searches, boards] = await Promise.all([activeSearches(), activeBoards()]);
-  if (searches.length === 0 && boards.length === 0) {
-    console.log("[ingest] no active job searches or employer boards configured");
-    return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
-  }
 
-  // Every source, in parallel. The keyed ones answer searches; the employer
-  // boards answer a curated list and need no key at all. A source with nothing
-  // configured logs that it is sitting out and returns nothing, which is also
-  // how the whole ingest behaves before anyone has signed up for anything.
-  const [jooble, careerjet, boardResult] = await Promise.all([
-    fetchJooble(searches),
-    fetchCareerjet(searches),
-    fetchBoards(boards),
-  ]);
-  await recordBoardRuns(boards, boardResult.errors);
-
-  const fetched = dedupe([...jooble, ...careerjet, ...boardResult.jobs]);
+  // Deduped again here rather than trusting the caller: `ingestJobs` has
+  // already done it across its sources, but the endpoint's body is whatever
+  // was posted to it, and `source_url` is a unique column.
+  const fetched = dedupe(incoming);
   console.log(`[ingest] fetched ${fetched.length} listings`);
-  if (fetched.length === 0) return { fetched: 0, inserted: 0, skipped: 0, enriched: 0 };
+  if (fetched.length === 0) {
+    return { fetched: 0, inserted: 0, skipped: 0, enriched: 0, approved: 0 };
+  }
 
   // Skip anything we already hold. source_url is unique, so this is only to
   // avoid paying for AI calls we would then throw away.
@@ -201,7 +236,13 @@ export async function ingestJobs(): Promise<IngestResult> {
   console.log(`[ingest] ${fresh.length} new, ${fetched.length - fresh.length} already held`);
 
   if (fresh.length === 0) {
-    return { fetched: fetched.length, inserted: 0, skipped: fetched.length, enriched: 0 };
+    return {
+      fetched: fetched.length,
+      inserted: 0,
+      skipped: fetched.length,
+      enriched: 0,
+      approved: 0,
+    };
   }
 
   const enrichments = await mapLimit(fresh, AI_CONCURRENCY, (job) => enrich(job));
@@ -215,7 +256,7 @@ export async function ingestJobs(): Promise<IngestResult> {
   const rows = [];
   for (let i = 0; i < fresh.length; i++) {
     const job = fresh[i];
-    const { value } = enrichments[i];
+    const { value, fromAi } = enrichments[i];
     const salary = parseSalary(job.salary);
     rows.push({
       slug: await uniqueSlug("jobs", job.title, reserved),
@@ -236,7 +277,9 @@ export async function ingestJobs(): Promise<IngestResult> {
       apply_by: value.applyBy,
       posted_at: job.postedAt,
       expires_at: jobExpiry(job.postedAt),
-      status: "pending" as const,
+      status: autoApprove(job, value.category, fromAi)
+        ? ("approved" as const)
+        : ("pending" as const),
     });
   }
 
@@ -245,23 +288,53 @@ export async function ingestJobs(): Promise<IngestResult> {
   const { data: inserted, error: insertErr } = await db
     .from("jobs")
     .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
-    .select("id");
+    .select("id, status");
   if (insertErr) throw new Error(`insert failed: ${insertErr.message}`);
-
-  await db
-    .from("job_searches")
-    .update({ last_run_at: new Date().toISOString() })
-    .eq("active", true);
 
   const result: IngestResult = {
     fetched: fetched.length,
     inserted: inserted?.length ?? 0,
     skipped: fetched.length - fresh.length,
     enriched: enrichments.filter((e) => e.fromAi).length,
+    // Counted from what came back, not from what was sent: `ignoreDuplicates`
+    // means a row we built may not be a row that landed.
+    approved: (inserted ?? []).filter((r) => (r as { status: string }).status === "approved")
+      .length,
   };
   console.log(
-    `[ingest] inserted ${result.inserted} pending jobs (${result.enriched} AI-summarized)`,
+    `[ingest] inserted ${result.inserted} listings — ${result.approved} approved, ` +
+      `${result.inserted - result.approved} pending review (${result.enriched} AI-summarized)`,
   );
+  return result;
+}
+
+/** The scheduled run: ask every configured source, then hand the lot to
+ *  `ingestRawJobs`. */
+export async function ingestJobs(): Promise<IngestResult> {
+  const [searches, boards] = await Promise.all([activeSearches(), activeBoards()]);
+  if (searches.length === 0 && boards.length === 0) {
+    console.log("[ingest] no active job searches or employer boards configured");
+    return { fetched: 0, inserted: 0, skipped: 0, enriched: 0, approved: 0 };
+  }
+
+  // Every source, in parallel. The keyed ones answer searches; the employer
+  // boards answer a curated list and need no key at all. A source with nothing
+  // configured logs that it is sitting out and returns nothing, which is also
+  // how the whole ingest behaves before anyone has signed up for anything.
+  const [jooble, careerjet, boardResult] = await Promise.all([
+    fetchJooble(searches),
+    fetchCareerjet(searches),
+    fetchBoards(boards),
+  ]);
+  await recordBoardRuns(boards, boardResult.errors);
+
+  const result = await ingestRawJobs([...jooble, ...careerjet, ...boardResult.jobs]);
+
+  await supabaseAdmin()
+    .from("job_searches")
+    .update({ last_run_at: new Date().toISOString() })
+    .eq("active", true);
+
   return result;
 }
 

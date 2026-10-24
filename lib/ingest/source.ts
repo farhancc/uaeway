@@ -18,6 +18,23 @@ export interface RawJob {
   /** An excerpt. We summarise in our own words and link out; never republished. */
   description: string;
   postedAt: string;
+  /**
+   * The producer's assertion that `sourceUrl` is one job posting rather than a
+   * board's search or category page.
+   *
+   * It exists because of one source. Jooble, Careerjet and the employer boards
+   * return listings by construction — there is nothing else in their feeds to
+   * confuse. A Google search is the opposite: ask it for "accountant jobs in
+   * Dubai" and the first page is almost entirely category pages, whose titles
+   * read like job titles and whose snippets are six unrelated roles mashed
+   * together. Summarising one of those produces a listing that describes a
+   * role nobody advertised.
+   *
+   * So a source that cannot tell the difference leaves this unset, and the
+   * ingest treats it as "not established" — not as false. It is provenance,
+   * not a verdict: what the ingest *does* with it is decided in `jobs.ts`.
+   */
+  singleListingUrl?: boolean;
 }
 
 export interface JobSearch {

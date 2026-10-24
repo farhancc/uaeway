@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+# Not rooted: the WhatsApp worker in services/ is its own npm package.
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*

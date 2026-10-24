@@ -8,3 +8,7 @@
 # Nothing here is needed to build or serve the site.
 tests
 supabase/.temp
+
+# The jobs worker is its own npm package and runs on a laptop, not here.
+# Baileys cannot run on Vercel at all — see services/whatsapp/README.md.
+services
