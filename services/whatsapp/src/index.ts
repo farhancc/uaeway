@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { MongoClient } from "mongodb";
 import cron from "node-cron";
-import { fetchApprovedJobs } from "./board.js";
+import { fetchUnpostedJobs } from "./board.js";
 import { WhatsAppClient } from "./client.js";
 import { config } from "./config.js";
 import { composeMessage } from "./message.js";
@@ -94,16 +94,20 @@ async function main(): Promise<void> {
     posting = true;
 
     try {
-      const approved = await fetchApprovedJobs();
-      const fresh = await posted.unposted(approved);
+      // Walks the board from the newest until it finds enough the group has
+      // not been sent. Paging matters: the board holds far more approved
+      // listings than one page, and every one of them is meant to go out.
+      const { ready: batch, approved } = await fetchUnpostedJobs(
+        config.jobsPerPost,
+        (jobs) => posted.unposted(jobs),
+      );
 
-      if (fresh.length === 0) {
-        const detail = `nothing new (${approved.length} approved, all already sent)`;
+      if (batch.length === 0) {
+        const detail = `nothing new (${approved} approved, all already sent)`;
         console.log(`[worker] ${trigger}: ${detail}`);
         return (lastPost = { ok: true, detail, at: iso() });
       }
 
-      const batch = fresh.slice(0, config.jobsPerPost);
       const message = composeMessage(batch);
       if (!message) {
         return (lastPost = { ok: true, detail: "nothing to say", at: iso() });
@@ -120,7 +124,7 @@ async function main(): Promise<void> {
       // Only now, and only for what actually went out. See `markPosted`.
       await posted.markPosted(batch.map((j) => j.slug));
 
-      const detail = `posted ${batch.length} listing(s), ${fresh.length - batch.length} still queued`;
+      const detail = `posted ${batch.length} of ${approved} approved listing(s)`;
       console.log(`[worker] ${trigger}: ${detail}`);
       return (lastPost = { ok: true, detail, at: iso() });
     } catch (err) {

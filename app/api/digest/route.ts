@@ -1,4 +1,4 @@
-import { listJobs } from "@/lib/content/queries";
+import { listJobs, searchJobs } from "@/lib/content/queries";
 import { assertCron } from "@/lib/cron";
 import { SITE } from "@/lib/site";
 import { buildDigest } from "@/lib/social/jobs-digest";
@@ -16,11 +16,16 @@ import { buildDigest } from "@/lib/social/jobs-digest";
  *
  *  - no `format`: the day's digest as text, unchanged, for anything that wants
  *    something ready to paste.
- *  - `?format=json`: the approved listings as rows. The WhatsApp worker posts
- *    hourly and must not repeat itself, so it needs to know *which* jobs these
- *    are to compare against the ones it has already sent. Pre-rendered text
- *    cannot answer that, and tracking it here would mean this endpoint owning
- *    the state of a channel it does not post to.
+ *  - `?format=json`: the approved listings as rows, with `limit` and `offset`.
+ *    The WhatsApp worker posts hourly and must not repeat itself, so it needs
+ *    to know *which* jobs these are to compare against the ones it has already
+ *    sent. Pre-rendered text cannot answer that, and tracking it here would
+ *    mean this endpoint owning the state of a channel it does not post to.
+ *
+ *    `offset` exists so the worker can reach every approved listing rather
+ *    than only the newest page. Without it the group would fall silent as soon
+ *    as the first page had been sent, with the rest of the board still
+ *    unposted. `total` comes back so the worker knows when to stop walking.
  *
  * Guarded by the same CRON_SECRET as the scheduled routes: the listings are
  * public information, but an unauthenticated endpoint that queries the
@@ -49,9 +54,16 @@ export async function GET(request: Request) {
         ? Math.min(Math.max(Math.trunc(requested), 1), MAX_LIMIT)
         : DEFAULT_LIMIT;
 
-      const jobs = await listJobs({ limit });
+      const askedOffset = Number(url.searchParams.get("offset") ?? 0);
+      const offset =
+        Number.isFinite(askedOffset) && askedOffset > 0 ? Math.trunc(askedOffset) : 0;
+
+      const { total } = await searchJobs({ limit: 1 });
+      const jobs = await listJobs({ limit, offset });
 
       return Response.json({
+        total,
+        offset,
         jobs: jobs.map((job) => ({
           slug: job.slug,
           title: job.title,

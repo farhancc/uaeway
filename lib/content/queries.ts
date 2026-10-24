@@ -47,6 +47,21 @@ export interface JobFilters {
   document?: string;
   /** Only listings posted within this many days. */
   postedWithinDays?: number;
+  /**
+   * How many rows to skip, for walking the whole set a page at a time.
+   *
+   * The WhatsApp worker needs this. It posts a few listings an hour and skips
+   * what it has already sent, so "the newest 60" is not a set it can work
+   * from: once those are sent it would go silent for good while a hundred and
+   * sixty approved listings sat here unposted. It pages from the top instead
+   * and stops when it has found enough it has not seen.
+   *
+   * The ordering is only stable between pages for as long as nothing is
+   * approved mid-walk. A listing approved between two requests can shift the
+   * offsets and be stepped over — which is why the worker restarts from the
+   * first page on every run rather than remembering where it got to.
+   */
+  offset?: number;
   /** Monthly AED. Keeps listings whose range reaches this figure — a job
    *  paying 8–12k is a match for someone asking for at least 10k. */
   salaryMin?: number;
@@ -149,9 +164,14 @@ export async function listJobs(filters: JobFilters = {}): Promise<JobSummary[]> 
   if (!isPublicDbConfigured()) return [];
 
   const sort = SORTS[filters.sort ?? "newest"];
+  const limit = filters.limit ?? 40;
+  const offset = filters.offset ?? 0;
+
+  // `range` rather than `limit`, because it does both. With the default offset
+  // of 0 it is exactly the limit this used to apply.
   const { data, error } = await liveJobs(filters)
     .order(sort.column, { ascending: sort.ascending })
-    .limit(filters.limit ?? 40);
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.warn(`[content] listJobs: ${error.message}`);

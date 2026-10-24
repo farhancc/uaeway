@@ -12,7 +12,18 @@ const calls: { method: string; args: unknown[] }[] = [];
 
 function recorder() {
   const chain: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "or", "in", "contains", "gte", "order", "limit", "textSearch"]) {
+  for (const method of [
+    "select",
+    "eq",
+    "or",
+    "in",
+    "contains",
+    "gte",
+    "order",
+    "limit",
+    "range",
+    "textSearch",
+  ]) {
     chain[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return chain;
@@ -150,5 +161,36 @@ describe("sort order", () => {
     expect(isJobSort("newest")).toBe(true);
     expect(isJobSort("salary")).toBe(false);
     expect(isJobSort(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Paging is not a convenience here. The WhatsApp worker posts a few approved
+ * listings an hour and skips what it has already sent, so it has to be able to
+ * reach past the first page — otherwise the group falls silent as soon as the
+ * newest page has gone out, with the rest of the board still unposted. That
+ * was a real bug: 161 of 221 approved listings were unreachable.
+ */
+describe("paging", () => {
+  it("asks for a window, so a caller can walk past the newest page", async () => {
+    calls.length = 0;
+    await listJobs({ limit: 60, offset: 120 });
+
+    // Inclusive bounds: rows 120..179 is the third page of sixty.
+    expect(used("range")[0].args).toEqual([120, 179]);
+  });
+
+  it("starts at the top when no offset is given", async () => {
+    calls.length = 0;
+    await listJobs({ limit: 40 });
+
+    expect(used("range")[0].args).toEqual([0, 39]);
+  });
+
+  it("still applies the default page size", async () => {
+    calls.length = 0;
+    await listJobs({});
+
+    expect(used("range")[0].args).toEqual([0, 39]);
   });
 });
