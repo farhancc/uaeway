@@ -30,5 +30,14 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // The jobs worker is its own npm package with its own tsconfig, Node-only
+    // libs and its own node_modules. Left in, the site's build type-checks it
+    // against the *site's* dependencies and fails on `baileys`, `pino`,
+    // `node-cron` and `qrcode-terminal` — which it will never have. That only
+    // shows up on a clean checkout, because a local `npm install` in
+    // services/whatsapp makes the imports resolve by accident.
+    "services"
+  ]
 }
