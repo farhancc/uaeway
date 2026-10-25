@@ -56,6 +56,19 @@ export class PostedLog {
   }
 
   /**
+   * How many listings have been sent since an instant.
+   *
+   * This is the day's budget. It is counted rather than stored because the log
+   * already timestamps every listing sent, and a counter would be a second
+   * copy of the same fact that a restart could disagree with: a worker that
+   * comes back at noon must know the morning already posted, not start the
+   * day's ten again.
+   */
+  async countSince(since: Date): Promise<number> {
+    return this.col.countDocuments({ postedAt: { $gte: since } });
+  }
+
+  /**
    * Records what was sent.
    *
    * Called *after* the message goes out, not before. If the process dies in

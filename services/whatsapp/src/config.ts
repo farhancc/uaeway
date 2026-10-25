@@ -85,12 +85,20 @@ export const config = {
   // --- Schedules --------------------------------------------------------------
 
   /**
-   * Every hour from 7am to 10pm, which is sixteen posts a day.
+   * The day's budget, in listings rather than messages.
    *
-   * The post only goes out if there are approved listings the group has not
-   * already been sent, so a quiet stretch is silence rather than a repeat.
+   * Ten a day, one or two at a time, at intervals nobody can predict — which
+   * is why there is no posting cron any more. A cron posts the same count at
+   * the same minute, and the pacing is now worked out per post in `pacing.ts`.
+   * The window below is the only fixed part.
    */
-  postCron: process.env.POST_CRON ?? "0 7-22 * * *",
+  dailyJobs: Number(process.env.DAILY_JOBS ?? 10),
+  /** At most this many listings in one message. Two keeps it looking typed. */
+  maxPerPost: Number(process.env.MAX_PER_POST ?? 2),
+  /** Posting hours, local to the zone below. 22 means the last post may land
+   *  at 22:59. */
+  windowStartHour: Number(process.env.POST_START_HOUR ?? 7),
+  windowEndHour: Number(process.env.POST_END_HOUR ?? 22),
   /**
    * The scrape runs twice a day, not hourly, for two reasons: Google's index of
    * a job board does not meaningfully change within an hour, and sixteen
@@ -101,19 +109,9 @@ export const config = {
 
   // --- Posting shape ----------------------------------------------------------
 
-  /** At most this many listings per message; fewer when fewer are new. Three
-   *  fits a phone screen without scrolling past the safety line. */
-  jobsPerPost: Number(process.env.JOBS_PER_POST ?? 3),
   /** How many approved listings to pull and filter against the posted log. It
    *  has to exceed what a day of posting can drain. */
   boardPoolSize: Number(process.env.BOARD_POOL_SIZE ?? 60),
-  /**
-   * Posts land up to this many minutes after the hour, at random.
-   *
-   * A message at exactly 09:00:00.4 every hour is a robot, and WhatsApp's own
-   * abuse heuristics are not the only thing reading it — so is the group.
-   */
-  jitterMinutes: Number(process.env.JITTER_MINUTES ?? 7),
 
   /**
    * The local status/trigger server. Bound to loopback, not every interface:

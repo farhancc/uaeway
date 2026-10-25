@@ -1,7 +1,8 @@
 # Jobs worker
 
-Finds UAE jobs on Google, hands them to the site, and posts the approved ones
-to a WhatsApp group every hour from 7am to 10pm India time.
+Finds UAE jobs on Google, hands them to the site, and drip-feeds the approved
+ones into a WhatsApp group — ten listings a day, one or two at a time, between
+7am and 10pm India time.
 
 Runs on your own machine, in a terminal. There is no web interface and nothing
 to deploy.
@@ -14,8 +15,8 @@ to deploy.
           │                                │                             │ slug,
           │                                │                             │ review
           │                                │                             │
-          │                hourly 7am-10pm │ ◀── GET /api/digest?json ───┤ approved
-          │                                │     (approved listings)     │ only
+          │              10 a day, 1-2 at  │ ◀── GET /api/digest?json ───┤ approved
+          │              a time, irregular │     (approved listings)     │ only
           │                                ▼                             │
           │                     WhatsApp group                           │
 ```
@@ -27,9 +28,19 @@ listing waiting for review, one that expired, and one past the employer's
 closing date are all already absent. The worker never decides what is postable.
 
 **Never the same listing twice.** It keeps the slugs it has sent in Mongo
-(`whatsapp_posted`) and posts only what is left, a few at a time. When there is
-nothing new it says nothing — a group that gets sixteen "no jobs today"
-notices a day is a group that mutes this.
+(`whatsapp_posted`) and posts only what is left. When there is nothing new it
+says nothing — a group that gets a string of "no jobs today" notices is a group
+that mutes this.
+
+**Nothing on a schedule anyone can spot.** There is no posting cron. A cron
+sends the same number of listings at the same minute of every hour, which is
+the clearest possible sign that nobody is typing these. Instead the day has a
+budget of ten listings, each message carries one or two at random, and each
+post works out its own delay before the next from how much of the day and the
+budget are left. Gaps come out irregular, the day spreads itself, and a worker
+restarted at noon counts what the morning already sent rather than starting the
+ten again. All of that is `src/pacing.ts`, and it is covered by tests so the
+irregularity can be checked without waiting a day.
 
 **Never a salary the employer did not state.** The board stores pay verbatim or
 not at all, and the message passes it through unchanged. The Google snippets do
@@ -152,8 +163,11 @@ pattern in `src/serper.ts` needs re-measuring.
 npm start
 ```
 
-It stays in the foreground and prints what it does. Leave it running — the
-schedules are inside the process, so nothing happens while it is closed.
+It stays in the foreground and prints what it does, including when it intends
+to post next. Leave it running — the pacing lives inside the process, so
+nothing happens while it is closed. Nothing is lost if it stops: the next run
+posts whatever is still unsent, and the day's budget is recounted from the log
+rather than restarted.
 
 ### 5. Check the posting without waiting for the hour
 
@@ -163,17 +177,19 @@ curl -X POST localhost:3100/run    -H "Authorization: Bearer $CRON_SECRET"
 curl localhost:3100
 ```
 
-`/scrape` searches and pushes, `/run` posts immediately with no jitter, and a
-plain `GET` shows the connection status, both schedules and the last outcome of
-each. The server is bound to loopback, so it is not reachable from the network.
+`/scrape` searches and pushes, `/run` posts immediately — ignoring the day's
+budget and the window, because someone testing wants to see a message rather
+than a coin toss — and a plain `GET` shows the connection status, the posting
+rules, when the next post is due and the last outcome of each. The server is
+bound to loopback, so it is not reachable from the network.
 
 ## Things that will bite you
 
 **The number can get banned.** Baileys is an unofficial client and WhatsApp's
-terms prohibit those. Sixteen posts a day into one group from a linked device
-that stays connected is far safer than a burst, but it is not safe. Use a
-dedicated SIM you can afford to lose — not a personal number, and not one
-anything else depends on.
+terms prohibit those. A handful of posts a day into one group, at irregular
+intervals, from a linked device that stays connected is about as unremarkable
+as this can be made — but it is not safe. Use a dedicated SIM you can afford to
+lose: not a personal number, and not one anything else depends on.
 
 **Baileys is on a release candidate.** `baileys@latest` is `7.0.0-rc14`; the
 6.x line is tagged `legacy` and no longer tracks WhatsApp's protocol. The
@@ -190,9 +206,10 @@ yield silently drops to zero for that board. The per-query counts are logged on
 every run; a board that logs `0 postings from 10 results` twice in a row has
 changed its URLs.
 
-**It is not a server.** Closing the terminal stops the schedule. There is no
-catch-up for a missed hour; the next run posts whatever is still unposted,
-which is the right behaviour — nothing is lost, it just arrives later.
+**It is not a server.** Closing the terminal stops the posting. There is no
+catch-up for the time it was down; the next run posts whatever is still
+unposted and the day's remaining budget is whatever the log says it is. Nothing
+is lost, it just arrives later.
 
 ## Local development
 

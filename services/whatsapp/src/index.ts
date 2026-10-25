@@ -5,6 +5,15 @@ import { fetchUnpostedJobs } from "./board.js";
 import { WhatsAppClient } from "./client.js";
 import { config } from "./config.js";
 import { composeMessage } from "./message.js";
+import {
+  nextWindowOpen,
+  pickBatchSize,
+  pickDelay,
+  windowClosesAt,
+  windowOpenedAt,
+  withinWindow,
+  type Window,
+} from "./pacing.js";
 import { PostedLog } from "./posted.js";
 import { pushListings } from "./push.js";
 import { fetchSerperListings } from "./serper.js";
@@ -13,13 +22,14 @@ import { fetchSerperListings } from "./serper.js";
  * The worker: find jobs on Google, hand them to the site, post the approved
  * ones to WhatsApp.
  *
- * Two schedules, on purpose, because the two halves move at different speeds:
+ * The two halves move at different speeds and are scheduled differently:
  *
- *   scrape  twice a day   Google's index of a job board does not change by the
- *                         hour, and every query costs a Serper credit
- *   post    hourly, 7-22  drains the pool of approved listings the group has
- *                         not seen, a few at a time, and says nothing when
- *                         there is nothing new
+ *   scrape  a cron, twice a day — Google's index of a job board does not
+ *           change by the hour, and every query costs a Serper credit
+ *   post    no cron at all. Ten listings a day, one or two a message, each
+ *           post choosing its own delay before the next. See `pacing.ts`:
+ *           a fixed hourly count at a fixed minute is the most obvious sign
+ *           that nobody is typing these.
  *
  * They are not chained. A scrape produces listings that mostly wait for review
  * in the admin queue, so there is no moment when "the scrape finished" means
@@ -33,6 +43,9 @@ let lastPost: RunOutcome | null = null;
 let lastScrape: RunOutcome | null = null;
 let posting = false;
 let scraping = false;
+let stopping = false;
+let nextTimer: NodeJS.Timeout | null = null;
+let nextPostAt: Date | null = null;
 
 function iso(): string {
   return new Date().toISOString();
@@ -83,23 +96,40 @@ async function main(): Promise<void> {
     }
   };
 
+  const window: Window = {
+    startHour: config.windowStartHour,
+    endHour: config.windowEndHour,
+    timezone: config.timezone,
+  };
+
+  /** Listings still allowed today, counted from the log rather than stored. */
+  const budgetLeft = async (now: Date): Promise<number> => {
+    const sent = await posted.countSince(windowOpenedAt(now, window));
+    return Math.max(config.dailyJobs - sent, 0);
+  };
+
   /**
-   * One hour's post.
+   * One message.
    *
-   * `jitter` is only for the scheduled run: a manual trigger should answer now,
-   * and nothing is watching a hand-typed curl for machine-like timing.
+   * `size` is how many listings to carry. A manual trigger passes nothing and
+   * gets the configured maximum, because someone testing wants to see a post
+   * rather than a coin toss.
    */
-  const post = async (trigger: string, jitter: boolean): Promise<RunOutcome> => {
+  const post = async (trigger: string, size?: number): Promise<RunOutcome> => {
     if (posting) return { ok: false, detail: "already posting", at: iso() };
     posting = true;
 
     try {
+      const want = size ?? config.maxPerPost;
+      if (want <= 0) {
+        return (lastPost = { ok: true, detail: "nothing left in today's budget", at: iso() });
+      }
+
       // Walks the board from the newest until it finds enough the group has
       // not been sent. Paging matters: the board holds far more approved
       // listings than one page, and every one of them is meant to go out.
-      const { ready: batch, approved } = await fetchUnpostedJobs(
-        config.jobsPerPost,
-        (jobs) => posted.unposted(jobs),
+      const { ready: batch, approved } = await fetchUnpostedJobs(want, (jobs) =>
+        posted.unposted(jobs),
       );
 
       if (batch.length === 0) {
@@ -113,18 +143,13 @@ async function main(): Promise<void> {
         return (lastPost = { ok: true, detail: "nothing to say", at: iso() });
       }
 
-      if (jitter && config.jitterMinutes > 0) {
-        const delay = Math.floor(Math.random() * config.jitterMinutes * 60_000);
-        console.log(`[worker] ${trigger}: waiting ${Math.round(delay / 1000)}s before posting`);
-        await sleep(delay);
-      }
-
       await client.sendText(config.groupJid, message);
 
       // Only now, and only for what actually went out. See `markPosted`.
       await posted.markPosted(batch.map((j) => j.slug));
 
-      const detail = `posted ${batch.length} of ${approved} approved listing(s)`;
+      const left = await budgetLeft(new Date());
+      const detail = `posted ${batch.length} of ${approved} approved, ${left} left in today's ${config.dailyJobs}`;
       console.log(`[worker] ${trigger}: ${detail}`);
       return (lastPost = { ok: true, detail, at: iso() });
     } catch (err) {
@@ -134,6 +159,67 @@ async function main(): Promise<void> {
     } finally {
       posting = false;
     }
+  };
+
+  /**
+   * The posting loop: post, then decide when to wake up again.
+   *
+   * A timer rather than a cron, because the gaps have to be unpredictable and
+   * the day has a budget to spread rather than a slot to fill. Every wake-up
+   * recomputes from the clock and the log, so a restart, a long outage or a
+   * day that ran out all resolve themselves without any stored schedule.
+   */
+  const scheduleNext = (delayMs: number, why: string): void => {
+    if (stopping) return;
+    const at = new Date(Date.now() + delayMs);
+    nextPostAt = at;
+    console.log(
+      `[worker] next post ${at.toLocaleString("en-GB", { timeZone: config.timezone })} (${why})`,
+    );
+    nextTimer = setTimeout(() => void tick(), delayMs);
+  };
+
+  const tick = async (): Promise<void> => {
+    if (stopping) return;
+    const now = new Date();
+
+    if (!withinWindow(now, window)) {
+      scheduleNext(nextWindowOpen(now, window).getTime() - now.getTime(), "window closed");
+      return;
+    }
+
+    const remaining = await budgetLeft(now);
+    if (remaining <= 0) {
+      scheduleNext(
+        nextWindowOpen(now, window).getTime() - now.getTime(),
+        `today's ${config.dailyJobs} are done`,
+      );
+      return;
+    }
+
+    const size = pickBatchSize(remaining, config.maxPerPost, Math.random);
+    await post("scheduled", size);
+
+    const after = await budgetLeft(new Date());
+    const msLeft = windowClosesAt(now, window).getTime() - Date.now();
+
+    if (after <= 0 || msLeft <= 0) {
+      scheduleNext(
+        nextWindowOpen(new Date(), window).getTime() - Date.now(),
+        after <= 0 ? `today's ${config.dailyJobs} are done` : "window closed",
+      );
+      return;
+    }
+
+    scheduleNext(
+      pickDelay({
+        remaining: after,
+        maxPerPost: config.maxPerPost,
+        msLeftInWindow: msLeft,
+        rng: Math.random,
+      }),
+      `${after} of today's ${config.dailyJobs} left`,
+    );
   };
 
   // A small loopback server, so a run can be triggered and the state inspected
@@ -158,7 +244,7 @@ async function main(): Promise<void> {
     };
 
     if (req.method === "POST" && url.pathname === "/run") {
-      trigger("manual post", () => post("manual", false));
+      trigger("manual post", () => post("manual"));
       return;
     }
 
@@ -172,10 +258,13 @@ async function main(): Promise<void> {
       JSON.stringify({
         ok: true,
         whatsapp: client.getStatus(),
-        schedules: {
-          post: `${config.postCron} (${config.timezone})`,
-          scrape: `${config.scrapeCron} (${config.timezone})`,
+        posting: {
+          perDay: config.dailyJobs,
+          perMessage: `1-${config.maxPerPost}`,
+          window: `${config.windowStartHour}:00-${config.windowEndHour}:59 ${config.timezone}`,
+          nextPostAt: nextPostAt?.toISOString() ?? null,
         },
+        scrape: `${config.scrapeCron} (${config.timezone})`,
         lastPost,
         lastScrape,
       }),
@@ -186,14 +275,22 @@ async function main(): Promise<void> {
     console.log(`[worker] status on http://${config.host}:${config.port}`);
   });
 
-  cron.schedule(config.postCron, () => void post("scheduled", true), {
-    timezone: config.timezone,
-  });
   cron.schedule(config.scrapeCron, () => void scrape("scheduled"), {
     timezone: config.timezone,
   });
   console.log(
-    `[worker] posting "${config.postCron}", scraping "${config.scrapeCron}" (${config.timezone})`,
+    `[worker] ${config.dailyJobs} listings a day, 1-${config.maxPerPost} a message, ` +
+      `${config.windowStartHour}:00-${config.windowEndHour}:59 ${config.timezone}; ` +
+      `scraping "${config.scrapeCron}"`,
+  );
+
+  // The first wake-up is soon but not instant: a post the moment the process
+  // starts would make every restart visible in the group.
+  scheduleNext(
+    withinWindow(new Date(), window)
+      ? 30_000 + Math.random() * 4 * 60_000
+      : nextWindowOpen(new Date(), window).getTime() - Date.now(),
+    "startup",
   );
 
   // Started last and not awaited: a session that needs re-pairing must not stop
@@ -204,6 +301,8 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} — shutting down`);
+    stopping = true;
+    if (nextTimer) clearTimeout(nextTimer);
     client.stop();
     server.close();
     await mongo.close();
