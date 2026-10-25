@@ -84,6 +84,19 @@ function opener(now: Date, count: number): string {
   return line;
 }
 
+/**
+ * The board itself, on every message.
+ *
+ * A message carries a handful of listings; the site carries several hundred,
+ * filterable by emirate, category, salary and what paperwork each needs. Most
+ * people reading this are not looking for the three roles that happen to be in
+ * front of them, so the last line is always the way through to the rest.
+ *
+ * Fixed wording, like the fee warning and unlike the openers. A call to action
+ * that reworded itself every hour would read as a machine trying on voices.
+ */
+const JOBS_LINK = `Find your job here: ${config.siteUrl}/en/jobs`;
+
 /** Shown only now and then. Every hour and it is wallpaper; never and nobody
  *  learns that attestation is a thing they will need. */
 const NUDGES = [
@@ -146,6 +159,11 @@ export function composeMessage(jobs: BoardJob[], now = new Date()): string | nul
     lines.push("");
     lines.push(rotate(NUDGES, now));
   }
+
+  // Last, always. Whatever else a message carries, it ends with the way to the
+  // rest of the board.
+  lines.push("");
+  lines.push(JOBS_LINK);
 
   return lines.join("\n");
 }

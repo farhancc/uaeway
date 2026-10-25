@@ -60,6 +60,25 @@ describe("facts", () => {
     }
   });
 
+  it("ends every message with the way to the rest of the board", () => {
+    // A message carries three listings; the site carries hundreds. Whatever
+    // else is in the message — one listing or eight, nudge or no nudge — the
+    // last line is always the route through to the board.
+    for (const count of [1, 3, 8]) {
+      for (const at of [
+        new Date("2026-10-25T03:30:00Z"),
+        new Date("2026-10-25T04:30:00Z"),
+        new Date("2026-10-25T14:30:00Z"),
+      ]) {
+        const text = composeMessage(Array.from({ length: count }, () => job()), at)!;
+        const last = text.trimEnd().split("\n").at(-1)!;
+
+        expect(last).toContain("Find your job here:");
+        expect(last).toContain("/en/jobs");
+      }
+    }
+  });
+
   it("links every listing it mentions", () => {
     const jobs = [job({ slug: "a", url: "https://example.test/a" }), job({ slug: "b", url: "https://example.test/b" })];
     const text = composeMessage(jobs, MORNING)!;
