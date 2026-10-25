@@ -20,6 +20,4 @@ export interface Listing {
   description: string;
   /** ISO 8601. */
   postedAt: string;
-  /** Set only when the URL matched a single-listing pattern. See `serper.ts`. */
-  singleListingUrl?: boolean;
 }

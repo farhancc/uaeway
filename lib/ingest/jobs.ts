@@ -1,15 +1,19 @@
 /**
  * The job ingest: a source -> Gemini -> a row in `jobs`.
  *
- * It used to be true that nothing here publishes, and for the feeds it still
- * is: Jooble, Careerjet and the employer boards land pending and wait for a
- * human in the admin queue, because an AI summary that misstates a salary or
- * invents a requirement is our problem once it is on our domain.
+ * Everything published, from every source. That was not always so: listings
+ * used to land `pending` and wait for a human, then only the Google scraper's
+ * were let through automatically. Both of those are gone, because the WhatsApp
+ * group is meant to carry every listing the day brings in and a review cycle
+ * cannot keep up with that.
  *
- * The Google scraper added one exception, deliberately narrow, because its
- * listings feed an hourly WhatsApp post that a daily review cycle cannot keep
- * up with. `autoApprove` is that exception and the comment on it is the whole
- * argument; everything else is unchanged.
+ * What that costs is worth stating plainly: a Gemini summary that misreads a
+ * listing is on our domain and in a group of jobseekers without anyone having
+ * read it. The prompt is the only guard left — it is told never to state a
+ * salary, visa condition or requirement the listing does not contain, and the
+ * fallback summary when the model does not answer is the title and nothing
+ * else. `status` still exists, so a bad listing can be rejected by hand after
+ * the fact; nothing holds one back before.
  */
 
 import { generateJSON } from "../ai/gemini";
@@ -32,7 +36,8 @@ export interface IngestResult {
   inserted: number;
   skipped: number;
   enriched: number;
-  /** Of the inserted rows, how many skipped the review queue. See `autoApprove`. */
+  /** Of the inserted rows, how many are live on the board. Now the same as
+   *  `inserted`, kept because the scraper reports it back. */
   approved: number;
 }
 
@@ -127,30 +132,6 @@ async function enrich(job: RawJob): Promise<{ value: Enrichment; fromAi: boolean
     },
     fromAi: false,
   };
-}
-
-/**
- * Whether a listing may go on the site without a person reading it first.
- *
- * The default is still no, and for every source that existed before this it is
- * always no: Jooble, Careerjet and the employer boards land pending exactly as
- * they did. This opens one narrow door, for the Google scraper, and it needs
- * all three of these at once:
- *
- *  - the source established that the URL is a single posting rather than a
- *    board's category page; a source that left the flag unset has not
- *    established that — see the field's comment in `source.ts`;
- *  - the model actually answered, so the row carries a real summary rather
- *    than the "details are on the original posting" fallback;
- *  - it placed the role in a named category. "Other" is where the model puts
- *    listings it could not read, and about half the board sits there, so it is
- *    the single most useful signal that nobody should trust this one yet.
- *
- * Anything failing one of the three waits in the queue. That is the point: the
- * gate is meant to be narrow, not to clear the queue.
- */
-function autoApprove(job: RawJob, category: string, fromAi: boolean): boolean {
-  return job.singleListingUrl === true && fromAi && category !== "Other";
 }
 
 /** Active searches, from the database so the team can retarget without a deploy. */
@@ -256,7 +237,7 @@ export async function ingestRawJobs(incoming: RawJob[]): Promise<IngestResult> {
   const rows = [];
   for (let i = 0; i < fresh.length; i++) {
     const job = fresh[i];
-    const { value, fromAi } = enrichments[i];
+    const { value } = enrichments[i];
     const salary = parseSalary(job.salary);
     rows.push({
       slug: await uniqueSlug("jobs", job.title, reserved),
@@ -277,9 +258,9 @@ export async function ingestRawJobs(incoming: RawJob[]): Promise<IngestResult> {
       apply_by: value.applyBy,
       posted_at: job.postedAt,
       expires_at: jobExpiry(job.postedAt),
-      status: autoApprove(job, value.category, fromAi)
-        ? ("approved" as const)
-        : ("pending" as const),
+      // Every source, straight to the board. See the note at the top of this
+      // file for what that trades away.
+      status: "approved" as const,
     });
   }
 

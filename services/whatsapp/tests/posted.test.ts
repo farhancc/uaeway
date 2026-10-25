@@ -53,6 +53,7 @@ const job = (slug: string): BoardJob => ({
   summary: null,
   salaryText: null,
   postedAt: null,
+  createdAt: null,
   url: `https://example.test/${slug}`,
 });
 

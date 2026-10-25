@@ -23,6 +23,8 @@ export interface BoardJob {
   /** Verbatim employer text, or null. Never quoted as anything else. */
   salaryText: string | null;
   postedAt: string | null;
+  /** When the site took the listing in, not the employer's date. */
+  createdAt: string | null;
   url: string;
 }
 
@@ -31,11 +33,20 @@ interface Page {
   total: number;
 }
 
-async function fetchPage(limit: number, offset: number): Promise<Page> {
+/** How many approved listings match, without fetching them. Used to size the
+ *  day: the intake is whatever arrived since the window opened. */
+export async function countApprovedSince(addedSince: Date): Promise<number> {
+  return (await fetchPage(1, 0, addedSince)).total;
+}
+
+async function fetchPage(limit: number, offset: number, addedSince?: Date): Promise<Page> {
   const url = new URL(config.digestUrl);
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("offset", String(offset));
+  // Narrows the board to what the site took in since this instant, which is
+  // what "today's intake" means. Left off, the walk covers everything.
+  if (addedSince) url.searchParams.set("addedSince", addedSince.toISOString());
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${config.cronSecret}` },
@@ -71,10 +82,15 @@ async function fetchPage(limit: number, offset: number): Promise<Page> {
  * would be wrong: approvals, expiries and closing dates all change what is on
  * the board between runs, so an offset from an hour ago points somewhere else
  * now. Re-walking costs a handful of queries and is always correct.
+ *
+ * `addedSince` narrows the whole walk to listings the site took in after an
+ * instant. That is how the day's intake is separated from the backlog behind
+ * it, which are paced differently.
  */
 export async function fetchUnpostedJobs(
   want: number,
   seen: (jobs: BoardJob[]) => Promise<BoardJob[]>,
+  opts: { addedSince?: Date } = {},
 ): Promise<{ ready: BoardJob[]; approved: number }> {
   const pageSize = config.boardPoolSize;
   const ready: BoardJob[] = [];
@@ -84,7 +100,7 @@ export async function fetchUnpostedJobs(
   // Bounded so a board that keeps growing, or a `total` that disagrees with
   // what the pages return, cannot spin here.
   for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await fetchPage(pageSize, offset);
+    const result = await fetchPage(pageSize, offset, opts.addedSince);
     total = result.total;
 
     if (result.jobs.length === 0) break;

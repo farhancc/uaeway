@@ -19,6 +19,7 @@ const job = (over: Partial<BoardJob> = {}): BoardJob => ({
   summary: "Handles day-to-day accounting for a Dubai firm.",
   salaryText: null,
   postedAt: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
   url: "https://example.test/en/jobs/senior-accountant",
   ...over,
 });

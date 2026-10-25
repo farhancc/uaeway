@@ -25,19 +25,20 @@ function board(total: number): BoardJob[] {
     summary: null,
     salaryText: null,
     postedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     url: `https://example.test/en/jobs/job-${i}`,
   }));
 }
 
 /** Stands in for `/api/digest?format=json`, honouring limit and offset. */
 function serve(jobs: BoardJob[]) {
-  const requests: { limit: number; offset: number }[] = [];
+  const requests: { limit: number; offset: number; addedSince: string | null }[] = [];
 
   const fetchMock = vi.fn(async (input: string | URL) => {
     const url = new URL(String(input));
     const limit = Number(url.searchParams.get("limit"));
     const offset = Number(url.searchParams.get("offset"));
-    requests.push({ limit, offset });
+    requests.push({ limit, offset, addedSince: url.searchParams.get("addedSince") });
 
     return {
       ok: true,
@@ -149,5 +150,24 @@ describe("finding listings the group has not been sent", () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401 }) as Response));
 
     await expect(fetchUnpostedJobs(3, unpostedExcept(new Set()))).rejects.toThrow("401");
+  });
+});
+
+describe("narrowing to the day's intake", () => {
+  it("passes addedSince through so the walk covers only today's listings", async () => {
+    const requests = serve(board(221));
+    const since = new Date("2026-10-25T01:30:00Z");
+
+    await fetchUnpostedJobs(3, unpostedExcept(new Set()), { addedSince: since });
+
+    expect(requests[0]?.addedSince).toBe(since.toISOString());
+  });
+
+  it("leaves it off when no pool is named, so the walk covers everything", async () => {
+    const requests = serve(board(221));
+
+    await fetchUnpostedJobs(3, unpostedExcept(new Set()));
+
+    expect(requests[0]?.addedSince).toBeNull();
   });
 });

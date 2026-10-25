@@ -145,14 +145,21 @@ export function windowClosesAt(at: Date, window: Window): Date {
 /**
  * How many listings the next message carries.
  *
- * One or two, chosen at random, because a constant is the most obvious tell
- * that nobody is typing these. Never more than the budget has left, so the
- * day ends on its number rather than overshooting it.
+ * Somewhere in [min, max], chosen at random, because a constant count is the
+ * most obvious tell that nobody is typing these. Never more than is left to
+ * send, so a day ends on its number rather than overshooting it — and when
+ * fewer than `min` remain it sends those rather than holding them back for a
+ * batch that will never fill.
  */
-export function pickBatchSize(remaining: number, max: number, rng: Rng): number {
-  const ceiling = Math.min(max, remaining);
-  if (ceiling <= 1) return Math.max(ceiling, 0);
-  return 1 + Math.floor(rng() * ceiling);
+export function pickBatchSize(remaining: number, min: number, max: number, rng: Rng): number {
+  if (remaining <= 0) return 0;
+
+  const low = Math.max(Math.min(min, max), 1);
+  const high = Math.max(low, max);
+  const ceiling = Math.min(high, remaining);
+  const floor = Math.min(low, ceiling);
+
+  return floor + Math.floor(rng() * (ceiling - floor + 1));
 }
 
 /** Never two posts within this of each other, however the arithmetic falls. */
@@ -169,11 +176,17 @@ export const MIN_GAP_MS = 11 * 60_000;
  * instead of running past the window.
  */
 export function pickDelay(
-  opts: { remaining: number; maxPerPost: number; msLeftInWindow: number; rng: Rng },
+  opts: {
+    remaining: number;
+    minPerPost: number;
+    maxPerPost: number;
+    msLeftInWindow: number;
+    rng: Rng;
+  },
 ): number {
-  const { remaining, maxPerPost, msLeftInWindow, rng } = opts;
+  const { remaining, minPerPost, maxPerPost, msLeftInWindow, rng } = opts;
 
-  const averageBatch = (1 + Math.min(maxPerPost, Math.max(remaining, 1))) / 2;
+  const averageBatch = (minPerPost + Math.min(maxPerPost, Math.max(remaining, 1))) / 2;
   const postsLeft = Math.max(Math.ceil(remaining / averageBatch), 1);
   const meanGap = msLeftInWindow / postsLeft;
 

@@ -1,8 +1,8 @@
 # Jobs worker
 
-Finds UAE jobs on Google, hands them to the site, and drip-feeds the approved
-ones into a WhatsApp group — ten listings a day, one or two at a time, between
-7am and 10pm India time.
+Finds UAE jobs on Google, hands them to the site, and posts what the site
+takes in to a WhatsApp group — everything from today, from every source, in
+batches of a few, between 7am and 10pm India time.
 
 Runs on your own machine, in a terminal. There is no web interface and nothing
 to deploy.
@@ -15,17 +15,27 @@ to deploy.
           │                                │                             │ slug,
           │                                │                             │ review
           │                                │                             │
-          │              10 a day, 1-2 at  │ ◀── GET /api/digest?json ───┤ approved
-          │              a time, irregular │     (approved listings)     │ only
+          │          today's intake, 3-8  │ ◀── GET /api/digest?json ───┤ approved
+          │          a message, irregular │     (approved listings)     │ only
           │                                ▼                             │
           │                     WhatsApp group                           │
 ```
 
 ## What it will and will not post
 
-**Only approved listings.** `/api/digest` is the public board's own query, so a
-listing waiting for review, one that expired, and one past the employer's
-closing date are all already absent. The worker never decides what is postable.
+**Everything the site took in, from every source.** Not just the Google
+scraper — Jooble, Careerjet, the employer boards and anything added by hand all
+land on the board approved, and the worker reads the board rather than any one
+source. `/api/digest` is the public board's own query, so a listing that
+expired or is past the employer's closing date is already absent. The worker
+never decides what is postable.
+
+**Today's intake clears today.** The day's own listings set the pace: the
+worker counts what arrived since the window opened, subtracts what it has
+sent, and spreads the rest across the hours left. Behind them sit the hundreds
+the board already held, which get `BACKLOG_PER_DAY` a day — without an
+allowance they would never be posted at all, and with no limit one catch-up day
+would swamp the group.
 
 **Never the same listing twice.** It keeps the slugs it has sent in Mongo
 (`whatsapp_posted`) and posts only what is left. When there is nothing new it
@@ -34,13 +44,16 @@ that mutes this.
 
 **Nothing on a schedule anyone can spot.** There is no posting cron. A cron
 sends the same number of listings at the same minute of every hour, which is
-the clearest possible sign that nobody is typing these. Instead the day has a
-budget of ten listings, each message carries one or two at random, and each
-post works out its own delay before the next from how much of the day and the
-budget are left. Gaps come out irregular, the day spreads itself, and a worker
-restarted at noon counts what the morning already sent rather than starting the
-ten again. All of that is `src/pacing.ts`, and it is covered by tests so the
-irregularity can be checked without waiting a day.
+the clearest possible sign that nobody is typing these. Instead each message
+carries three to eight listings at random and works out its own delay before
+the next from what is left to send and how much of the window remains. Gaps
+come out irregular, the day spreads itself, and a worker restarted at noon
+counts what the morning already sent rather than starting over. All of that is
+`src/pacing.ts`, and it is covered by tests so a whole day — including a
+135-listing scrape day — can be simulated rather than waited out.
+
+The batch size is what keeps this readable. Forty-seven listings at one or two
+a message is thirty-one messages; at three to eight it is about eight.
 
 **Never a salary the employer did not state.** The board stores pay verbatim or
 not at all, and the message passes it through unchanged. The Google snippets do

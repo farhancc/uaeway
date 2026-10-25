@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { MongoClient } from "mongodb";
 import cron from "node-cron";
-import { fetchUnpostedJobs } from "./board.js";
+import { countApprovedSince, fetchUnpostedJobs } from "./board.js";
 import { WhatsAppClient } from "./client.js";
 import { config } from "./config.js";
 import { composeMessage } from "./message.js";
@@ -26,10 +26,16 @@ import { fetchSerperListings } from "./serper.js";
  *
  *   scrape  a cron, twice a day — Google's index of a job board does not
  *           change by the hour, and every query costs a Serper credit
- *   post    no cron at all. Ten listings a day, one or two a message, each
- *           post choosing its own delay before the next. See `pacing.ts`:
- *           a fixed hourly count at a fixed minute is the most obvious sign
- *           that nobody is typing these.
+ *   post    no cron at all. Everything the site took in today goes out today,
+ *           from every source, in batches of a few, each post choosing its own
+ *           delay before the next. See `pacing.ts`: a fixed count at a fixed
+ *           minute is the most obvious sign that nobody is typing these.
+ *
+ * Two pools, paced differently. The day's intake has to clear by the time the
+ * window closes, so it sets the rhythm. Behind it sit the hundreds of listings
+ * the board already held, which get a small allowance per day — without one
+ * they would never be posted at all, and with no limit a single catch-up day
+ * would swamp the group.
  *
  * They are not chained. A scrape produces listings that mostly wait for review
  * in the admin queue, so there is no moment when "the scrape finished" means
@@ -114,38 +120,61 @@ async function main(): Promise<void> {
     timezone: config.timezone,
   };
 
-  /** Listings still allowed today, counted from the log rather than stored. */
-  const budgetLeft = async (now: Date): Promise<number> => {
-    const sent = await posted.countSince(windowOpenedAt(now, window));
-    return Math.max(config.dailyJobs - sent, 0);
+  /**
+   * What is still owed today, split by pool.
+   *
+   * `intake` is every listing the site took in since the window opened that
+   * the group has not been sent — all of it is due today. `backlog` is the
+   * allowance left for older listings, counted from the log rather than
+   * stored, so a restart cannot double it.
+   */
+  const owed = async (now: Date) => {
+    const since = windowOpenedAt(now, window);
+    const [intakeTotal, intakePosted, backlogPosted] = await Promise.all([
+      countApprovedSince(since),
+      posted.countSince(since, { backlog: false }),
+      posted.countSince(since, { backlog: true }),
+    ]);
+
+    return {
+      since,
+      intake: Math.max(intakeTotal - intakePosted, 0),
+      backlog: Math.max(config.backlogPerDay - backlogPosted, 0),
+    };
   };
 
   /**
    * One message.
    *
-   * `size` is how many listings to carry. A manual trigger passes nothing and
-   * gets the configured maximum, because someone testing wants to see a post
-   * rather than a coin toss.
+   * `want` is how many listings to carry and `addedSince` which pool to draw
+   * from. A manual trigger passes neither and gets a full batch from anywhere,
+   * because someone testing wants to see a post rather than wait for a pool to
+   * have something in it.
    */
-  const post = async (trigger: string, size?: number): Promise<RunOutcome> => {
+  const post = async (
+    trigger: string,
+    opts: { want?: number; addedSince?: Date; backlog?: boolean } = {},
+  ): Promise<RunOutcome> => {
     if (posting) return { ok: false, detail: "already posting", at: iso() };
     posting = true;
 
     try {
-      const want = size ?? config.maxPerPost;
+      const want = opts.want ?? config.maxPerPost;
       if (want <= 0) {
-        return (lastPost = { ok: true, detail: "nothing left in today's budget", at: iso() });
+        return (lastPost = { ok: true, detail: "nothing due", at: iso() });
       }
 
       // Walks the board from the newest until it finds enough the group has
       // not been sent. Paging matters: the board holds far more approved
       // listings than one page, and every one of them is meant to go out.
-      const { ready: batch, approved } = await fetchUnpostedJobs(want, (jobs) =>
-        posted.unposted(jobs),
+      const { ready: batch, approved } = await fetchUnpostedJobs(
+        want,
+        (jobs) => posted.unposted(jobs),
+        { addedSince: opts.addedSince },
       );
 
       if (batch.length === 0) {
-        const detail = `nothing new (${approved} approved, all already sent)`;
+        const detail = `nothing new (${approved} approved in that pool, all already sent)`;
         console.log(`[worker] ${trigger}: ${detail}`);
         return (lastPost = { ok: true, detail, at: iso() });
       }
@@ -158,10 +187,12 @@ async function main(): Promise<void> {
       await client.sendText(config.groupJid, message);
 
       // Only now, and only for what actually went out. See `markPosted`.
-      await posted.markPosted(batch.map((j) => j.slug));
+      await posted.markPosted(
+        batch.map((j) => j.slug),
+        { backlog: opts.backlog === true },
+      );
 
-      const left = await budgetLeft(new Date());
-      const detail = `posted ${batch.length} of ${approved} approved, ${left} left in today's ${config.dailyJobs}`;
+      const detail = `posted ${batch.length} ${opts.backlog ? "from the backlog" : "of today's intake"}`;
       console.log(`[worker] ${trigger}: ${detail}`);
       return (lastPost = { ok: true, detail, at: iso() });
     } catch (err) {
@@ -173,14 +204,6 @@ async function main(): Promise<void> {
     }
   };
 
-  /**
-   * The posting loop: post, then decide when to wake up again.
-   *
-   * A timer rather than a cron, because the gaps have to be unpredictable and
-   * the day has a budget to spread rather than a slot to fill. Every wake-up
-   * recomputes from the clock and the log, so a restart, a long outage or a
-   * day that ran out all resolve themselves without any stored schedule.
-   */
   /** Records when the next post is due. Nothing sleeps on it; `tick` compares
    *  the clock against it. */
   const planNext = (delayMs: number, why: string): void => {
@@ -196,8 +219,9 @@ async function main(): Promise<void> {
    * Is a post due, and if so, when is the one after it?
    *
    * Runs every minute and almost always returns immediately. Everything it
-   * needs comes from the clock and the posted log, so a restart, a suspend or
-   * a day that ran out all resolve themselves with no stored schedule.
+   * needs comes from the clock, the board and the posted log, so a restart, a
+   * suspend or a day that ran dry all resolve themselves with no stored
+   * schedule.
    */
   const tick = async (): Promise<void> => {
     if (stopping || posting) return;
@@ -210,33 +234,51 @@ async function main(): Promise<void> {
       return;
     }
 
-    const remaining = await budgetLeft(now);
+    const due = await owed(now);
+    const remaining = due.intake + due.backlog;
+
     if (remaining <= 0) {
-      planNext(untilNextWindow(now), `today's ${config.dailyJobs} are done`);
+      planNext(untilNextWindow(now), "today's intake is clear");
       return;
     }
 
-    await post("scheduled", pickBatchSize(remaining, config.maxPerPost, Math.random));
+    // Today's intake first, always. The backlog only gets a turn once there is
+    // nothing left that arrived today, so a busy ingest never stalls behind
+    // catch-up.
+    const fromIntake = due.intake > 0;
+    const pool = fromIntake ? due.intake : due.backlog;
+    const size = pickBatchSize(pool, config.minPerPost, config.maxPerPost, Math.random);
 
-    const after = await budgetLeft(new Date());
+    await post("scheduled", {
+      want: size,
+      addedSince: fromIntake ? due.since : undefined,
+      backlog: !fromIntake,
+    });
+
+    const after = await owed(new Date());
+    const left = after.intake + after.backlog;
     const msLeft = windowClosesAt(now, window).getTime() - Date.now();
 
-    if (after <= 0 || msLeft <= 0) {
+    if (left <= 0 || msLeft <= 0) {
       planNext(
         untilNextWindow(new Date()),
-        after <= 0 ? `today's ${config.dailyJobs} are done` : "window closed",
+        left <= 0 ? "today's intake is clear" : "window closed",
       );
       return;
     }
 
     planNext(
       pickDelay({
-        remaining: after,
+        // Paced on the intake alone when there is any: that is the part with a
+        // deadline. The backlog allowance rides along at whatever rhythm the
+        // intake sets, and sets its own once the intake is clear.
+        remaining: after.intake > 0 ? after.intake : after.backlog,
+        minPerPost: config.minPerPost,
         maxPerPost: config.maxPerPost,
         msLeftInWindow: msLeft,
         rng: Math.random,
       }),
-      `${after} of today's ${config.dailyJobs} left`,
+      `${after.intake} of today's intake + ${after.backlog} backlog left`,
     );
   };
 
@@ -262,7 +304,7 @@ async function main(): Promise<void> {
     };
 
     if (req.method === "POST" && url.pathname === "/run") {
-      trigger("manual post", () => post("manual"));
+      trigger("manual post", () => post("manual", {}));
       return;
     }
 
@@ -277,8 +319,9 @@ async function main(): Promise<void> {
         ok: true,
         whatsapp: client.getStatus(),
         posting: {
-          perDay: config.dailyJobs,
-          perMessage: `1-${config.maxPerPost}`,
+          rule: "everything taken in today, plus a backlog allowance",
+          backlogPerDay: config.backlogPerDay,
+          perMessage: `${config.minPerPost}-${config.maxPerPost}`,
           window: `${config.windowStartHour}:00-${config.windowEndHour}:59 ${config.timezone}`,
           nextPostAt: nextPostAt?.toISOString() ?? null,
         },
@@ -297,7 +340,8 @@ async function main(): Promise<void> {
     timezone: config.timezone,
   });
   console.log(
-    `[worker] ${config.dailyJobs} listings a day, 1-${config.maxPerPost} a message, ` +
+    `[worker] today's intake + up to ${config.backlogPerDay} older, ` +
+      `${config.minPerPost}-${config.maxPerPost} a message, ` +
       `${config.windowStartHour}:00-${config.windowEndHour}:59 ${config.timezone}; ` +
       `scraping "${config.scrapeCron}"`,
   );

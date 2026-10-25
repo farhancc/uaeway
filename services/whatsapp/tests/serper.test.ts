@@ -33,9 +33,6 @@ describe("what counts as one posting", () => {
 
     expect(listing?.sourceUrl).toBe("https://ae.indeed.com/viewjob?jk=560f93323321bea7");
     expect(listing?.sourceName).toBe("Indeed");
-    // The whole reason the flag exists: the site reads it to decide whether a
-    // listing may skip the review queue.
-    expect(listing?.singleListingUrl).toBe(true);
   });
 
   it("accepts a Bayt posting, which ends in its numeric id", () => {

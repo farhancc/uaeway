@@ -87,27 +87,27 @@ describe("which day a post belongs to", () => {
 describe("how many listings a message carries", () => {
   it("is one or two, and varies", () => {
     const seen = new Set<number>();
-    for (let i = 0; i < 40; i++) seen.add(pickBatchSize(10, 2, Math.random));
+    for (let i = 0; i < 40; i++) seen.add(pickBatchSize(10, 1, 2, Math.random));
 
     expect([...seen].sort()).toEqual([1, 2]);
   });
 
   it("never exceeds what the day has left", () => {
     // The day must end on its number, not overshoot it.
-    expect(pickBatchSize(1, 2, () => 0.99)).toBe(1);
-    expect(pickBatchSize(0, 2, () => 0.99)).toBe(0);
+    expect(pickBatchSize(1, 1, 2, () => 0.99)).toBe(1);
+    expect(pickBatchSize(0, 1, 2, () => 0.99)).toBe(0);
   });
 
   it("honours a wider maximum if one is configured", () => {
     const seen = new Set<number>();
-    for (let i = 0; i < 80; i++) seen.add(pickBatchSize(10, 4, Math.random));
+    for (let i = 0; i < 80; i++) seen.add(pickBatchSize(10, 1, 4, Math.random));
     expect(Math.max(...seen)).toBeGreaterThan(2);
     expect(Math.max(...seen)).toBeLessThanOrEqual(4);
   });
 });
 
 describe("how long until the next one", () => {
-  const base = { remaining: 8, maxPerPost: 2, msLeftInWindow: 12 * 3_600_000 };
+  const base = { remaining: 8, minPerPost: 1, maxPerPost: 2, msLeftInWindow: 12 * 3_600_000 };
 
   it("spreads the remaining listings across the remaining window", () => {
     // 8 listings at ~1.5 a message is ~6 messages in 12 hours: about 2 hours
@@ -157,13 +157,14 @@ describe("a day, simulated", () => {
     let guard = 0;
 
     while (sent < perDay && withinWindow(now, IST) && guard++ < 100) {
-      const size = pickBatchSize(perDay - sent, maxPerPost, Math.random);
+      const size = pickBatchSize(perDay - sent, 1, maxPerPost, Math.random);
       sent += size;
       sizes.push(size);
       if (sent >= perDay) break;
 
       const delay = pickDelay({
         remaining: perDay - sent,
+        minPerPost: 1,
         maxPerPost,
         msLeftInWindow: windowClosesAt(now, IST).getTime() - now.getTime(),
         rng: Math.random,
@@ -179,5 +180,58 @@ describe("a day, simulated", () => {
     // The gaps must not be a constant — that is the whole point.
     expect(new Set(gaps).size).toBeGreaterThan(gaps.length - 2);
     expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_GAP_MS);
+  });
+});
+
+describe("batches of three to eight", () => {
+  it("stays inside the configured range and uses all of it", () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 300; i++) seen.add(pickBatchSize(100, 3, 8, Math.random));
+
+    expect(Math.min(...seen)).toBe(3);
+    expect(Math.max(...seen)).toBe(8);
+    // Every size in between, not just the ends.
+    expect(seen.size).toBe(6);
+  });
+
+  it("sends what is left rather than holding back for a full batch", () => {
+    // Two listings left and a minimum of three: holding them would mean they
+    // never go out at all.
+    expect(pickBatchSize(2, 3, 8, () => 0)).toBe(2);
+    expect(pickBatchSize(2, 3, 8, () => 0.99)).toBe(2);
+    expect(pickBatchSize(1, 3, 8, Math.random)).toBe(1);
+  });
+
+  it("sends nothing when nothing is owed", () => {
+    expect(pickBatchSize(0, 3, 8, Math.random)).toBe(0);
+  });
+
+  it("clears a heavy day inside the window", () => {
+    // 135 listings is a full scrape day. At 3-8 a message that has to fit
+    // between 7am and 11pm without the gaps collapsing.
+    let now = ist(7);
+    let left = 135;
+    let messages = 0;
+    while (left > 0 && withinWindow(now, IST) && messages < 200) {
+      left -= pickBatchSize(left, 3, 8, Math.random);
+      messages++;
+      if (left <= 0) break;
+      now = new Date(
+        now.getTime() +
+          pickDelay({
+            remaining: left,
+            minPerPost: 3,
+            maxPerPost: 8,
+            msLeftInWindow: windowClosesAt(now, IST).getTime() - now.getTime(),
+            rng: Math.random,
+          }),
+      );
+    }
+
+    expect(left).toBe(0);
+    expect(withinWindow(now, IST)).toBe(true);
+    // A readable number of messages, not ninety.
+    expect(messages).toBeLessThan(40);
+    expect(messages).toBeGreaterThan(10);
   });
 });

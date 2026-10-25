@@ -11,6 +11,7 @@ import type { ArticleRow, JobRow } from "../supabase/types";
 
 export type JobSummary = Pick<
   JobRow,
+  | "created_at"
   | "slug"
   | "title"
   | "company"
@@ -27,7 +28,7 @@ export type JobSummary = Pick<
 >;
 
 const JOB_FIELDS =
-  "slug, title, company, emirate, category, summary, documents_needed, posted_at, salary_text, salary_min, salary_max, experience_years, apply_by";
+  "created_at, slug, title, company, emirate, category, summary, documents_needed, posted_at, salary_text, salary_min, salary_max, experience_years, apply_by";
 const ARTICLE_FIELDS = "slug, kind, title, excerpt, published_at, service_slug";
 
 export type ArticleSummary = Pick<
@@ -47,6 +48,16 @@ export interface JobFilters {
   document?: string;
   /** Only listings posted within this many days. */
   postedWithinDays?: number;
+  /**
+   * Only listings this site took in at or after this instant.
+   *
+   * `posted_at` is the employer's date, or the day a feed was read when the
+   * employer gave none, so it cannot answer "what arrived today" — a listing
+   * posted last week can land on the board this morning. `created_at` is our
+   * own clock and is the only honest basis for a day's intake, which is what
+   * the WhatsApp worker has to clear.
+   */
+  addedSince?: string;
   /**
    * How many rows to skip, for walking the whole set a page at a time.
    *
@@ -124,6 +135,7 @@ function liveJobs(filters: JobFilters, count?: "exact") {
   if (filters.categories?.length) query = query.in("category", filters.categories);
   if (filters.company) query = query.eq("company", filters.company);
   if (filters.document) query = query.contains("documents_needed", [filters.document]);
+  if (filters.addedSince) query = query.gte("created_at", filters.addedSince);
   if (filters.postedWithinDays) {
     const since = new Date(Date.now() - filters.postedWithinDays * 86_400_000).toISOString();
     query = query.gte("posted_at", since);

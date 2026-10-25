@@ -85,16 +85,26 @@ export const config = {
   // --- Schedules --------------------------------------------------------------
 
   /**
-   * The day's budget, in listings rather than messages.
+   * Listings per message.
    *
-   * Ten a day, one or two at a time, at intervals nobody can predict — which
-   * is why there is no posting cron any more. A cron posts the same count at
-   * the same minute, and the pacing is now worked out per post in `pacing.ts`.
-   * The window below is the only fixed part.
+   * The day no longer has a fixed budget: everything the site took in that day
+   * is meant to go out that day, from every source. Which makes the batch size
+   * the thing that decides whether the group is readable — forty-seven
+   * listings at one or two a message is thirty-one messages, and a heavy
+   * scrape day would be ninety. At three to eight it is a handful, and the
+   * count still varies message to message.
    */
-  dailyJobs: Number(process.env.DAILY_JOBS ?? 10),
-  /** At most this many listings in one message. Two keeps it looking typed. */
-  maxPerPost: Number(process.env.MAX_PER_POST ?? 2),
+  minPerPost: Number(process.env.MIN_PER_POST ?? 3),
+  maxPerPost: Number(process.env.MAX_PER_POST ?? 8),
+  /**
+   * How many listings from *before* today may go out in a day.
+   *
+   * The board already held hundreds of approved listings before any of this,
+   * and they would otherwise never be posted — the day's intake is the only
+   * thing the pacing is obliged to clear. This drains the rest steadily
+   * without letting one day's catch-up swamp the group.
+   */
+  backlogPerDay: Number(process.env.BACKLOG_PER_DAY ?? 10),
   /** Posting hours, local to the zone below. 22 means the last post may land
    *  at 22:59. */
   windowStartHour: Number(process.env.POST_START_HOUR ?? 7),

@@ -27,6 +27,16 @@ const TTL_DAYS = 180;
 interface PostedDoc {
   _id: string;
   postedAt: Date;
+  /**
+   * True when the listing was already on the board before the day it was sent.
+   *
+   * The day's intake has to be cleared in full, while older listings only get
+   * a small allowance per day. Telling them apart after the fact needs this
+   * flag: counting "how many posted today" cannot say how many of those were
+   * catching up on the backlog, and that is the number the allowance is
+   * against.
+   */
+  backlog?: boolean;
 }
 
 export class PostedLog {
@@ -64,8 +74,13 @@ export class PostedLog {
    * comes back at noon must know the morning already posted, not start the
    * day's ten again.
    */
-  async countSince(since: Date): Promise<number> {
-    return this.col.countDocuments({ postedAt: { $gte: since } });
+  async countSince(since: Date, opts: { backlog?: boolean } = {}): Promise<number> {
+    const filter: Record<string, unknown> = { postedAt: { $gte: since } };
+    // `backlog` is absent on documents written before the field existed, so
+    // "not backlog" has to mean "false or missing" rather than `false`.
+    if (opts.backlog === true) filter.backlog = true;
+    if (opts.backlog === false) filter.backlog = { $ne: true };
+    return this.col.countDocuments(filter);
   }
 
   /**
@@ -76,15 +91,16 @@ export class PostedLog {
    * marking first and discovering that a send failed, because that loses the
    * listing silently and for good.
    */
-  async markPosted(slugs: string[]): Promise<void> {
+  async markPosted(slugs: string[], opts: { backlog?: boolean } = {}): Promise<void> {
     if (slugs.length === 0) return;
 
     const postedAt = new Date();
+    const backlog = opts.backlog === true;
     await this.col.bulkWrite(
       slugs.map((slug) => ({
         updateOne: {
           filter: { _id: slug },
-          update: { $set: { postedAt } },
+          update: { $set: { postedAt, backlog } },
           upsert: true,
         },
       })),

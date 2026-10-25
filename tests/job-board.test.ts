@@ -46,6 +46,9 @@ import type { JobSummary } from "@/lib/content/queries";
 /* ── Fixtures ────────────────────────────────────────────────────────────── */
 
 const job = (over: Partial<JobSummary> = {}): JobSummary => ({
+  // When we took the listing in, not the employer's date. Nothing in the chat
+  // reads it; the WhatsApp worker does, to clear each day's intake.
+  created_at: "2026-10-25T06:00:00.000Z",
   slug: "registered-nurse-al-noor",
   title: "Registered Nurse",
   company: "Al Noor Hospital",

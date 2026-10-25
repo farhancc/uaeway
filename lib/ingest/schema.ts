@@ -31,14 +31,6 @@ export const rawJobInput = z.object({
   salary: z.string().trim().max(200).nullable().default(null),
   description: z.string().trim().max(4000).default(""),
   postedAt: z.iso.datetime(),
-  /**
-   * The caller asserting it matched a single-listing URL pattern, which is one
-   * of the three things `autoApprove` needs. Accepting a publish-relevant claim
-   * over the wire is only sound because this endpoint is behind `CRON_SECRET`:
-   * anyone who can set this flag can already run the scheduled routes. It is
-   * not a field any public caller can reach.
-   */
-  singleListingUrl: z.boolean().optional(),
 });
 
 export const ingestBody = z.object({

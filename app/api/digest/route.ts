@@ -54,16 +54,24 @@ export async function GET(request: Request) {
         ? Math.min(Math.max(Math.trunc(requested), 1), MAX_LIMIT)
         : DEFAULT_LIMIT;
 
+      // "What arrived today", for the worker that has to clear each day's
+      // intake. Ignored unless it parses as a date, so a malformed value
+      // narrows nothing rather than silently returning everything.
+      const since = url.searchParams.get("addedSince");
+      const addedSince =
+        since && !Number.isNaN(Date.parse(since)) ? new Date(since).toISOString() : undefined;
+
       const askedOffset = Number(url.searchParams.get("offset") ?? 0);
       const offset =
         Number.isFinite(askedOffset) && askedOffset > 0 ? Math.trunc(askedOffset) : 0;
 
-      const { total } = await searchJobs({ limit: 1 });
-      const jobs = await listJobs({ limit, offset });
+      const { total } = await searchJobs({ limit: 1, addedSince });
+      const jobs = await listJobs({ limit, offset, addedSince });
 
       return Response.json({
         total,
         offset,
+        addedSince: addedSince ?? null,
         jobs: jobs.map((job) => ({
           slug: job.slug,
           title: job.title,
@@ -76,6 +84,8 @@ export async function GET(request: Request) {
           // one is the single most damaging thing this could send.
           salaryText: job.salary_text,
           postedAt: job.posted_at,
+          /** When this site took the listing in, not the employer's date. */
+          createdAt: job.created_at,
           url: `${SITE.url}/en/jobs/${job.slug}`,
         })),
       });

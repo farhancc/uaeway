@@ -244,10 +244,6 @@ export function toListing(
     // Discovery time is honest and is what the Jooble source falls back to;
     // the site computes the shelf life from it.
     postedAt: isoOrNow(result.date),
-    // The point of the filter above: this URL matched a pattern known to
-    // identify one posting. The site reads this when deciding whether the
-    // listing may skip the review queue.
-    singleListingUrl: true,
   };
 }
 
