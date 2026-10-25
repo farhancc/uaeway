@@ -44,8 +44,20 @@ let lastScrape: RunOutcome | null = null;
 let posting = false;
 let scraping = false;
 let stopping = false;
-let nextTimer: NodeJS.Timeout | null = null;
+let poll: NodeJS.Timeout | null = null;
 let nextPostAt: Date | null = null;
+
+/**
+ * How often the worker asks itself whether a post is due.
+ *
+ * The decision is a wall-clock comparison against `nextPostAt`, checked on a
+ * short interval, rather than one long timer set for the gap. That is because
+ * this runs on a laptop: Node's timers count monotonic time, which does not
+ * advance while the machine is suspended, so a two-hour timer across an
+ * overnight sleep would fire two hours after waking — and a day's posting
+ * could be skipped entirely. A date survives suspend; a timer does not.
+ */
+const POLL_MS = 60_000;
 
 function iso(): string {
   return new Date().toISOString();
@@ -169,49 +181,55 @@ async function main(): Promise<void> {
    * recomputes from the clock and the log, so a restart, a long outage or a
    * day that ran out all resolve themselves without any stored schedule.
    */
-  const scheduleNext = (delayMs: number, why: string): void => {
-    if (stopping) return;
-    const at = new Date(Date.now() + delayMs);
-    nextPostAt = at;
+  /** Records when the next post is due. Nothing sleeps on it; `tick` compares
+   *  the clock against it. */
+  const planNext = (delayMs: number, why: string): void => {
+    nextPostAt = new Date(Date.now() + delayMs);
     console.log(
-      `[worker] next post ${at.toLocaleString("en-GB", { timeZone: config.timezone })} (${why})`,
+      `[worker] next post ${nextPostAt.toLocaleString("en-GB", { timeZone: config.timezone })} (${why})`,
     );
-    nextTimer = setTimeout(() => void tick(), delayMs);
   };
 
+  const untilNextWindow = (from: Date) => nextWindowOpen(from, window).getTime() - from.getTime();
+
+  /**
+   * Is a post due, and if so, when is the one after it?
+   *
+   * Runs every minute and almost always returns immediately. Everything it
+   * needs comes from the clock and the posted log, so a restart, a suspend or
+   * a day that ran out all resolve themselves with no stored schedule.
+   */
   const tick = async (): Promise<void> => {
-    if (stopping) return;
+    if (stopping || posting) return;
+
     const now = new Date();
+    if (nextPostAt && now.getTime() < nextPostAt.getTime()) return;
 
     if (!withinWindow(now, window)) {
-      scheduleNext(nextWindowOpen(now, window).getTime() - now.getTime(), "window closed");
+      planNext(untilNextWindow(now), "window closed");
       return;
     }
 
     const remaining = await budgetLeft(now);
     if (remaining <= 0) {
-      scheduleNext(
-        nextWindowOpen(now, window).getTime() - now.getTime(),
-        `today's ${config.dailyJobs} are done`,
-      );
+      planNext(untilNextWindow(now), `today's ${config.dailyJobs} are done`);
       return;
     }
 
-    const size = pickBatchSize(remaining, config.maxPerPost, Math.random);
-    await post("scheduled", size);
+    await post("scheduled", pickBatchSize(remaining, config.maxPerPost, Math.random));
 
     const after = await budgetLeft(new Date());
     const msLeft = windowClosesAt(now, window).getTime() - Date.now();
 
     if (after <= 0 || msLeft <= 0) {
-      scheduleNext(
-        nextWindowOpen(new Date(), window).getTime() - Date.now(),
+      planNext(
+        untilNextWindow(new Date()),
         after <= 0 ? `today's ${config.dailyJobs} are done` : "window closed",
       );
       return;
     }
 
-    scheduleNext(
+    planNext(
       pickDelay({
         remaining: after,
         maxPerPost: config.maxPerPost,
@@ -284,14 +302,16 @@ async function main(): Promise<void> {
       `scraping "${config.scrapeCron}"`,
   );
 
-  // The first wake-up is soon but not instant: a post the moment the process
-  // starts would make every restart visible in the group.
-  scheduleNext(
+  // The first post is soon but not instant: posting the moment the process
+  // starts would make every restart, and every laptop lid, visible in the
+  // group.
+  planNext(
     withinWindow(new Date(), window)
-      ? 30_000 + Math.random() * 4 * 60_000
-      : nextWindowOpen(new Date(), window).getTime() - Date.now(),
+      ? 60_000 + Math.random() * 4 * 60_000
+      : untilNextWindow(new Date()),
     "startup",
   );
+  poll = setInterval(() => void tick(), POLL_MS);
 
   // Started last and not awaited: a session that needs re-pairing must not stop
   // the scrape from running or the status endpoint from answering.
@@ -302,7 +322,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} — shutting down`);
     stopping = true;
-    if (nextTimer) clearTimeout(nextTimer);
+    if (poll) clearInterval(poll);
     client.stop();
     server.close();
     await mongo.close();

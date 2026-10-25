@@ -1,0 +1,43 @@
+[Unit]
+Description=Gulfizz jobs worker (Google -> site -> WhatsApp group)
+Documentation=file:///home/farhan/projects/uae-gateway/services/whatsapp/README.md
+
+# Deliberately no linger (`loginctl enable-linger`): the user manager starts
+# with the session and stops with it, which is the asked-for behaviour — it
+# comes up when you log in and goes away when you log out or shut down.
+#
+# A closed lid is suspend, not logout, so the process survives it. The
+# WhatsApp socket does not: `client.ts` reconnects with backoff on resume, and
+# the posting decision is a wall-clock comparison rather than a timer, because
+# Node's timers do not advance while the machine is asleep.
+
+# No start-rate limit. On a laptop the network is often not up yet at login,
+# and Mongo being unreachable for the first minute must not permanently fail
+# the unit. (This key belongs in [Unit], not [Service].)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/farhan/projects/uae-gateway/services/whatsapp
+
+# nvm is sourced explicitly rather than relied on from a login shell. A login
+# shell is not enough: Ubuntu's ~/.bashrc returns early for non-interactive
+# shells, so nvm never loads and PATH falls through to /usr/bin/node — which
+# here is v18 and does not understand `--env-file`, so the worker exited 9 on
+# every start. Sourcing nvm.sh picks up its `default` alias, so this keeps
+# working across node upgrades in a way a pinned absolute path would not.
+#
+# `exec` keeps npm as the main process rather than leaving a bash wrapper in
+# the control group.
+ExecStart=/bin/bash -lc 'source "$HOME/.nvm/nvm.sh" && exec npm start'
+
+Restart=on-failure
+RestartSec=15
+
+# The worker handles SIGTERM itself: it closes the WhatsApp socket and the
+# Mongo connection before exiting.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

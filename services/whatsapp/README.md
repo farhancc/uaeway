@@ -183,6 +183,54 @@ than a coin toss — and a plain `GET` shows the connection status, the posting
 rules, when the next post is due and the last outcome of each. The server is
 bound to loopback, so it is not reachable from the network.
 
+## Running it without a terminal
+
+`npm start` dies with its terminal. To have it start when you log in and stop
+when you log out, there is a systemd **user** service:
+
+```bash
+systemctl --user start gulfizz-jobs
+systemctl --user stop gulfizz-jobs
+systemctl --user status gulfizz-jobs
+journalctl --user -u gulfizz-jobs -f
+```
+
+The unit is committed here as `gulfizz-jobs.service`. Its paths are absolute
+and point at this checkout, so edit them if the repo lives elsewhere, then:
+
+```bash
+cp gulfizz-jobs.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now gulfizz-jobs
+```
+
+`enable` is what makes logging in start it, and logging out or shutting down
+stop it. There is deliberately **no linger** (`loginctl enable-linger`):
+without it the user manager comes and goes with the session, which is the
+intended behaviour.
+
+Closing the lid is suspend, not logout, so the process survives it. Two things
+make that work rather than merely not crash: the WhatsApp client reconnects
+with backoff when the socket drops on resume, and the posting decision is a
+wall-clock comparison against a stored date rather than a `setTimeout` for the
+gap — Node's timers count monotonic time, which does not advance while the
+machine is asleep, so a two-hour timer across an overnight suspend would fire
+two hours after waking and could skip a day's posting entirely.
+
+Two things that unit has to get right, both learned the hard way:
+
+- **nvm is sourced explicitly.** A login shell is not enough, because Ubuntu's
+  `~/.bashrc` returns early for non-interactive shells, so nvm never loads and
+  `PATH` falls through to `/usr/bin/node` — v18 here, which does not understand
+  `--env-file`. The worker exited 9 on every start until the unit sourced
+  `nvm.sh` itself.
+- **No start-rate limit.** At login the network is often not up yet, and Mongo
+  being unreachable for the first minute must not permanently fail the unit.
+
+Do not run `npm start` and the service at the same time. Two workers each post
+their own messages, so the group gets double the volume and the day's budget
+means nothing.
+
 ## Things that will bite you
 
 **The number can get banned.** Baileys is an unofficial client and WhatsApp's
