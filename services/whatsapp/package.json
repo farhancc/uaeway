@@ -10,7 +10,9 @@
     "start": "tsx --env-file=.env src/index.ts",
     "pair": "tsx --env-file=.env src/pair.ts",
     "typecheck": "tsc --noEmit",
-    "scrape": "tsx --env-file=.env src/scrape.ts"
+    "scrape": "tsx --env-file=.env src/scrape.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "baileys": "7.0.0-rc14",

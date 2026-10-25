@@ -43,7 +43,7 @@ import type { Listing } from "./listing.js";
  * board's own index pages. A target whose pattern is too loose is worse than
  * no target at all.
  */
-interface Target {
+export interface Target {
   /** The `site:` restriction. A path prefix narrows it; Google honours that. */
   site: string;
   /** A result link must match this to count as a single posting. */
@@ -61,7 +61,8 @@ interface Target {
   identityParams?: string[];
 }
 
-const TARGETS: Target[] = [
+/** Exported for `tests/serper.test.ts`, which drives the real patterns. */
+export const TARGETS: Target[] = [
   {
     site: "ae.indeed.com/viewjob",
     listing: /\/viewjob$/,
@@ -78,7 +79,7 @@ const TARGETS: Target[] = [
   },
 ];
 
-interface SerperOrganic {
+export interface SerperOrganic {
   title?: string;
   link?: string;
   snippet?: string;
@@ -193,6 +194,63 @@ export function cleanTitle(raw: string): string {
   return title.replace(/\s*\.{3}$|\s*…$/, "").trim();
 }
 
+/**
+ * One Google result as a listing, or null if it is not one.
+ *
+ * This is the refusal this module exists for, kept separate from the fetch so
+ * it can be checked against captured Google results without spending a credit.
+ * `tests/serper.test.ts` holds real category pages and real postings from both
+ * boards; if a pattern ever loosens, that is where it shows.
+ */
+export function toListing(
+  result: SerperOrganic,
+  target: Target,
+  location: string,
+): Listing | null {
+  const link = result.link;
+  const title = result.title;
+  if (!link || !title) return null;
+
+  const url = canonical(link, target);
+  // Matched against the canonical URL so a pattern never has to allow for
+  // tracking parameters.
+  if (!url || !target.listing.test(new URL(url).pathname)) return null;
+
+  const cleaned = cleanTitle(title);
+  if (!cleaned) return null;
+
+  return {
+    title: cleaned,
+    // Google does not give one. Bayt often puts it in the title ("… at
+    // Careers International") but pulling it out of prose turns "Accountant
+    // at Dubai Office" into an employer called Dubai Office, so the field
+    // stays empty and the row carries its attribution instead.
+    company: null,
+    sourceUrl: url,
+    sourceName: target.sourceName,
+    // What we asked for, which is what the `site:` restriction and the query
+    // together actually targeted.
+    locations: location,
+    // Deliberately never set. The snippets do carry pay — "AED6,000 - AED8,000
+    // a month", "From AED5,000 a month" — but a regex over a Google snippet
+    // drops the "From" and turns a floor into a fixed figure, and a wrong
+    // salary is the most damaging thing this site can assert. The snippet
+    // still reaches Gemini as the excerpt, and the prompt forbids it from
+    // stating a salary. So the board shows no pay for these rather than a
+    // number nobody promised.
+    salary: null,
+    description: (result.snippet ?? "").replace(/\s+/g, " ").trim().slice(0, 2000),
+    // Serper rarely dates an organic result, and "2 days ago" is not a date.
+    // Discovery time is honest and is what the Jooble source falls back to;
+    // the site computes the shelf life from it.
+    postedAt: isoOrNow(result.date),
+    // The point of the filter above: this URL matched a pattern known to
+    // identify one posting. The site reads this when deciding whether the
+    // listing may skip the review queue.
+    singleListingUrl: true,
+  };
+}
+
 /** One query against one target. Never throws: a run must degrade to fewer
  *  listings rather than die part-way through. */
 async function runQuery(
@@ -224,48 +282,8 @@ async function runQuery(
 
   const listings: Listing[] = [];
   for (const result of organic) {
-    const link = result.link;
-    const title = result.title;
-    if (!link || !title) continue;
-
-    const url = canonical(link, target);
-    // The refusal this module exists for. Matched against the canonical URL so
-    // a pattern never has to allow for tracking parameters.
-    if (!url || !target.listing.test(new URL(url).pathname)) continue;
-
-    const cleaned = cleanTitle(title);
-    if (!cleaned) continue;
-
-    listings.push({
-      title: cleaned,
-      // Google does not give one. Bayt often puts it in the title ("… at
-      // Careers International") but pulling it out of prose turns "Accountant
-      // at Dubai Office" into an employer called Dubai Office, so the field
-      // stays empty and the row carries its attribution instead.
-      company: null,
-      sourceUrl: url,
-      sourceName: target.sourceName,
-      // What we asked for, which is what the `site:` restriction and the query
-      // together actually targeted.
-      locations: location,
-      // Deliberately never set. The snippets do carry pay — "AED6,000 - AED8,000
-      // a month", "From AED5,000 a month" — but a regex over a Google snippet
-      // drops the "From" and turns a floor into a fixed figure, and a wrong
-      // salary is the most damaging thing this site can assert. The snippet
-      // still reaches Gemini as the excerpt, and the prompt forbids it from
-      // stating a salary. So the board shows no pay for these rather than a
-      // number nobody promised.
-      salary: null,
-      description: (result.snippet ?? "").replace(/\s+/g, " ").trim().slice(0, 2000),
-      // Serper rarely dates an organic result, and "2 days ago" is not a date.
-      // Discovery time is honest and is what the Jooble source falls back to;
-      // the site computes the shelf life from it.
-      postedAt: isoOrNow(result.date),
-      // The point of the filter above: this URL matched a pattern known to
-      // identify one posting. The site reads this when deciding whether the
-      // listing may skip the review queue.
-      singleListingUrl: true,
-    });
+    const listing = toListing(result, target, location);
+    if (listing) listings.push(listing);
   }
 
   console.log(
