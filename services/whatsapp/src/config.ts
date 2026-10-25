@@ -29,6 +29,8 @@ export const config = {
   digestUrl: digestUrl(),
   /** Where scraped listings are posted for enrichment and review. */
   ingestUrl: process.env.INGEST_URL || new URL("/api/ingest/jobs", digestUrl()).toString(),
+  /** Recent leads, for forwarding to a phone. Guarded by the same secret. */
+  leadsUrl: process.env.LEADS_URL || new URL("/api/leads", digestUrl()).toString(),
   /** Same secret the site's scheduled routes use; both endpoints are behind it. */
   cronSecret: required("CRON_SECRET"),
   siteUrl: siteUrl(),
@@ -43,6 +45,18 @@ export const config = {
    * so `npm start` still refuses to run half-configured.
    */
   groupJid: process.env.WHATSAPP_GROUP_JID ?? "",
+
+  /**
+   * Phone number new leads are forwarded to, with country code and no symbols.
+   *
+   * Empty switches the forwarding off, which is the right default: the site's
+   * own Telegram and email alerts fire the moment a lead lands and are the
+   * reliable channel. This one only works while the laptop is on.
+   */
+  leadNumber: (process.env.LEAD_WHATSAPP_NUMBER ?? "").replace(/\D/g, ""),
+  /** How often to ask the site for new leads. A lead wants a callback, so this
+   *  is the one thing here that should not wait an hour. */
+  leadPollMs: Number(process.env.LEAD_POLL_SECONDS ?? 120) * 1000,
 
   // --- Google, through Serper -------------------------------------------------
 

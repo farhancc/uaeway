@@ -7,7 +7,10 @@ import type { LeadRow } from "../supabase/types";
  * failure is logged and swallowed.
  */
 
-function summary(lead: LeadRow): string {
+/** The alert text, shared by every channel so they cannot describe the same
+ *  lead differently. Exported for the WhatsApp notifier, which pulls leads
+ *  from `/api/leads` rather than being pushed to. */
+export function leadSummary(lead: LeadRow): string {
   const service = getService(lead.service_slug);
   const lines = [
     `New lead — ${service?.name ?? lead.service_slug}`,
@@ -27,7 +30,7 @@ async function telegram(lead: LeadRow): Promise<void> {
 
   // No reply link. The visitor consented to phone or email, and Telegram makes
   // a bare number tappable anyway.
-  const text = summary(lead);
+  const text = leadSummary(lead);
 
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -51,7 +54,7 @@ async function email(lead: LeadRow): Promise<void> {
       from,
       to: [to],
       subject: `New lead: ${service?.shortName ?? lead.service_slug} — ${lead.name || lead.contact}`,
-      text: summary(lead),
+      text: leadSummary(lead),
     }),
   });
   if (!res.ok) throw new Error(`resend HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);

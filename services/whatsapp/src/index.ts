@@ -4,6 +4,7 @@ import cron from "node-cron";
 import { countApprovedSince, fetchUnpostedJobs } from "./board.js";
 import { WhatsAppClient } from "./client.js";
 import { config } from "./config.js";
+import { fetchRecentLeads, LeadLog, personJid } from "./leads.js";
 import { composeMessage } from "./message.js";
 import {
   nextWindowOpen,
@@ -51,6 +52,9 @@ let posting = false;
 let scraping = false;
 let stopping = false;
 let poll: NodeJS.Timeout | null = null;
+let leadPoll: NodeJS.Timeout | null = null;
+let lastLead: RunOutcome | null = null;
+let forwarding = false;
 let nextPostAt: Date | null = null;
 
 /**
@@ -89,6 +93,9 @@ async function main(): Promise<void> {
 
   const posted = new PostedLog(db);
   await posted.init();
+
+  const leads = new LeadLog(db);
+  await leads.init();
 
   const client = new WhatsAppClient(db);
 
@@ -282,6 +289,64 @@ async function main(): Promise<void> {
     );
   };
 
+  /**
+   * Forwards new leads to a phone.
+   *
+   * On a cold log it records what already exists and sends nothing. Otherwise
+   * the first start would forward every lead the site has ever taken — and the
+   * oldest here is weeks old, which is noise, not a callback worth making.
+   */
+  const forwardLeads = async (trigger: string): Promise<RunOutcome> => {
+    if (!config.leadNumber) return { ok: true, detail: "no lead number set", at: iso() };
+    if (forwarding) return { ok: false, detail: "already forwarding", at: iso() };
+    forwarding = true;
+
+    try {
+      const recent = await fetchRecentLeads();
+      if (recent.length === 0) {
+        return (lastLead = { ok: true, detail: "no leads yet", at: iso() });
+      }
+
+      if (await leads.isEmpty()) {
+        await leads.markSent(recent.map((l) => l.id));
+        const detail = `first run — noted ${recent.length} existing lead(s), sent none`;
+        console.log(`[worker] leads: ${detail}`);
+        return (lastLead = { ok: true, detail, at: iso() });
+      }
+
+      const fresh = await leads.unsent(recent);
+      if (fresh.length === 0) return (lastLead = { ok: true, detail: "nothing new", at: iso() });
+
+      // Oldest first, so they arrive in the order they came in.
+      const ordered = [...fresh].reverse();
+      const jid = personJid(config.leadNumber);
+      const sent: string[] = [];
+
+      for (const lead of ordered) {
+        try {
+          await client.sendText(jid, lead.summary);
+          // Marked one at a time: a failure half way through must not mark the
+          // ones that never went.
+          await leads.markSent([lead.id]);
+          sent.push(lead.id);
+        } catch (err) {
+          console.error(`[worker] lead ${lead.id} not forwarded: ${(err as Error).message}`);
+          break;
+        }
+      }
+
+      const detail = `forwarded ${sent.length} of ${fresh.length} new lead(s)`;
+      console.log(`[worker] ${trigger} leads: ${detail}`);
+      return (lastLead = { ok: sent.length === fresh.length, detail, at: iso() });
+    } catch (err) {
+      const detail = (err as Error).message;
+      console.error(`[worker] ${trigger} leads failed: ${detail}`);
+      return (lastLead = { ok: false, detail, at: iso() });
+    } finally {
+      forwarding = false;
+    }
+  };
+
   // A small loopback server, so a run can be triggered and the state inspected
   // without reading the log. Not a web interface and not reachable off the
   // machine — see `config.host`.
@@ -313,6 +378,11 @@ async function main(): Promise<void> {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/leads") {
+      trigger("manual leads", () => forwardLeads("manual"));
+      return;
+    }
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
@@ -326,8 +396,12 @@ async function main(): Promise<void> {
           nextPostAt: nextPostAt?.toISOString() ?? null,
         },
         scrape: `${config.scrapeCron} (${config.timezone})`,
+        leads: config.leadNumber
+          ? { to: config.leadNumber, everySeconds: config.leadPollMs / 1000 }
+          : "off (set LEAD_WHATSAPP_NUMBER)",
         lastPost,
         lastScrape,
+        lastLead,
       }),
     );
   });
@@ -357,6 +431,17 @@ async function main(): Promise<void> {
   );
   poll = setInterval(() => void tick(), POLL_MS);
 
+  if (config.leadNumber) {
+    console.log(
+      `[worker] forwarding new leads to ${config.leadNumber} every ` +
+        `${config.leadPollMs / 1000}s`,
+    );
+    leadPoll = setInterval(() => void forwardLeads("scheduled"), config.leadPollMs);
+    // Once at startup, so a lead that arrived while this was off goes out now
+    // rather than on the next tick.
+    void forwardLeads("startup");
+  }
+
   // Started last and not awaited: a session that needs re-pairing must not stop
   // the scrape from running or the status endpoint from answering.
   client.start().catch((err) => {
@@ -367,6 +452,7 @@ async function main(): Promise<void> {
     console.log(`[worker] ${signal} — shutting down`);
     stopping = true;
     if (poll) clearInterval(poll);
+    if (leadPoll) clearInterval(leadPoll);
     client.stop();
     server.close();
     await mongo.close();

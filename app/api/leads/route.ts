@@ -1,5 +1,9 @@
 import { headers } from "next/headers";
 import { ZodError } from "zod";
+import { assertCron } from "@/lib/cron";
+import { leadSummary } from "@/lib/leads/alerts";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { LeadRow } from "@/lib/supabase/types";
 import { captureLead } from "@/lib/leads/capture";
 import { hashIp } from "@/lib/chat/session";
 
@@ -68,5 +72,56 @@ export async function POST(request: Request) {
       { error: "We could not save that. Please try again in a moment." },
       { status: 500 },
     );
+  }
+}
+
+/** Nothing needs more than a handful; the cap stops a stale cursor pulling the
+ *  whole table. */
+const MAX_LEADS = 50;
+
+/**
+ * Recent leads, for a notifier that cannot be pushed to.
+ *
+ * Lead alerts go out from `captureLead` the moment a lead lands — Telegram and
+ * email, both best-effort. WhatsApp cannot work that way: it needs a socket
+ * that outlives a serverless invocation, so the only client that can send is
+ * the worker on a laptop, and it has to come and ask.
+ *
+ * Behind `CRON_SECRET`, and that is not belt-and-braces here. A lead is a
+ * name, a phone number and what someone needs, recorded under PDPL consent to
+ * be contacted about that enquiry. This endpoint is the one place that hands
+ * those out, so it is guarded by the same secret as the scheduled routes and
+ * returns a ready-made summary rather than the raw row — the notifier has no
+ * use for `utm` or `consent_at`, and data nobody needs should not travel.
+ */
+export async function GET(request: Request) {
+  const denied = assertCron(request);
+  if (denied) return denied;
+
+  const url = new URL(request.url);
+  const requested = Number(url.searchParams.get("limit") ?? MAX_LEADS);
+  const limit = Number.isFinite(requested)
+    ? Math.min(Math.max(Math.trunc(requested), 1), MAX_LEADS)
+    : MAX_LEADS;
+
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("leads")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(error.message);
+
+    const leads = ((data ?? []) as LeadRow[]).map((lead) => ({
+      id: lead.id,
+      createdAt: lead.created_at,
+      summary: leadSummary(lead),
+    }));
+
+    return Response.json({ leads });
+  } catch (err) {
+    console.error(`[api/leads] ${(err as Error).message}`);
+    return Response.json({ error: "leads unavailable" }, { status: 500 });
   }
 }
