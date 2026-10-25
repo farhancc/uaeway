@@ -6,9 +6,15 @@
 !.env.example
 
 # Nothing here is needed to build or serve the site.
-tests
-supabase/.temp
+#
+# The leading slashes matter. .vercelignore uses .gitignore syntax, where a
+# bare `services` matches a directory of that name at ANY depth — so it took
+# `app/(site)/[locale]/services/` with it and every service page on the site
+# returned 404 in production while the sitemap still advertised them. Anchor
+# anything whose name could plausibly appear inside `app/`.
+/tests
+/supabase/.temp
 
 # The jobs worker is its own npm package and runs on a laptop, not here.
 # Baileys cannot run on Vercel at all — see services/whatsapp/README.md.
-services
+/services
