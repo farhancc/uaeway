@@ -1,7 +1,9 @@
 import { requireAdmin } from "@/lib/admin/auth";
+import { countOldJobs, PURGE_WINDOWS } from "@/lib/admin/purge";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { JobSearchRow } from "@/lib/supabase/types";
 import { AddSearch, SearchRow } from "./SearchRows";
+import { PurgeOld } from "./PurgeOld";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,12 @@ export default async function SearchesPage() {
 
   const searches = (data ?? []) as JobSearchRow[];
   const running = searches.filter((s) => s.active).length;
+
+  // Counted here rather than in the client, so the button can say what it
+  // will do before anyone clicks it.
+  const purgeCounts = await Promise.all(
+    PURGE_WINDOWS.map(async (days) => ({ days, count: await countOldJobs(db, days) })),
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -76,6 +84,8 @@ export default async function SearchesPage() {
           {running} of {searches.length} running. The ingest runs daily at 04:00 Gulf time.
         </p>
       )}
+
+      <PurgeOld counts={purgeCounts} />
     </div>
   );
 }

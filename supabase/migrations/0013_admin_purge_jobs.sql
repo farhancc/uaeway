@@ -1,0 +1,15 @@
+-- Let an admin delete a listing.
+--
+-- 0001 gave admins select and update on `jobs`, and 0003 added insert when
+-- listings could first be typed in by hand. Delete was never granted, because
+-- nothing deleted a listing from the browser: the weekly prune does it with
+-- the service role, which bypasses RLS entirely.
+--
+-- The admin purge control needs it. Review actions deliberately run through
+-- the signed-in admin's own client so that `is_admin()` is checked a second
+-- time at the database — requireAdmin() in the server action is the first
+-- check and neither is trusted alone. Without this policy that pattern cannot
+-- be followed for a delete, and the alternative is reaching for the service
+-- role in a browser-reachable path, which is exactly what the pattern exists
+-- to avoid.
+create policy "admins delete jobs" on jobs for delete using (is_admin());

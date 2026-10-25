@@ -12,6 +12,7 @@ import {
   type RowError,
 } from "@/lib/admin/import";
 import { requireAdmin } from "@/lib/admin/auth";
+import { isPurgeWindow, purgeOldJobs } from "@/lib/admin/purge";
 import {
   answerSlugs,
   clearAnswerCache,
@@ -657,4 +658,24 @@ export async function importArticles(raw: string): Promise<ImportResult> {
 
   revalidateImported();
   return { imported, duplicates: 0, errors: [] };
+}
+
+/**
+ * Deletes every listing older than the chosen window.
+ *
+ * Irreversible, and it takes live listings with it — which is the difference
+ * between this and the weekly prune, and why the page shows the count before
+ * the button does anything. The window is checked against a fixed list rather
+ * than trusted, so this cannot become "delete everything older than 0 days".
+ */
+export async function purgeOldListings(days: number): Promise<{ deleted: number }> {
+  await requireAdmin();
+  if (!isPurgeWindow(days)) throw new Error("unknown purge window");
+
+  const db = await supabaseServer();
+  const deleted = await purgeOldJobs(db, days);
+
+  revalidatePath("/admin/searches");
+  revalidatePath("/admin");
+  return { deleted };
 }
