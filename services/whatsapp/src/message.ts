@@ -97,6 +97,19 @@ function opener(now: Date, count: number): string {
  */
 const JOBS_LINK = `Find your job here: ${config.siteUrl}/en/jobs`;
 
+/**
+ * The group's own invite, under the board link.
+ *
+ * Everyone reading a post is already in the group, so this line is not for
+ * them — it is for the person they forward the post to. A forwarded WhatsApp
+ * message carries no way back to where it came from, and the people most
+ * likely to want this board are exactly the ones a member would send a listing
+ * to. Fixed wording, like the fee warning: a share line that reworded itself
+ * every hour would read as a machine trying on voices.
+ */
+const GROUP_LINK =
+  "Share the group: https://chat.whatsapp.com/FULLHypOEsAI6MrYOTozJT?s=cl&p=a&mlu=4&ilr=4";
+
 /** Shown only now and then. Every hour and it is wallpaper; never and nobody
  *  learns that attestation is a thing they will need. */
 const NUDGES = [
@@ -160,10 +173,12 @@ export function composeMessage(jobs: BoardJob[], now = new Date()): string | nul
     lines.push(rotate(NUDGES, now));
   }
 
-  // Last, always. Whatever else a message carries, it ends with the way to the
-  // rest of the board.
+  // Last, always, and in this order. Whatever else a message carries, it ends
+  // with the way to the rest of the board and then the way to hand the group
+  // on — the board link first, because it is the one the reader can act on.
   lines.push("");
   lines.push(JOBS_LINK);
+  lines.push(GROUP_LINK);
 
   return lines.join("\n");
 }

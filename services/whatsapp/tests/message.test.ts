@@ -60,10 +60,11 @@ describe("facts", () => {
     }
   });
 
-  it("ends every message with the way to the rest of the board", () => {
+  it("ends every message with the way to the rest of the board, then the group", () => {
     // A message carries three listings; the site carries hundreds. Whatever
     // else is in the message — one listing or eight, nudge or no nudge — the
-    // last line is always the route through to the board.
+    // last two lines are the route through to the board and the group's own
+    // invite, for whoever the post gets forwarded to.
     for (const count of [1, 3, 8]) {
       for (const at of [
         new Date("2026-10-25T03:30:00Z"),
@@ -71,10 +72,11 @@ describe("facts", () => {
         new Date("2026-10-25T14:30:00Z"),
       ]) {
         const text = composeMessage(Array.from({ length: count }, () => job()), at)!;
-        const last = text.trimEnd().split("\n").at(-1)!;
+        const [board, group] = text.trimEnd().split("\n").slice(-2);
 
-        expect(last).toContain("Find your job here:");
-        expect(last).toContain("/en/jobs");
+        expect(board).toContain("Find your job here:");
+        expect(board).toContain("/en/jobs");
+        expect(group).toContain("https://chat.whatsapp.com/");
       }
     }
   });
